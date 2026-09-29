@@ -1,0 +1,89 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Нулевой протокол</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=IBM+Plex+Mono:wght@400;600&display=swap">
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<div id="app">
+  <div id="stage">
+    <canvas id="screen" width="640" height="360" aria-label="Игровое поле"></canvas>
+    <div id="labels" aria-hidden="true"></div>
+
+    <div id="hud" hidden>
+      <div id="objective" hidden><small id="scene-name"></small><span></span></div>
+      <div id="hud-buttons">
+        <button id="btn-scan" class="hud-btn" data-t="hud.scan" title="Q">Скан</button>
+        <button id="btn-journal" class="hud-btn" data-t="hud.journal" title="J">Журнал</button>
+        <button id="btn-hint" class="hud-btn" data-t="hud.hint" title="H">Подсказка</button>
+        <button id="btn-menu" class="hud-btn" data-t="hud.menu" title="Esc">Меню</button>
+      </div>
+      <div id="saving" hidden data-t="hud.saving">Сохранено</div>
+    </div>
+
+    <div id="touch" hidden>
+      <div id="stickzone"><div id="stickbase" hidden><div id="stickknob"></div></div></div>
+      <button id="t-act" data-action="act" data-t="hud.act">Действие</button>
+    </div>
+
+    <div id="bark" hidden aria-live="polite"></div>
+    <div id="toasts" aria-live="polite"></div>
+
+    <div id="dialogue" class="dlg" hidden>
+      <canvas id="dlg-portrait" class="portrait" width="16" height="16"></canvas>
+      <div class="dlg-body">
+        <div class="dlg-head"><b id="dlg-name"></b><button id="dlg-log" class="btn ghost small" data-t="dlg.log">История</button></div>
+        <p id="dlg-text" aria-live="polite"></p>
+        <div id="dlg-choices"></div>
+        <span id="dlg-next" hidden>▼</span>
+      </div>
+    </div>
+
+    <div id="cutscene" hidden>
+      <div id="cut-title" hidden></div>
+      <p id="cut-caption"></p>
+      <button id="cut-skip" class="btn ghost small" data-t="cut.skip">Пропустить</button>
+    </div>
+
+    <div id="title" hidden>
+      <div class="title-inner">
+        <p class="eyebrow" data-t="app.subtitle">Эпизод 1 · Вход</p>
+        <h1 data-t="app.title">Нулевой протокол</h1>
+        <p class="tagline" data-t="app.tagline"></p>
+        <div id="title-menu"></div>
+      </div>
+    </div>
+
+    <div id="summary" hidden></div>
+    <div id="overlay" hidden></div>
+    <div id="flash"></div>
+    <div id="fade"></div>
+  </div>
+  <div id="rotate" hidden>
+    <p data-t="rotate.text">Поверните телефон.</p>
+    <button id="rotate-continue" class="btn" data-t="rotate.continue">Играть так</button>
+  </div>
+</div>
+
+<script src="js/core/util.js"></script>
+<script src="js/locales/ru.js"></script>
+<script src="js/core/state.js"></script>
+<script src="js/core/input.js"></script>
+<script src="js/core/audio.js"></script>
+<script src="js/render/sprites.js"></script>
+<script src="js/render/tiles.js"></script>
+<script src="js/data/e01.js"></script>
+<script src="js/world/world.js"></script>
+<script src="js/ui/ui.js"></script>
+<script src="js/ui/dialogue.js"></script>
+<script src="js/ui/journal.js"></script>
+<script src="js/ui/menus.js"></script>
+<script src="js/puzzles/puzzles.js"></script>
+<script src="js/main.js"></script>
+</body>
+</html>
