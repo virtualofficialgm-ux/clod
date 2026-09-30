@@ -3,7 +3,7 @@
 (function () {
   const NP = window.NP;
 
-  NP.SCHEMA_VERSION = 2;
+  NP.SCHEMA_VERSION = 3;
 
   function freshState() {
     return {
@@ -20,6 +20,7 @@
       objective: null,
       objectives_done: [],
       hint_levels: {},
+      games: {}, // id аркады → 'won' | 'lost'
       log: [],
       playtime_seconds: 0,
       saved_at: 0,
@@ -63,6 +64,9 @@
     addRefuted(id) {
       if (this.data.refuted.indexOf(id) < 0) this.data.refuted.push(id);
     },
+    gameResult(id) { return this.data.games[id]; },
+    setGameResult(id, r) { this.data.games[id] = r; this.version++; NP.Director && NP.Director.progress(); },
+    countGames(r) { return Object.keys(this.data.games).filter((k) => this.data.games[k] === r).length; },
     pushLog(speaker, key) {
       this.data.log.push({ s: speaker, k: key });
       if (this.data.log.length > 150) this.data.log.shift();
@@ -82,6 +86,8 @@
     const idx = s.indexOf(':');
     const kind = s.slice(0, idx), arg = s.slice(idx + 1);
     if (kind === 'flag') r = GS.flag(arg);
+    else if (kind === 'game') r = !!GS.gameResult(arg);
+    else if (kind === 'lost') r = GS.countGames('lost') >= +arg;
     else if (kind === 'ev') r = GS.hasEvidence(arg);
     else if (kind === 'concl') r = GS.data.conclusions.indexOf(arg) >= 0;
     else if (kind === 'count' || kind === 'trust') {
@@ -101,6 +107,8 @@
   const migrations = {
     // v1 → v2: добавлены опровергнутые версии и уровни подсказок.
     1(d) { d.refuted = d.refuted || []; d.hint_levels = d.hint_levels || {}; d.schema_version = 2; return d; },
+    // v2 → v3: результаты аркадных автоматов НУЛЯ.
+    2(d) { d.games = d.games || {}; d.schema_version = 3; return d; },
   };
   function migrate(d) {
     if (!d || typeof d !== 'object' || typeof d.schema_version !== 'number') return null;

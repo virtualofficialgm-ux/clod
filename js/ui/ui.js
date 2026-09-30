@@ -38,6 +38,7 @@
       const on = NP.isTouch() || NP.Input.usedTouch;
       document.body.classList.toggle('touch', !!on);
     },
+    isTouchUI() { return document.body.classList.contains('touch'); },
     actionHint() {
       return document.body.classList.contains('touch') ? '◉' : '[' + NP.Input.keyName(NP.Settings.values.keys.act[0]) + ']';
     },

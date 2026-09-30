@@ -26,14 +26,17 @@
   const APPS_DONE = ['flag:app_calendar', 'flag:app_mail', 'flag:app_trash'];
   const afterApp = ['if', APPS_DONE, [['bark', 'nul', 'bark.e01_bridge_done'], ['objective', 'obj_port'], ['save']]];
 
-  const routeConsole = (n, x) => ({
-    id: 'console_' + n, x, y: 2, solid: false, label: 'label.console',
-    tag: [{ if: 'flag:route_' + n, key: 'tag.gate_open', style: 'on' }, { key: 'tag.gate_closed' }],
+  // Игровой автомат НУЛЯ у ворот: победа или три проигрыша открывают ворота, но исход разный.
+  const arcadeGate = (n, x, game) => ({
+    id: 'cabinet_' + n, x, y: 2, solid: true, label: 'label.cabinet', draw: { kind: 'arcade', game },
+    tag: [{ if: 'flag:route_' + n, key: 'tag.gate_open', style: 'on' }, { key: 'tag.cab_' + game }],
     actions: [['if', 'flag:route_' + n, [['toast', 'ui.route_done']], [
-      ['puzzle', 'e01_route_' + n], ['flag', 'route_' + n], ['sfx', 'door'], ['bark', 'nul', 'bark.e01_route' + n], ['save'],
-      ['if', 'flag:route_4', [['objective', 'obj_cache_go']]],
+      ['arcade', game], ['flag', 'route_' + n], ['sfx', 'door'], ['bark', 'nul', 'bark.e01_gate' + n], ['save'],
+      ['if', 'flag:route_2', [['objective', 'obj_cache_go']]],
     ]]],
   });
+  // Побег из кэша: стрелялка с охраной, затем рывок от сканера.
+  const ESCAPE = [['objective', 'obj_escape'], ['save'], ['arcade', 'invaders'], ['scene', 'e01_chase_3']];
 
   const shard = (id, x, y, dlg) => ({
     id: 'pick_' + id, x, y, if: '!ev:' + id, label: 'label.shard', draw: { kind: 'shard' },
@@ -133,7 +136,13 @@
         { id: 'proc_mail', x: 16, y: 5, solid: true, label: 'label.mail', draw: { kind: 'process', who: 'mail' },
           actions: [['if', 'flag:app_mail', [['dialogue', 'e01_mail_again']], [['dialogue', 'e01_mail'], ['flag', 'app_mail'], ['sfx', 'door'], afterApp]]] },
         { id: 'proc_trash', x: 25, y: 5, solid: true, label: 'label.trash', draw: { kind: 'process', who: 'trash' },
-          actions: [['if', 'flag:app_trash', [['dialogue', 'e01_trash_again']], [['dialogue', 'e01_trash'], ['flag', 'app_trash'], ['sfx', 'door'], afterApp]]] },
+          actions: [['if', 'flag:app_trash', [['dialogue', 'e01_trash_again']], [
+            ['if', '!flag:trash_talked', [['dialogue', 'e01_trash'], ['flag', 'trash_talked']]],
+            ['arcade', 'snake'], ['flag', 'app_trash'], ['sfx', 'door'], afterApp]]] },
+        { id: 'cab_snake', x: 26, y: 6, solid: true, label: 'label.trash', draw: { kind: 'arcade', game: 'snake' },
+          tag: [{ if: 'game:snake', key: 'tag.played', style: 'on' }, { key: 'tag.cab_snake' }],
+          actions: [['if', 'flag:app_trash', [['toast', 'ui.already_done']], [['if', '!flag:trash_talked', [['dialogue', 'e01_trash'], ['flag', 'trash_talked']]],
+            ['arcade', 'snake'], ['flag', 'app_trash'], ['sfx', 'door'], afterApp]]] },
         { id: 'port', x: 14, y: 15, label: 'label.port', draw: { kind: 'port', open: true }, actions: [['scene', 'e01_gateway']] },
       ],
     },
@@ -144,31 +153,30 @@
       map: [
         '######################################',
         '#====================================#',
-        '#....c...1...c...2...c...3...c...4...#',
-        '#........1.......2.......3.......4...#',
-        '#........1.......2.......3.......4...#',
-        '#........1.......2.......3.......4...#',
-        '#........1.......2.......3.......4...#',
+        '#..........1...........2.............#',
+        '#..........1...........2.............#',
+        '#..........1...........2.............#',
+        '#..........1...........2.............#',
+        '#..........1...........2.............#',
         '######################################',
       ],
       legend: legend({
-        c: { tile: 'console', solid: true },
         1: { tile: 'gate', solid: true, if: '!flag:route_1', else: { tile: 'gateOpen' } },
         2: { tile: 'gate', solid: true, if: '!flag:route_2', else: { tile: 'gateOpen' } },
-        3: { tile: 'gate', solid: true, if: '!flag:route_3', else: { tile: 'gateOpen' } },
-        4: { tile: 'gate', solid: true, if: '!flag:route_4', else: { tile: 'gateOpen' } },
       }),
       spawns: { start: { x: 2, y: 4, dir: 'right' } },
       on_first_enter: [['dialogue', 'e01_gateway_arrive'], ['objective', 'obj_route']],
       interactables: [
-        routeConsole(1, 5), routeConsole(2, 13), routeConsole(3, 21), routeConsole(4, 29),
-        { id: 'to_cache', x: 35, y: 3, w: 2, h: 3, label: 'label.to_cache', draw: { kind: 'exit' }, actions: [['scene', 'e01_cache']] },
+        arcadeGate(1, 6, 'bricks'), arcadeGate(2, 17, 'crossing'),
+        { id: 'to_cache', x: 34, y: 3, w: 2, h: 3, label: 'label.to_cache', draw: { kind: 'exit' }, actions: [['arcade', 'maze'], ['scene', 'e01_cache']] },
+        { id: 'cab_maze', x: 32, y: 2, solid: true, label: 'label.cabinet', draw: { kind: 'arcade', game: 'maze' },
+          tag: [{ if: 'game:maze', key: 'tag.played', style: 'on' }, { key: 'tag.cab_maze' }], actions: [['arcade', 'maze'], ['scene', 'e01_cache']] },
       ],
     },
 
     e01_cache: {
       id: 'e01_cache', episode_id: 'e01', background_id: 'cache', palette: 'cache', music: 'cache',
-      entry_condition: 'flag:route_4', next_scene_id: 'e01_chase_1',
+      entry_condition: 'flag:route_2', next_scene_id: 'e01_chase_3',
       map: [
         '############################',
         '#==========================#',
@@ -211,9 +219,9 @@
           ], [['dialogue', 'e01_sync_locked']]]]]],
         },
         { id: 'board', x: 14, y: 9, solid: true, label: 'label.board', draw: { kind: 'terminal', blink: ['flag:cache_synced', '!concl:c1'] },
-          actions: [['if', 'concl:c1', [['dialogue', 'e01_cache_exit'], ['scene', 'e01_chase_1']], [['journal', 'board']]]] },
+          actions: [['if', 'concl:c1', [['dialogue', 'e01_cache_exit']].concat(ESCAPE), [['journal', 'board']]]] },
         { id: 'exit', x: 13, y: 14, w: 2, label: 'label.exit',
-          actions: [['if', 'concl:c1', [['dialogue', 'e01_cache_exit'], ['scene', 'e01_chase_1']], [['dialogue', 'e01_cache_locked']]]] },
+          actions: [['if', 'concl:c1', [['dialogue', 'e01_cache_exit']].concat(ESCAPE), [['dialogue', 'e01_cache_locked']]]] },
       ],
     },
 
@@ -309,7 +317,7 @@
     obj_morning: obj(), obj_window: obj(), obj_source: obj(),
     obj_desktop: obj({ flags: ['app_calendar', 'app_mail', 'app_trash'], total: 3 }),
     obj_port: obj(),
-    obj_route: obj({ flags: ['route_1', 'route_2', 'route_3', 'route_4'], total: 4 }),
+    obj_route: obj({ flags: ['route_1', 'route_2'], total: 2 }),
     obj_cache_go: obj(),
     obj_cache_evidence: obj({ count: 'cache', total: 3 }),
     obj_cache_clean: obj(), obj_sync: obj(), obj_board: obj(), obj_escape: obj(), obj_mira: obj(),
@@ -340,7 +348,7 @@
       theses: [{ id: 't1', correct: false }, { id: 't2', correct: true }, { id: 't3', correct: false }],
       required: [['tm_nul_meeting'], ['ev_tasklist'], ['ev_cache_log', 'ev_chronology', 'tm_calendar', 'tm_copier']],
       conclusion: 'c1',
-      onSolve: [['flag', 'case1_solved'], ['dialogue', 'e01_cache_after'], ['objective', 'obj_escape'], ['save'], ['scene', 'e01_chase_1']],
+      onSolve: [['flag', 'case1_solved'], ['dialogue', 'e01_cache_after']].concat(ESCAPE),
     },
   };
 
@@ -348,11 +356,6 @@
   D.puzzles = {
     e01_laptop: { type: 'laptop' },
     e01_laptop_source: { type: 'laptop', mode: 'source' },
-    // Маршрут: 2 учебных и 2 самостоятельных варианта. Символы: ▶ вход, B приёмник, X перегруз.
-    e01_route_1: { type: 'route', seed: 1, level: ['>──┐', '...│', '...B'] },
-    e01_route_2: { type: 'route', seed: 2, level: ['>┐.┌B', '.│X│.', '.└─┘.'] },
-    e01_route_3: { type: 'route', seed: 3, level: ['>─┐┌─┐', '┌X││X│', '│.└┘.│', '└───.B'] },
-    e01_route_4: { type: 'route', seed: 4, level: ['>─┬──┐.', '.X│.X│.', '.┌┘.┌┘.', '.│..│X.', '.└──┴─B'] },
     e01_clean: {
       type: 'cleanup', answer: 'r5', reference: ['ev_access_protocol', 'ev_cache_log', 'ev_mira_letter'],
       records: [{ id: 'r2', time: '09:11' }, { id: 'r4', time: '09:12' }, { id: 'r5', time: '09:03' }, { id: 'r1', time: '09:05' }, { id: 'r3', time: '09:11' }],
@@ -412,7 +415,13 @@
       l5: L('sys'),
     } },
 
-    e01_desktop_arrive: { start: 'l1', lines: { l1: L('ilya', 'l2'), l2: L('nul', 'l3'), l3: L('nul', 'l4'), l4: L('nul', 'l5'), l5: L('nul') } },
+    e01_desktop_arrive: { start: 'l1', lines: {
+      l1: L('ilya', 'l2'), l2: L('nul', 'l3'), l3: L('nul', 'l4'), l4: L('nul', 'l5'), l5: L('nul', 'l6'),
+      l6: L('nul', 'l7'), l7: L('nul', 'l8'),
+      l8: L('ilya', null, { choices: [C('c1', 'l9a', [['trust', 'trust_zero', -1]]), C('c2', 'l9b'), C('c3', 'l9c', [['trust', 'trust_zero', 1]])] }),
+      l9a: L('nul'), l9b: L('nul'), l9c: L('nul'),
+    } },
+    e01_nul_three: { start: 'l1', lines: { l1: L('nul', 'l2'), l2: L('sys', 'l3', { effects: [['sfx', 'glitch'], ['flash'], ['shake', 0.5]] }), l3: L('nul', 'l4'), l4: L('ilya') } },
     e01_cal: { start: 'l1', lines: {
       l1: L('cal', null, { choices: [C('c1', 'l2'), C('c2', 'l2')] }),
       l2: L('cal', 'l3'), l3: L('cal', 'l4', { effects: [['evidence', 'tm_calendar']] }), l4: L('ilya', 'l5'), l5: L('cal', 'l6'), l6: L('cal'),

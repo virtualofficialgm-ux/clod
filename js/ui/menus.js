@@ -157,6 +157,9 @@
       const shared = GS.flag('shared_with_zero');
       const evTotal = Object.keys(NP.Data.evidence).filter((id) => NP.Data.evidence[id].episode === 'e01').length;
       const evGot = GS.data.evidence_ids.filter((id) => NP.Data.evidence[id].episode === 'e01').length;
+      const lostN = GS.countGames('lost');
+      const gamesBox = el('section', { class: 'games-box' });
+      NP.Journal.renderGames(gamesBox);
       const inner = el('div', { class: 'summary-inner' }, [
         el('p', { class: 'eyebrow', text: T('end.eyebrow') }),
         el('h1', { text: T('end.title') }),
@@ -172,9 +175,10 @@
           ]),
           el('section', { class: 'office-msg' }, [
             el('h3', { text: T('end.office') }),
-            el('p', { class: 'msg' }, [el('b', { text: T('speaker.vera') + ': ' }), T(shared ? 'end.vera_shared' : 'end.vera_hidden')]),
-            el('p', { class: 'dim', text: T('end.city') }),
+            el('p', { class: 'msg' }, [el('b', { text: T('speaker.vera') + ': ' }), T(lostN >= 3 ? 'end.vera_blackout' : shared ? 'end.vera_shared' : 'end.vera_hidden')]),
+            el('p', { class: 'dim', text: T(lostN >= 3 ? 'end.city_blackout' : lostN ? 'end.city_hurt' : 'end.city', { n: lostN }) }),
           ]),
+          gamesBox,
         ]),
         el('div', { class: 'next' }, [el('p', { class: 'eyebrow', text: T('end.next_eyebrow') }), el('h2', { text: T('end.next') }), el('p', { text: T('end.next_hook') })]),
         el('div', { class: 'row' }, [

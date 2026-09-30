@@ -89,6 +89,22 @@
         case 'flash': Dir.flash(); break;
         case 'episode_end': await Dir.episodeEnd(); return false;
         case 'journal': NP.Journal.open(x); break;
+        case 'arcade': {
+          // Автомат уже сыгран — исход окончательный, повторно не запускается.
+          if (GS.gameResult(x)) break;
+          const r = await NP.Arcade.run(x);
+          NP.Audio.music(Dir.scene ? Dir.scene.music : 'title');
+          Dir.progress();
+          if (r === 'quit') return false;
+          GS.setGameResult(x, r);
+          if (r === 'won') NP.UI.toast(T('toast.trophy') + ': ' + T('arc.' + x + '.trophy'), 'ev');
+          else {
+            NP.UI.toast(T('toast.incident') + ': ' + T('arc.' + x + '.news_short'), 'warn');
+            if (GS.countGames('lost') === 3) await NP.Dialogue.run('e01_nul_three');
+          }
+          if (!Dir.scene || !Dir.scene.action) Dir.autosave();
+          break;
+        }
         case 'save_prechoice': NP.SaveManager.save('prechoice'); break;
         case 'checkpoint': {
           // Новая стабильная точка внутри сцены (например, после моста).

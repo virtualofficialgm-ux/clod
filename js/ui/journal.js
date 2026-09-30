@@ -52,6 +52,7 @@
         GS.data.objectives_done.slice().reverse().forEach((id) => ul.appendChild(el('li', { text: '✓ ' + T('obj.' + id) })));
         b.appendChild(ul);
       }
+      J.renderGames(b);
       const tv = GS.data.trust_values;
       b.appendChild(el('h3', { text: T('journal.trust') }));
       const row = el('div', { class: 'trust' });
@@ -60,6 +61,27 @@
         row.appendChild(J.trustMeter(T('speaker.' + who), tv[k]));
       });
       b.appendChild(row);
+    },
+    // Трофеи за выигранные автоматы и последствия проигранных.
+    renderGames(b) {
+      const games = GS.data.games;
+      const won = Object.keys(games).filter((k) => games[k] === 'won');
+      const lost = Object.keys(games).filter((k) => games[k] === 'lost');
+      b.appendChild(el('h3', { text: T('journal.trophies') + ' · ' + won.length + '/' + Object.keys(NP.Data.arcades).length }));
+      if (!won.length) b.appendChild(el('p', { class: 'dim', text: T('journal.no_trophies') }));
+      else {
+        const shelf = el('div', { class: 'shelf' });
+        won.forEach((id) => {
+          const cv = el('canvas', { class: 'trophy-icon', width: 16, height: 16 });
+          NP.Arcade.drawTrophy(cv, id);
+          shelf.appendChild(el('div', { class: 'trophy' }, [cv, el('div', {}, [el('b', { text: T('arc.' + id + '.trophy') }), el('small', { text: T('arc.' + id + '.title') })])]));
+        });
+        b.appendChild(shelf);
+      }
+      if (lost.length) {
+        b.appendChild(el('h3', { text: T('journal.incidents') + ' · ' + lost.length + '/3' }));
+        lost.forEach((id) => b.appendChild(el('p', { class: 'incident', text: T('arc.news', { t: NP.Data.arcades[id].newsTime }) + ' — ' + T('arc.' + id + '.news') })));
+      }
     },
     trustMeter(name, v) {
       const cells = el('div', { class: 'meter', 'aria-label': name + ': ' + v });

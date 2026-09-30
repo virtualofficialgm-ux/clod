@@ -356,6 +356,21 @@
           g.drawImage(spr, px + 3, py + 3);
           break;
         }
+        case 'arcade': {
+          // Игровой автомат НУЛЯ: корпус, экран с глифом игры, мигающая надпись.
+          const played = NP.GameState.gameResult(d.game);
+          g.fillStyle = '#1a1024'; g.fillRect(px + 2, py - 10, 12, 26);
+          g.fillStyle = '#ff5a5f'; g.fillRect(px + 2, py - 10, 12, 3);
+          g.fillStyle = '#0a0b10'; g.fillRect(px + 4, py - 5, 8, 7);
+          const on = !played && Math.sin(t * 5 + it.x) > 0;
+          g.fillStyle = played === 'won' ? '#ffd166' : played === 'lost' ? '#5a1f35' : on ? '#7fe3ff' : '#3cff9a';
+          g.fillRect(px + 5, py - 4, 6, 5);
+          g.fillStyle = '#2a1830'; g.fillRect(px + 3, py + 3, 10, 4);
+          g.fillStyle = '#ffd166'; g.fillRect(px + 5, py + 4, 2, 2);
+          g.fillStyle = '#ff5a5f'; g.fillRect(px + 9, py + 4, 2, 2);
+          g.fillStyle = '#120a18'; g.fillRect(px + 3, py + 8, 10, 8);
+          break;
+        }
         case 'exit': {
           g.fillStyle = 'rgba(255,209,102,' + (0.25 + 0.2 * Math.sin(t * 4)) + ')';
           g.fillRect(px + 1, py + 1, (it.w || 1) * TS - 2, (it.h || 1) * TS - 2);

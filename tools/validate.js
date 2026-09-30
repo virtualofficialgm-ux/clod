@@ -11,7 +11,7 @@ const root = path.join(__dirname, '..');
 const ctx = { window: {}, console, document: undefined };
 ctx.window.window = ctx.window;
 vm.createContext(ctx);
-for (const f of ['js/core/util.js', 'js/locales/ru.js', 'js/core/state.js', 'js/data/e01.js', 'js/puzzles/puzzles.js']) {
+for (const f of ['js/core/util.js', 'js/locales/ru.js', 'js/core/state.js', 'js/data/e01.js', 'js/data/arcades.js', 'js/puzzles/puzzles.js']) {
   vm.runInContext(fs.readFileSync(path.join(root, f), 'utf8'), ctx, { filename: f });
 }
 const NP = ctx.window.NP;
@@ -43,6 +43,7 @@ function checkActions(list, where) {
       case 'journal': case 'flag': case 'trust': case 'save': case 'sfx': case 'music': case 'wait': case 'freeze':
       case 'shake': case 'flash': case 'episode_end': case 'save_prechoice': break;
       case 'checkpoint': break;
+      case 'arcade': if (!D.arcades[x]) err(`${where}: нет автомата ${x}`); break;
       case 'if': checkActions(y, where + '/if'); checkActions(z, where + '/else'); break;
       default: err(`${where}: неизвестный эффект ${op}`);
     }
@@ -155,6 +156,16 @@ for (const id in D.puzzles) {
     if (p.answer.join() === p.shuffled.join()) err(`${id}: список уже упорядочен`);
     p.answer.forEach((s) => key('sync.' + s, id));
   }
+}
+
+// ---------- Автоматы
+const GAME_FILES = fs.readdirSync(path.join(root, 'js/games')).map((f) => f.replace('.js', ''));
+for (const id in D.arcades) {
+  const a = D.arcades[id];
+  if (GAME_FILES.indexOf(a.game) < 0) err(`автомат ${id}: нет файла игры js/games/${a.game}.js`);
+  ['title', 'genre', 'nul_intro', 'rules', 'keys', 'touch', 'trophy', 'trophy_desc', 'nul_win', 'nul_lose', 'news', 'news_short', 'status']
+    .forEach((k) => key(`arc.${id}.${k}`, 'arcade ' + id));
+  if (a.icon.length !== 16 || a.icon.some((r) => r.length !== 16)) err(`автомат ${id}: значок не 16×16`);
 }
 
 // ---------- Неиспользуемые строки диалогов (признак опечатки в id)

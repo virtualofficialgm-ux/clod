@@ -3,6 +3,7 @@
   const NP = window.NP;
 
   const held = {};       // code -> true
+  const virt = {};       // action -> true (экранные кнопки аркад)
   const pressedQ = {};   // action -> true (на один кадр)
   const stick = { active: false, id: null, ox: 0, oy: 0, x: 0, y: 0 };
   let listenCb = null;
@@ -23,7 +24,13 @@
       return false;
     },
     clearPressed() { for (const k in pressedQ) pressedQ[k] = false; },
+    setVirtual(action, on) {
+      if (on && !virt[action]) pressedQ[action] = true;
+      virt[action] = !!on;
+    },
+    clearVirtual() { for (const k in virt) virt[k] = false; },
     isHeld(action) {
+      if (virt[action]) return true;
       const codes = NP.Settings.values.keys[action] || [];
       return codes.some((c) => held[c]);
     },
