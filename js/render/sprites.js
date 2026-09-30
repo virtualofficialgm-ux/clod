@@ -24,7 +24,11 @@
 
   const PAL = {
     ilya: { h: '#3a2a22', s: '#e8b995', S: '#c99372', e: '#1b1b24', b: '#8fb3d4', B: '#6a8fb3', t: '#8c3b3b', p: '#3a3f4b', k: '#1e1f24', m: '#a8554f' },
-    vera: { h: '#9c4a2c', s: '#efc3a0', S: '#cf9a78', e: '#1b1b24', b: '#6d9a6a', B: '#557d53', t: '#6d9a6a', p: '#4a3b4f', k: '#1e1f24', m: '#b0505a' },
+    vera: { h: '#9c4a2c', s: '#efc3a0', S: '#cf9a78', e: '#1b1b24', b: '#6b7a3a', B: '#4f5a2a', t: '#6b7a3a', p: '#3f4a26', k: '#1e1f24', m: '#b0505a' },
+    // Кампания: мэр Серёга, гений-энтузиаст Кузя, взрослый Глеб.
+    seryoga: { h: '#6b4a2a', s: '#e8b995', S: '#c99372', e: '#1b1b24', b: '#2a3a6a', B: '#1e2a50', t: '#c0392b', p: '#1e2438', k: '#101018', m: '#a8554f' },
+    kuzya: { h: '#c47a2a', s: '#f0c4a0', S: '#d09a78', e: '#1b1b24', b: '#3c8a4a', B: '#2c6a38', t: '#ffd166', p: '#4a4a55', k: '#e8e4da', m: '#a8554f' },
+    gleb2: { h: '#e0b040', s: '#e8b995', S: '#c99372', e: '#1b1b24', b: '#1e1e24', B: '#34343c', t: '#ffd166', p: '#2a2a33', k: '#101018', m: '#a8554f' },
     // Пролог 1996: Илья-школьник в полосатой футболке, Глеб в красной, молодая Мира в бирюзовом.
     kid: { h: '#3a2a22', s: '#f0c4a0', S: '#d09a78', e: '#1b1b24', b: '#ffd166', B: '#d9a83e', t: '#ffd166', p: '#2d4a8a', k: '#e8e4da', m: '#a8554f' },
     gleb: { h: '#e0b040', s: '#f0c4a0', S: '#d09a78', e: '#1b1b24', b: '#d8434a', B: '#a8323a', t: '#f4f1ea', p: '#2a2a33', k: '#e8e4da', m: '#a8554f' },
@@ -70,6 +74,12 @@
         '..hssssssssssh..', '..hsssSssssssh..', '..hhssmmmmsshh..', '..hhhssssssshhh.', '..hhhh.ss.hhhhh.', '.hhhh.gggg.hhhh.',
         '.hhh.gggggg.hhh.', '....gggggggg....', '...gggggggggg...', '..gggggggggggg..'],
       pal: { h: '#9c4a2c', s: '#efc3a0', S: '#cf9a78', e: '#1b1b24', m: '#b0505a', g: '#6d9a6a' }, bg: '#2f2a26',
+    },
+    host: {
+      rows: ['................', '....hhhhhhhh....', '...hhhhhhhhhh...', '..hhhhhhhhhhhh..', '..hhsssssssshh..', '..hseesssseesh..',
+        '..hssssssssssh..', '...ssMMMMMMss...', '...sssmmmmsss...', '....ssssssss....', '.....ssssss.....', '...pppwttwppp...',
+        '..pppppwwppppp..', '.pppyppppppyppp.', '.ppppppppppppppp', 'pppypppppppppypp'],
+      pal: { h: '#f0d060', s: '#f0c4a0', S: '#d09a78', e: '#1b1b24', M: '#6b3a1a', m: '#a8554f', p: '#6b2a8a', w: '#ffffff', t: '#ff5a5f', y: '#ffd166' }, bg: '#1a0d2a',
     },
     pix: {
       rows: ['................', '................', '....cccccccc....', '...cCCCCCCCCc...', '..cCCCCCCCCCCc..', '..cCwwCCCCwwCc..',

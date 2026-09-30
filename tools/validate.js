@@ -11,7 +11,7 @@ const root = path.join(__dirname, '..');
 const ctx = { window: {}, console, document: undefined };
 ctx.window.window = ctx.window;
 vm.createContext(ctx);
-for (const f of ['js/core/util.js', 'js/locales/ru.js', 'js/core/state.js', 'js/data/e01.js', 'js/data/arcades.js', 'js/puzzles/puzzles.js']) {
+for (const f of ['js/core/util.js', 'js/locales/ru.js', 'js/core/state.js', 'js/data/e01.js', 'js/data/arcades.js', 'js/data/campaign.js', 'js/puzzles/puzzles.js']) {
   vm.runInContext(fs.readFileSync(path.join(root, f), 'utf8'), ctx, { filename: f });
 }
 const NP = ctx.window.NP;
@@ -167,6 +167,15 @@ for (const id in D.arcades) {
     .forEach((k) => key(`arc.${id}.${k}`, 'arcade ' + id));
   if (a.icon.length !== 16 || a.icon.some((r) => r.length !== 16)) err(`автомат ${id}: значок не 16×16`);
 }
+
+// ---------- Кампания
+for (const s of D.campaign) {
+  if (s.type === 'cutscene' && !D.cutscenes[s.cut]) err(`кампания ${s.id}: нет катсцены ${s.cut}`);
+  if (s.type === 'level' && !D.arcades[s.game]) err(`кампания ${s.id}: нет автомата ${s.game}`);
+  if (s.type === 'score' && s.key) key(s.key, 'кампания ' + s.id);
+}
+['camp.score.h', 'camp.score.a', 'c_trophy', 'c_gameover'].forEach((k) => { if (k.startsWith('c_')) { if (!D.cutscenes[k]) err('нет катсцены ' + k); } else key(k, 'кампания'); });
+for (const id of ['centipede', 'chase', 'skyfight', 'kong']) key('cut.invasion.' + id, 'кампания');
 
 // ---------- Неиспользуемые строки диалогов (признак опечатки в id)
 for (const k in ru) if (k.startsWith('dlg.e01') && !used.has(k)) warnings.push(`строка ${k} нигде не используется`);

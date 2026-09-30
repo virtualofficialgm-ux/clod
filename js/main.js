@@ -383,8 +383,10 @@
         }
       } else if (Dir.mode === 'blank') {
         ctx.fillStyle = '#000'; ctx.fillRect(0, 0, 640, 360);
+        if (GS.data.campaign) GS.data.playtime_seconds += dt;
       } else if (Dir.mode === 'cutscene' && Dir.cut) {
         Dir.drawCutscene(ctx, dt);
+        GS.data.playtime_seconds += dt;
       } else if (Dir.mode === 'title' || Dir.mode === 'end') {
         Dir.cut = Dir.cut || { fx: 'title', t: 0 };
         Dir.drawCutscene(ctx, dt);
@@ -394,13 +396,13 @@
     },
 
     newGame() {
-      GS.reset();
       Dir.cut = null;
-      NP.Menus.closeTitle();
-      Dir.playCutscene('e01_intro').then(() => Dir.gotoScene('e01_office'));
+      NP.Campaign.start();
     },
     continueGame(d) {
-      NP.SaveManager.load(d || NP.SaveManager.latest());
+      d = d || NP.SaveManager.latest();
+      if (d && d.campaign) { Dir.cut = null; NP.Campaign.resume(d); return; }
+      NP.SaveManager.load(d);
       Dir.cut = null;
       NP.Menus.closeTitle();
       const sc = NP.Data.scenes[GS.data.scene_id];
@@ -433,7 +435,7 @@
       document.addEventListener('keydown', () => NP.Audio.unlock());
       document.addEventListener('visibilitychange', () => {
         // Сворачивание: пауза и сохранение последней безопасной точки.
-        if (document.hidden && Dir.mode === 'world' && Dir.canControl() && !Dir.scene.action) Dir.autosave();
+        if (document.hidden && Dir.mode === 'world' && Dir.canControl() && Dir.scene && !Dir.scene.action) Dir.autosave();
       });
       Dir.toTitle();
       requestAnimationFrame(Dir.loop);

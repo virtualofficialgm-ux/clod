@@ -19,10 +19,13 @@
   }
 
   const Stage = (NP.Stage = {
+    // Расширения: фоны, передний план, виды актёров и их поведение (js/render/stage_film.js).
+    BG: {}, FRONT: {}, KINDS: {}, UPD: {},
+    state() { return S; },
     active() { return !!S; },
     start(def) {
       S = {
-        bg: def.bg, t: 0, actors: {}, vars: Object.assign({ bites: {} }, def.vars || {}),
+        bg: def.bg, t: 0, actors: {}, vars: Object.assign({ bites: {} }, JSON.parse(JSON.stringify(def.vars || {}))),
         cam: { x: 320, y: 180, z: 1 }, tweens: [], timers: [], fx: new NP.FX.Particles(900), shake: 0, flash: 0, emitT: 0,
       };
       for (const id in def.actors || {}) Stage.spawn(id, def.actors[id]);
@@ -41,6 +44,7 @@
           case 'spawn': Stage.spawn(a, b); break;
           case 'remove': delete S.actors[a]; break;
           case 'face': act.dir = b; break;
+          case 'prop': act[b] = d; break;
           case 'anim': act.anim = b; break;
           case 'walk': {
             // ['walk', id, x, сек, конечное_направление, y]
@@ -68,7 +72,7 @@
           case 'cam': tween(S.cam, { x: a, y: b, z: d }, e || 0.001); break;
           case 'shake': S.shake = a || 0.4; break;
           case 'flash': if (!NP.Settings.values.reduceFlash) S.flash = 0.4; break;
-          case 'set': S.vars[a] = b; break;
+          case 'set': S.vars[a] = b && typeof b === 'object' ? JSON.parse(JSON.stringify(b)) : b; break;
           case 'bg': S.bg = a; break;
           case 'burst': Stage.burst(a, b, d); break;
           case 'sfx': NP.Audio.sfx(a); break;
@@ -111,6 +115,7 @@
             S.vars.bites[bi] = Math.min(1, (S.vars.bites[bi] || 0) + dt * 2.2);
           }
         }
+        if (Stage.UPD[a.kind]) Stage.UPD[a.kind](a, dt, S);
         // Перенос в систему: пиксели Ильи утягивает в экран ноутбука.
         if (S.vars.suck && a.id === 'ilya') {
           a.alpha = Math.max(0, a.alpha - dt * 0.35);
@@ -137,9 +142,10 @@
       let sx = 0, sy = 0;
       if (S.shake > 0 && !reduce) { sx = rnd(-5, 5); sy = rnd(-5, 5); }
       g.translate(320 + sx, 180 + sy); g.scale(c.z, c.z); g.translate(-c.x, -c.y);
-      (BG[S.bg] || BG.dark)(g, t, S);
+      (Stage.BG[S.bg] || BG[S.bg] || BG.dark)(g, t, S);
       Object.values(S.actors).sort((p, q) => p.y - q.y).forEach((a) => drawActor(g, a, t));
       if (FRONT[S.bg]) FRONT[S.bg](g, t, S);
+      if (Stage.FRONT[S.bg]) Stage.FRONT[S.bg](g, t, S);
       S.fx.draw(g);
       Object.values(S.actors).forEach((a) => { if (a.emote) NP.FX.emote(g, a.x, a.y - 19 * a.scale - 6, a.emote.g, a.emote.t, Math.max(1, Math.round(a.scale / 2))); });
       g.restore();
@@ -183,6 +189,8 @@
       if (S.vars.glitch && !NP.Settings.values.reduceFlash) {
         for (let y = 0; y < 16; y++) g.drawImage(cv, 0, y, 16, 1, Math.round(a.x - 8 * s + (Math.random() < S.vars.glitch * 0.3 ? rnd(-12, 12) : 0)), Math.round(a.y - 8 * s + y * s), 16 * s, s);
       } else g.drawImage(cv, Math.round(a.x - 8 * s), Math.round(a.y - 8 * s), 16 * s, 16 * s);
+    } else if (Stage.KINDS[a.kind]) {
+      Stage.KINDS[a.kind](g, a, t, S);
     } else if (a.kind === 'pix') {
       g.drawImage(NP.Sprites.portraitImg('pix'), Math.round(a.x - 8 * a.scale), Math.round(a.y - 16 * a.scale + hopY), 16 * a.scale, 16 * a.scale);
     }

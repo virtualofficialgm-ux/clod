@@ -27,5 +27,14 @@
       icon: cup(['..kkkk..', '.kkkkk..', 'kkk.....', '.kkkkk..', '..kkkk.k']) },
     invaders: { game: 'invaders', color: '#ff5a5f', number: 5, newsTime: '09:58', music: 'chase', iconPal: PAL,
       icon: cup(['.k....k.', '..kkkk..', '.kk..kk.', 'kkkkkkkk', 'k.k..k.k']) },
+    // Раунды кампании
+    centipede: { game: 'centipede', color: '#6fe3a1', number: 2, newsTime: '21:40', music: 'chase', speaker: 'kuzya', iconPal: PAL,
+      icon: cup(['.kkkkkk.', 'k.k..k.k', '.kkkkkk.', 'k......k', '.k.kk.k.']) },
+    chase: { game: 'chase', color: '#ffd166', number: 3, newsTime: '23:15', music: 'network', speaker: 'vera', iconPal: PAL,
+      icon: cup(['..kkkk..', '.kkkkk..', 'kkkk....', '.kkkkk..', '..kkkk..']) },
+    skyfight: { game: 'skyfight', color: '#ff5a5f', number: 4, newsTime: '02:30', music: 'chase', speaker: 'gleb', iconPal: PAL,
+      icon: cup(['...kk...', '..kkkk..', 'kkkkkkkk', 'kk.kk.kk', 'k......k']) },
+    kong: { game: 'kong', color: '#d8434a', number: 5, newsTime: '04:05', music: 'chase', speaker: 'kuzya', iconPal: PAL,
+      icon: cup(['kkkkkkkk', '..k..k..', 'kkkkkkkk', '.k....k.', 'kkkkkkkk']) },
   };
 })();

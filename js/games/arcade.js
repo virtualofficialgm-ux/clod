@@ -32,6 +32,10 @@
       const def = NP.Data.arcades[id];
       const game = NP.Games[def.game];
       if (!def || !game) { console.error('Нет автомата', id); return Promise.resolve('quit'); }
+      // Размер холста задаёт сама игра: старые автоматы 320×180, уровни кампании 480×270.
+      const [W, H] = game.size || [320, 180];
+      const spk = def.speaker || 'nul';
+      const k = (name) => (NP.hasT('arc.' + id + '.' + name) ? 'arc.' + id + '.' + name : 'arc.' + name);
       return new Promise((resolve) => {
         NP.UI.openModal('arcade', (p, close) => {
           let lives = 3, state = 'intro', inst = null, raf = 0, last = 0, msgT = 0, result = null;
@@ -174,14 +178,14 @@
               const icon = el('canvas', { class: 'trophy-icon', width: 16, height: 16 });
               Arcade.drawTrophy(icon, id);
               card.append(
-                el('p', { class: 'eyebrow', text: T('arc.trophy_got') }),
+                el('p', { class: 'eyebrow', text: T(k('trophy_got')) }),
                 el('div', { class: 'trophy' }, [icon, el('div', {}, [el('h2', { text: T('arc.' + id + '.trophy') }), el('p', { text: T('arc.' + id + '.trophy_desc') })])]),
-                el('p', { class: 'nul-line' }, [el('b', { class: 'spk-nul', text: T('speaker.nul') + ': ' }), T('arc.' + id + '.nul_win')]),
+                el('p', { class: 'nul-line' }, [el('b', { class: 'spk-' + spk, text: T('speaker.' + spk) + ': ' }), T('arc.' + id + '.nul_win')]),
               );
             } else {
               card.append(
-                el('p', { class: 'eyebrow', text: T('arc.lost') }),
-                el('p', { class: 'nul-line' }, [el('b', { class: 'spk-nul', text: T('speaker.nul') + ': ' }), T('arc.' + id + '.nul_lose')]),
+                el('p', { class: 'eyebrow', text: T(k('lost')) }),
+                el('p', { class: 'nul-line' }, [el('b', { class: 'spk-' + spk, text: T('speaker.' + spk) + ': ' }), T('arc.' + id + '.nul_lose')]),
                 el('div', { class: 'news' }, [el('small', { text: T('arc.news', { t: def.newsTime }) }), el('p', { text: T('arc.' + id + '.news') })]),
               );
             }
@@ -195,15 +199,15 @@
           // Экран правил и ставок
           head.hidden = true;
           card.append(
-            el('p', { class: 'eyebrow', text: T('arc.machine', { n: def.number }) }),
+            el('p', { class: 'eyebrow', text: T(k('machine'), { n: def.number }) }),
             el('h2', { text: T('arc.' + id + '.title') }),
             el('p', { class: 'genre', text: T('arc.' + id + '.genre') }),
-            el('p', { class: 'nul-line' }, [el('b', { class: 'spk-nul', text: T('speaker.nul') + ': ' }), T('arc.' + id + '.nul_intro')]),
+            el('p', { class: 'nul-line' }, [el('b', { class: 'spk-' + spk, text: T('speaker.' + spk) + ': ' }), T('arc.' + id + '.nul_intro')]),
             el('p', { text: T('arc.' + id + '.rules') }),
             el('p', { class: 'dim small', text: T(NP.UI.isTouchUI() ? 'arc.' + id + '.touch' : 'arc.' + id + '.keys') }),
             el('ul', { class: 'stakes' }, [
               el('li', { class: 'win', text: T('arc.stake_win', { t: T('arc.' + id + '.trophy') }) }),
-              el('li', { class: 'lose', text: T('arc.stake_lose') }),
+              el('li', { class: 'lose', text: T(k('stake_lose')) }),
             ]),
             el('div', { class: 'row' }, [
               el('button', { class: 'btn primary', text: T('arc.play'), onclick: start }),

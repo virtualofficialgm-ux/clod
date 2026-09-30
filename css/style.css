@@ -350,5 +350,11 @@ body.touch .arc-pad { display: flex; position: absolute; left: 8px; right: 8px; 
 .hint-head { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
 .hint-head h2 { margin: 0; }
 .spk-pix b, b.spk-pix, .spk-pix #dlg-name { color: #ffb347; }
+.spk-seryoga b, b.spk-seryoga { color: #9fb4ff; }
+.spk-kuzya b, b.spk-kuzya { color: #6fe3a1; }
+.spk-gleb b, b.spk-gleb { color: #ffd166; }
+.spk-host b, b.spk-host { color: #d58cff; }
+.trophy-icon.dim { opacity: .3; filter: grayscale(1); }
+.panel.gameover h2 { color: var(--zero); font-size: calc(var(--fs) * 1.1); }
 
 #wipe { position: absolute; inset: 0; width: 100%; height: 100%; image-rendering: pixelated; pointer-events: none; }

@@ -13,8 +13,9 @@
       const save = NP.SaveManager.latest();
       if (save) {
         const sc = NP.Data.scenes[save.scene_id];
+        const where = save.campaign ? T('camp.saved', { h: save.campaign.h, a: save.campaign.a }) : sc ? T('scene.' + save.scene_id) : '';
         menu.appendChild(el('button', { class: 'btn primary', onclick: () => NP.Director.continueGame(save) }, [
-          T('menu.continue'), el('small', { text: (sc ? T('scene.' + save.scene_id) : '') + ' · ' + NP.formatTime(save.playtime_seconds) }),
+          T('menu.continue'), el('small', { text: where + ' · ' + NP.formatTime(save.playtime_seconds) }),
         ]));
       }
       menu.appendChild(el('button', { class: 'btn' + (save ? '' : ' primary'), text: T('menu.new'), onclick: async () => {
@@ -147,6 +148,43 @@
         body.appendChild(keys);
         p.appendChild(body);
       });
+    },
+
+    // Три раунда за пришельцами: переиграть последний раунд или выйти.
+    gameOver() {
+      return new Promise((res) => {
+        NP.UI.openModal('small gameover', (p, close) => {
+          p.appendChild(el('p', { class: 'eyebrow', text: T('camp.over.eyebrow') }));
+          p.appendChild(el('h2', { text: T('camp.over.title') }));
+          p.appendChild(el('p', { text: T('camp.over.text') }));
+          p.appendChild(el('div', { class: 'row' }, [
+            el('button', { class: 'btn primary', text: T('camp.over.retry'), onclick: () => close(true) }),
+            el('button', { class: 'btn ghost', text: T('menu.to_title'), onclick: () => close(false) }),
+          ]));
+        }, { noEscape: true, onClose: (r) => res(!!r) });
+      });
+    },
+    campaignEnd() {
+      const GS = NP.GameState, c = GS.data.campaign;
+      const box = $('summary');
+      box.hidden = false;
+      box.innerHTML = '';
+      const shelf = el('div', { class: 'shelf' });
+      ['centipede', 'chase', 'skyfight', 'kong'].forEach((id) => {
+        const won = GS.gameResult(id) === 'won';
+        const cv = el('canvas', { class: 'trophy-icon' + (won ? '' : ' dim'), width: 16, height: 16 });
+        NP.Arcade.drawTrophy(cv, id);
+        shelf.appendChild(el('div', { class: 'trophy' }, [cv, el('div', {}, [el('b', { text: T('arc.' + id + '.trophy') }), el('small', { text: won ? T('arc.' + id + '.title') : T('camp.end.no_trophy') })])]));
+      });
+      box.appendChild(el('div', { class: 'summary-inner' }, [
+        el('p', { class: 'eyebrow', text: T('camp.end.eyebrow') }),
+        el('h1', { text: T('camp.end.title', { h: c.h, a: c.a }) }),
+        el('p', { text: T(c.a === 0 ? 'camp.end.flawless' : 'camp.end.text', { a: c.a }) }),
+        el('section', { class: 'games-box' }, [el('h3', { text: T('journal.trophies') }), shelf]),
+        el('p', { class: 'dim', text: T('end.time', { t: NP.formatTime(GS.data.playtime_seconds) }) }),
+        el('div', { class: 'row' }, [el('button', { class: 'btn primary', text: T('menu.to_title'), onclick: () => { box.hidden = true; NP.Director.toTitle(); } })]),
+      ]));
+      setTimeout(() => { const b = box.querySelector('.btn.primary'); b && b.focus(); }, 50);
     },
 
     episodeSummary() {
