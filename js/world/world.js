@@ -98,6 +98,11 @@
         W.target = null;
       }
       p.animT += dt;
+      // Пиксель, ожившая награда, семенит за Ильёй.
+      const pet = W.pet || (W.pet = { x: p.x, y: p.y });
+      const petX = p.x + (p.dir === 'left' ? 14 : -14), petY = p.y + 2;
+      if (Math.hypot(pet.x - petX, pet.y - petY) > 60) { pet.x = petX; pet.y = petY; }
+      pet.x += (petX - pet.x) * Math.min(1, dt * 4); pet.y += (petY - pet.y) * Math.min(1, dt * 4);
       p.frame = p.moving ? (Math.floor(p.animT * 7) % 2 ? 'w1' : 'w2') : 'idle';
       if (W.hz && controllable) W.updateHazards(dt);
       // Камера плавно догоняет игрока.
@@ -245,6 +250,12 @@
       for (const it of W.visibleInteractables()) objs.push({ y: (it.y + (it.h || 1)) * TS, draw: () => W.drawInteractable(g, it, cx, cy) });
       if (W.hz) for (const gd of W.hz.guards) objs.push({ y: gd.py + 8, draw: () => W.drawGuard(g, gd, cx, cy, labels) });
       objs.push({ y: W.player.y, draw: () => W.drawPlayer(g, cx, cy) });
+      if (NP.GameState.flag('companion') && W.pet) {
+        objs.push({ y: W.pet.y, draw: () => {
+          const bob = Math.round(Math.abs(Math.sin(W.t * 6)) * -2);
+          g.drawImage(NP.Sprites.portraitImg('pix'), 3, 2, 10, 12, Math.round(W.pet.x - 5 - cx), Math.round(W.pet.y - 12 - cy) + bob, 10, 12);
+        } });
+      }
       objs.sort((a, b) => a.y - b.y).forEach((o) => o.draw());
 
       if (W.hz) W.drawHazards(g, cx, cy, labels);

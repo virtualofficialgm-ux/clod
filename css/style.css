@@ -347,3 +347,6 @@ body.touch .arc-pad { display: flex; position: absolute; left: 8px; right: 8px; 
 .shelf { display: flex; flex-wrap: wrap; gap: 10px 18px; }
 .incident { color: #ffd0c8; border-left: 3px solid var(--zero); padding-left: 8px; font-size: .92em; }
 .games-box { grid-column: 1 / -1; }
+.hint-head { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+.hint-head h2 { margin: 0; }
+.spk-pix b, b.spk-pix, .spk-pix #dlg-name { color: #ffb347; }

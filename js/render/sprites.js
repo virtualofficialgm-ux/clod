@@ -67,6 +67,12 @@
         '.hhh.gggggg.hhh.', '....gggggggg....', '...gggggggggg...', '..gggggggggggg..'],
       pal: { h: '#9c4a2c', s: '#efc3a0', S: '#cf9a78', e: '#1b1b24', m: '#b0505a', g: '#6d9a6a' }, bg: '#2f2a26',
     },
+    pix: {
+      rows: ['................', '................', '....cccccccc....', '...cCCCCCCCCc...', '..cCCCCCCCCCCc..', '..cCwwCCCCwwCc..',
+        '..cCwkCCCCwkCc..', '..cCCCCCCCCCCc..', '..cCCCmmmmCCCc..', '..cCCCCCCCCCCc..', '...cCCCCCCCCc...', '....cccccccc....',
+        '.....c....c.....', '....cc....cc....', '................', '................'],
+      pal: { c: '#8a4a12', C: '#ffb347', w: '#ffffff', k: '#1b1406', m: '#8a4a12' }, bg: '#2a1a0a',
+    },
     process: {
       rows: ['................', '.......a........', '.......a........', '...cccccccccc...', '..cddddddddddc..', '..cddddddddddc..',
         '..cddeeddeeddc..', '..cddeeddeeddc..', '..cddddddddddc..', '..cdddeeeedddc..', '..cddddddddddc..', '...cccccccccc...',
@@ -131,6 +137,10 @@
       return (cache[key] = build(SPRITES[name], Object.assign({}, base, palOverride || {})));
     },
     processPal(id) { return PROCESS_PAL[id]; },
+    portraitImg(id) {
+      const def = PORTRAITS[id];
+      return cache['portrait:' + id] || (cache['portrait:' + id] = build(def.rows, def.pal));
+    },
     // Портрет рисуется в canvas 16×16; CSS увеличивает его без сглаживания.
     drawPortrait(canvas, id, t) {
       const g = canvas.getContext('2d');

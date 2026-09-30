@@ -97,8 +97,12 @@
           Dir.progress();
           if (r === 'quit') return false;
           GS.setGameResult(x, r);
-          if (r === 'won') NP.UI.toast(T('toast.trophy') + ': ' + T('arc.' + x + '.trophy'), 'ev');
-          else {
+          if (r === 'won') {
+            NP.UI.toast(T('toast.trophy') + ': ' + T('arc.' + x + '.trophy'), 'ev');
+            // Первый трофей оживает и становится спутником-подсказчиком.
+            if (!GS.flag('companion')) { GS.setFlag('companion'); await NP.Dialogue.run('e01_companion'); }
+          } else {
+            await Dir.playInvasion(x);
             NP.UI.toast(T('toast.incident') + ': ' + T('arc.' + x + '.news_short'), 'warn');
             if (GS.countGames('lost') === 3) await NP.Dialogue.run('e01_nul_three');
           }
@@ -191,11 +195,11 @@
 
     // --- Катсцены: подписи поверх процедурного фона, пропуск в любой момент.
     playCutscene(id) {
-      const cs = NP.Data.cutscenes[id];
+      const cs = typeof id === 'string' ? NP.Data.cutscenes[id] : id;
       return new Promise((resolve) => {
         const prevMode = Dir.mode;
         Dir.mode = 'cutscene';
-        Dir.cut = { id, fx: cs.fx, t: 0 };
+        Dir.cut = { id, fx: cs.fx, t: 0, color: cs.color };
         NP.UI.setHud(false);
         NP.UI.clearLabels();
         if (cs.music) NP.Audio.music(cs.music);
@@ -265,6 +269,44 @@
         g.globalAlpha = 0.5 + 0.5 * Math.sin(t * 3);
         g.drawImage(spr, 314, 150, 12 * 3, 18 * 3);
         g.globalAlpha = 1;
+      } else if (c.fx === 'hall') {
+        // Июнь 1996: зал игровых автоматов, табло финала.
+        g.fillStyle = '#0d0a14'; g.fillRect(0, 0, 640, 360);
+        g.fillStyle = '#1a1024'; g.fillRect(0, 250, 640, 110);
+        for (let i = 0; i < 7; i++) {
+          const x = 30 + i * 88, on = Math.sin(t * 3 + i * 1.3) > -0.2;
+          g.fillStyle = '#241634'; g.fillRect(x, 120, 56, 140);
+          g.fillStyle = ['#ff5a5f', '#ffd166', '#7fe3ff', '#6fe3a1'][i % 4]; g.fillRect(x, 120, 56, 10);
+          g.fillStyle = '#05050a'; g.fillRect(x + 8, 140, 40, 34);
+          g.fillStyle = on ? ['#3cff9a', '#7fe3ff', '#ffd166'][i % 3] : '#10301f';
+          for (let k = 0; k < 5; k++) g.fillRect(x + 12 + ((k * 13 + Math.floor(t * 20)) % 30), 146 + k * 5, 4, 3);
+          g.fillStyle = '#ff5a5f'; g.fillRect(x + 14, 190, 6, 6); g.fillStyle = '#ffd166'; g.fillRect(x + 34, 190, 6, 6);
+        }
+        g.fillStyle = '#05050a'; g.fillRect(220, 24, 200, 70);
+        g.strokeStyle = '#ffd166'; g.lineWidth = 2; g.strokeRect(221, 25, 198, 68);
+        g.fillStyle = '#ffd166'; g.font = 'bold 34px monospace'; g.textAlign = 'center';
+        g.fillText(t > 11 ? '2 : 3' : '2 : 2', 320, 72); g.textAlign = 'left';
+        g.fillStyle = '#9aa3b2'; g.font = '11px monospace'; g.fillText('ИЛЬЯ', 232, 42); g.fillText('ГЛЕБ', 380, 42);
+      } else if (c.fx === 'invasion') {
+        // Ночной город: пиксельная тварь из автомата рассыпает дома на кубики.
+        const reduce = NP.Settings.values.reduceFlash;
+        g.fillStyle = '#0a0c18'; g.fillRect(0, 0, 640, 360);
+        const col = c.color || '#ff5a5f';
+        for (let i = 0; i < 12; i++) {
+          const x = i * 54, h = 90 + ((i * 53) % 120), bite = Math.max(0, Math.min(h, (t - i * 0.18) * 60));
+          g.fillStyle = '#1b2033'; g.fillRect(x, 330 - h + bite, 50, h - bite);
+          g.fillStyle = '#ffd98a';
+          for (let wy = 330 - h + bite + 8; wy < 320; wy += 14) for (let wx = x + 6; wx < x + 44; wx += 12) if ((wx + wy) % 5) g.fillRect(wx, wy, 5, 6);
+          for (let k = 0; k < Math.floor(bite / 12); k++) {
+            const cy = 330 - h + ((k * 29 + t * 90 * (1 + (k % 3))) % (h + 30));
+            g.fillStyle = k % 2 ? col : '#f4f1ea'; g.fillRect(x + (k * 17) % 46, cy, 6, 6);
+          }
+        }
+        g.fillStyle = '#12141f'; g.fillRect(0, 330, 640, 30);
+        const mx = 320 + Math.sin(t * 1.3) * 180, my = 60 + Math.sin(t * 2) * 12;
+        g.fillStyle = col;
+        const body = ['..XXXXXX..', '.XXXXXXXX.', 'XX.XXXX.XX', 'XXXXXXXXXX', 'X.X....X.X', '.X......X.'];
+        body.forEach((r, y) => [...r].forEach((ch, x) => { if (ch === 'X') g.fillRect(mx - 40 + x * 8, my + y * 8 + (reduce ? 0 : Math.round(Math.sin(t * 8 + x) * 1)), 8, 8); }));
       } else if (c.fx === 'erase') {
         g.fillStyle = '#0b0914'; g.fillRect(0, 0, 640, 360);
         const reduce = NP.Settings.values.reduceFlash;
@@ -283,6 +325,15 @@
           g.fillText(i % 4 ? '0' : '1', x, y);
         }
       }
+    },
+
+    // Проигрыш: игра вырывается в настоящий город и рассыпает его на кубики.
+    playInvasion(id) {
+      const def = NP.Data.arcades[id];
+      return Dir.playCutscene({ fx: 'invasion', color: def.color, frames: [
+        { key: 'cut.invasion.' + id, ms: 3600, sfx: 'alarm' },
+        { key: 'arc.' + id + '.news', ms: 4400 },
+      ] });
     },
 
     // --- Итог эпизода

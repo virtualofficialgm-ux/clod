@@ -17,15 +17,15 @@
   const PAL = { y: '#ffd166', G: '#b88a2e', o: '#8a5a3c', k: '#1b1406' };
 
   D.arcades = {
-    snake: { game: 'snake', number: 1, newsTime: '09:34', music: 'desktop', iconPal: PAL,
+    snake: { game: 'snake', color: '#9bbc0f', number: 1, newsTime: '09:34', music: 'desktop', iconPal: PAL,
       icon: cup(['kkkkkk..', '.....k..', '.kkkkk..', '.k......', '.kkkkkkk']) },
-    bricks: { game: 'bricks', number: 2, newsTime: '09:41', music: 'network', iconPal: PAL,
+    bricks: { game: 'bricks', color: '#ff9f43', number: 2, newsTime: '09:41', music: 'network', iconPal: PAL,
       icon: cup(['kk.kk.kk', 'kk.kk.kk', '........', '...k....', '.kkkkk..']) },
-    crossing: { game: 'crossing', number: 3, newsTime: '09:47', music: 'network', iconPal: PAL,
+    crossing: { game: 'crossing', color: '#3cff9a', number: 3, newsTime: '09:47', music: 'network', iconPal: PAL,
       icon: cup(['.k....k.', 'kkkkkkkk', '.kkkkkk.', 'k.kkkk.k', 'k......k']) },
-    maze: { game: 'maze', number: 4, newsTime: '09:53', music: 'cache', iconPal: PAL,
+    maze: { game: 'maze', color: '#b69cff', number: 4, newsTime: '09:53', music: 'cache', iconPal: PAL,
       icon: cup(['..kkkk..', '.kkkkk..', 'kkk.....', '.kkkkk..', '..kkkk.k']) },
-    invaders: { game: 'invaders', number: 5, newsTime: '09:58', music: 'chase', iconPal: PAL,
+    invaders: { game: 'invaders', color: '#ff5a5f', number: 5, newsTime: '09:58', music: 'chase', iconPal: PAL,
       icon: cup(['.k....k.', '..kkkk..', '.kk..kk.', 'kkkkkkkk', 'k.k..k.k']) },
   };
 })();

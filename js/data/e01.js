@@ -202,6 +202,7 @@
         shard('ev_cache_log', 4, 4, 'e01_pick_log'),
         shard('ev_access_protocol', 2, 9, 'e01_pick_protocol'),
         shard('ev_mira_letter', 24, 13, 'e01_pick_letter'),
+        shard('ev_record_1996', 7, 12, 'e01_pick_1996'),
         { id: 'copier', x: 21, y: 5, solid: true, label: 'label.copier', draw: { kind: 'process', who: 'copier' }, actions: [['dialogue', 'e01_copier']] },
         {
           id: 'clean', x: 10, y: 7, label: 'label.clean',
@@ -338,6 +339,7 @@
     key_cache: ev('key', 'keys'),
     ev_chronology: ev('evidence', 'cache2'),
     ev_mira_record: ev('evidence', 'node'),
+    ev_record_1996: ev('evidence', 'cache_extra'),
   };
 
   // ================================================================ ДЕЛА
@@ -369,7 +371,10 @@
 
   // ================================================================ КАТСЦЕНЫ
   D.cutscenes = {
-    e01_intro: { fx: 'title', music: 'title', frames: [
+    e01_intro: { fx: 'hall', music: 'title', frames: [
+      { title: true, key: 'cut.prologue.0', ms: 2600 }, { key: 'cut.prologue.1', ms: 4000 }, { key: 'cut.prologue.2', ms: 4200 },
+      { key: 'cut.prologue.3', ms: 4400, sfx: 'error' }, { key: 'cut.prologue.4', ms: 5200 },
+      { title: true, key: 'cut.prologue.5', ms: 2400, fx: 'title' },
       { title: true, key: 'cut.intro.title', ms: 2800 }, { key: 'cut.intro.1', ms: 3600 }, { key: 'cut.intro.2', ms: 3600 },
     ] },
     e01_transfer: { fx: 'transfer', music: 'desktop', frames: [
@@ -389,7 +394,9 @@
       l1: L('vera', null, { choices: [C('c1', 'l2a'), C('c2', 'l2b')] }),
       l2a: L('vera'), l2b: L('vera'),
     } },
-    e01_vera_after: { start: 'l1', lines: { l1: L('vera', 'l2'), l2: L('ilya', 'l3'), l3: L('vera') } },
+    e01_vera_after: { start: 'l1', lines: { l1: L('vera', 'l2'), l2: L('ilya', 'l3'), l3: L('vera', 'l4'), l4: L('vera', 'l5'), l5: L('ilya') } },
+    e01_pick_1996: { start: 'l1', lines: { l1: L('ilya', 'l2'), l2: L('ilya', 'l3'), l3: L('nul') } },
+    e01_companion: { start: 'l1', lines: { l1: L('sys', 'l2'), l2: L('nul', 'l3'), l3: L('pix', 'l4'), l4: L('ilya') } },
     e01_coffee: { start: 'l1', lines: { l1: L('sys') } },
     e01_printer: { start: 'l1', lines: { l1: L('sys') } },
     e01_door: { start: 'l1', lines: { l1: L('ilya') } },

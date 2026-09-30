@@ -216,7 +216,11 @@
           more.hidden = lvl() >= keys.length;
         };
         more.addEventListener('click', () => { GS.data.hint_levels[id] = lvl() + 1; draw(); NP.Audio.sfx('blip'); });
-        p.appendChild(el('h2', { text: T('hint.title') }));
+        if (GS.flag('companion')) {
+          const cv = el('canvas', { class: 'portrait mini', width: 16, height: 16 });
+          NP.Sprites.drawPortrait(cv, 'pix', 0);
+          p.appendChild(el('div', { class: 'hint-head' }, [cv, el('h2', { text: T('hint.title_pix') })]));
+        } else p.appendChild(el('h2', { text: T('hint.title') }));
         p.appendChild(list);
         p.appendChild(el('div', { class: 'row' }, [more, el('button', { class: 'btn primary', text: T('ui.close'), onclick: () => close() })]));
         p.appendChild(el('p', { class: 'dim small', text: T('hint.note') }));
