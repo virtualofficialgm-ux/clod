@@ -88,11 +88,29 @@
     setHud(on) { $('hud').hidden = !on; $('touch').hidden = !on; },
     hintPulse(on) { $('btn-hint').classList.toggle('pulse', !!on); },
 
+    // Пиксельная шторка: экран закрывается и открывается квадратами «волной» слева направо.
     fade(on, ms) {
-      const f = $('fade');
-      f.style.transitionDuration = (ms || 400) + 'ms';
-      f.classList.toggle('on', !!on);
-      return NP.sleep(ms || 400);
+      ms = ms || 400;
+      const cv = $('wipe'), g = cv.getContext('2d');
+      const W = 64, H = 36;
+      if (!UI._wipeT) { UI._wipeT = []; for (let i = 0; i < W * H; i++) UI._wipeT.push(((i % W) / W) * 0.6 + Math.random() * 0.4); }
+      const th = UI._wipeT;
+      cv.hidden = false;
+      const start = performance.now();
+      return new Promise((res) => {
+        const step = (now) => {
+          const k = Math.min(1, (now - start) / ms);
+          g.clearRect(0, 0, W, H);
+          g.fillStyle = '#05050a';
+          for (let i = 0; i < th.length; i++) {
+            const covered = on ? th[i] <= k : th[i] > k;
+            if (covered) g.fillRect(i % W, Math.floor(i / W), 1, 1);
+          }
+          if (k < 1) requestAnimationFrame(step);
+          else { if (!on) cv.hidden = true; res(); }
+        };
+        requestAnimationFrame(step);
+      });
     },
 
     modalOpen() { return modals > 0; },

@@ -72,8 +72,12 @@
           cv.addEventListener('pointermove', (e) => { if (e.pointerType === 'mouse' || pointer.active) { pointer.x = toLocal(e); pointer.t = performance.now(); } });
           window.addEventListener('pointerup', () => { pointer.active = false; });
 
+          const fx = new NP.FX.Particles(600);
+          let shakeT = 0;
           const api = {
-            W, H, easy, pointer,
+            W, H, easy, pointer, fx,
+            shake(t) { if (!NP.Settings.values.reduceFlash) shakeT = Math.max(shakeT, t || 0.2); },
+            boom(x, y, color, n) { fx.emit(x, y, { count: n || 18, color: [color || '#ffd166', '#ffffff'], speed: 90, life: 0.6, size: 2, gravity: 80 }); },
             sfx: (n) => NP.Audio.sfx(n),
             axis: () => NP.Input.axis(),
             held: (a) => NP.Input.isHeld(a),
@@ -83,6 +87,7 @@
               if (state !== 'play') return;
               lives--;
               NP.Audio.sfx('hit');
+              api.shake(0.45);
               drawHearts();
               if (lives <= 0) { state = 'lost'; finish('lost'); return; }
               state = 'dead';
@@ -107,7 +112,15 @@
                 msgT -= dt;
                 if (msgT <= 0) { banner.hidden = true; inst.reset(false); state = 'play'; NP.Input.clearPressed(); }
               } else if (msgT > 0) { msgT -= dt; if (msgT <= 0) banner.hidden = true; }
+              fx.update(dt);
+              if (shakeT > 0) shakeT -= dt;
+              g.save();
+              if (shakeT > 0) g.translate(Math.round((Math.random() - 0.5) * 6), Math.round((Math.random() - 0.5) * 6));
               inst.draw(g);
+              fx.draw(g);
+              g.restore();
+              // ЭЛТ-полосы — атмосфера старого автомата.
+              if (!NP.Settings.values.reduceFlash) { g.fillStyle = 'rgba(0,0,0,0.12)'; for (let y = 0; y < H; y += 2) g.fillRect(0, y, W, 1); }
               status.textContent = inst.status ? inst.status() : '';
             }
             if (state !== 'closed') raf = requestAnimationFrame(loop);

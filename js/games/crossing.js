@@ -64,6 +64,7 @@
           if (i < 0 || homes[i]) return api.die();
           homes[i] = true;
           api.sfx('evidence');
+          api.fx.emit(HOMES[i] * TS + 8, OY + 8, { count: 30, color: ['#3cff9a', '#ffd166', '#ffffff'], speed: 80, life: 0.9, size: 2, gravity: 60 });
           if (homes.filter(Boolean).length >= NEED) return api.win();
           startFrog();
         }

@@ -132,12 +132,16 @@
       window.addEventListener('keydown', D.onKey);
       $('dialogue').addEventListener('click', (e) => { if (!e.target.closest('button')) D.advance(); });
       $('dlg-log').addEventListener('click', (e) => { e.stopPropagation(); NP.Journal.open('log'); });
-      // Портрет Миры «шумит» — перерисовываем, пока открыт диалог.
+      // Живой портрет: рот двигается, пока печатается реплика, глаза иногда моргают.
       setInterval(() => {
-        if (active && active.dlg.lines[active.lineId] && active.dlg.lines[active.lineId].speaker === 'mira') {
-          NP.Sprites.drawPortrait($('dlg-portrait'), 'mira', performance.now() / 1000);
-        }
-      }, 80);
+        const line = active && active.dlg.lines[active.lineId];
+        if (!line || line.speaker === 'sys') return;
+        const t = performance.now() / 1000;
+        NP.Sprites.drawPortrait($('dlg-portrait'), line.portrait || line.speaker, t, {
+          talk: active.typing && Math.floor(t * 9) % 2 === 0,
+          blink: t % 3.1 < 0.13,
+        });
+      }, 70);
     },
   });
 })();

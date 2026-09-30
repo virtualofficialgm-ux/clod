@@ -350,3 +350,5 @@ body.touch .arc-pad { display: flex; position: absolute; left: 8px; right: 8px; 
 .hint-head { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
 .hint-head h2 { margin: 0; }
 .spk-pix b, b.spk-pix, .spk-pix #dlg-name { color: #ffb347; }
+
+#wipe { position: absolute; inset: 0; width: 100%; height: 100%; image-rendering: pixelated; pointer-events: none; }

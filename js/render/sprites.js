@@ -25,6 +25,10 @@
   const PAL = {
     ilya: { h: '#3a2a22', s: '#e8b995', S: '#c99372', e: '#1b1b24', b: '#8fb3d4', B: '#6a8fb3', t: '#8c3b3b', p: '#3a3f4b', k: '#1e1f24', m: '#a8554f' },
     vera: { h: '#9c4a2c', s: '#efc3a0', S: '#cf9a78', e: '#1b1b24', b: '#6d9a6a', B: '#557d53', t: '#6d9a6a', p: '#4a3b4f', k: '#1e1f24', m: '#b0505a' },
+    // Пролог 1996: Илья-школьник в полосатой футболке, Глеб в красной, молодая Мира в бирюзовом.
+    kid: { h: '#3a2a22', s: '#f0c4a0', S: '#d09a78', e: '#1b1b24', b: '#ffd166', B: '#d9a83e', t: '#ffd166', p: '#2d4a8a', k: '#e8e4da', m: '#a8554f' },
+    gleb: { h: '#e0b040', s: '#f0c4a0', S: '#d09a78', e: '#1b1b24', b: '#d8434a', B: '#a8323a', t: '#f4f1ea', p: '#2a2a33', k: '#e8e4da', m: '#a8554f' },
+    mira: { h: '#4b3a6e', s: '#efd2c0', S: '#cfa894', e: '#1b1b24', b: '#7fd0c8', B: '#5aa8a0', t: '#f4f1ea', p: '#3a3f4b', k: '#1e1f24', m: '#9a5a8a' },
   };
 
   const SPRITES = {
@@ -91,6 +95,26 @@
   };
 
   const cache = {};
+  // Кадры «говорит»/«моргает» получаются правкой строк портрета.
+  function portraitVariant(def, id, o) {
+    let rows = def.rows.slice();
+    const isProc = rows[1].indexOf('a') >= 0 && id !== 'nul';
+    if (o.blink) {
+      if (id === 'nul') rows[5] = rows[5].replace(/r/g, 'k');
+      else if (id === 'pix') { rows[5] = rows[5].replace(/w/g, 'C'); rows[6] = rows[6].replace(/[wk]/g, 'C'); }
+      else if (isProc) { rows[6] = rows[6].replace(/e/g, 'd'); rows[7] = rows[7].replace(/e/g, 'd'); }
+      else rows = rows.map((r) => r.replace(/e/g, def.pal.S ? 'S' : 's'));
+    }
+    if (o.talk) {
+      if (id === 'nul') rows[8] = '.gkkwkrrrrkwkkg.';
+      else if (isProc) rows[9] = rows[9].replace('eeee', 'eddd');
+      else {
+        const i = rows.findIndex((r) => r.indexOf('m') >= 0);
+        if (i >= 0 && i + 1 < rows.length) rows[i + 1] = [...rows[i + 1]].map((c, x) => (rows[i][x] === 'm' ? 'M' : c)).join('');
+      }
+    }
+    return rows;
+  }
   function build(rows, pal) {
     const h = rows.length, w = rows[0].length;
     const c = document.createElement('canvas');
@@ -109,11 +133,18 @@
 
   const Sprites = (NP.Sprites = {
     // Кадр персонажа: dir = down|up|left|right, frame = idle|w1|w2.
-    person(who, dir, frame) {
-      const key = 'p:' + who + ':' + dir + ':' + frame;
+    // frame: idle | w1 | w2; blink — закрытые глаза. Руки качаются в такт шагам.
+    person(who, dir, frame, blink) {
+      const key = 'p:' + who + ':' + dir + ':' + frame + (blink ? ':b' : '');
       if (cache[key]) return cache[key];
       const side = dir === 'left' || dir === 'right';
-      const body = side ? BODY.side : BODY[dir];
+      let body = (side ? BODY.side : BODY[dir]).slice();
+      const setc = (r, x, ch) => { body[r] = body[r].slice(0, x) + ch + body[r].slice(x + 1); };
+      if (!side && frame === 'w1') { setc(11, 10, 'B'); setc(13, 1, 'B'); }
+      if (!side && frame === 'w2') { setc(11, 1, 'B'); setc(13, 10, 'B'); }
+      if (side && frame === 'w1') { setc(11, 6, 'b'); setc(12, 7, 's'); }
+      if (side && frame === 'w2') { setc(11, 6, 'b'); setc(12, 5, 's'); }
+      if (blink) body = body.map((r) => r.replace(/e/g, 'S'));
       const legs = (side ? SIDE_LEGS : LEGS)[frame] || LEGS.idle;
       let c = build(body.concat(legs), PAL[who] || PAL.ilya);
       if (dir === 'left') {
@@ -142,7 +173,9 @@
       return cache['portrait:' + id] || (cache['portrait:' + id] = build(def.rows, def.pal));
     },
     // Портрет рисуется в canvas 16×16; CSS увеличивает его без сглаживания.
-    drawPortrait(canvas, id, t) {
+    // opts.talk — рот открыт (кадр «говорит»), opts.blink — моргание.
+    drawPortrait(canvas, id, t, opts) {
+      opts = opts || {};
       const g = canvas.getContext('2d');
       const def = PORTRAITS[id === 'cal' || id === 'mail' || id === 'trash' || id === 'copier' ? 'process' : id];
       canvas.width = 16; canvas.height = 16;
@@ -150,7 +183,8 @@
       if (!def) return;
       g.fillStyle = def.bg; g.fillRect(0, 0, 16, 16);
       const pal = Object.assign({}, def.pal, PROCESS_PAL[id] || {});
-      const img = cache['portrait:' + id] || (cache['portrait:' + id] = build(def.rows, pal));
+      const vkey = 'portrait:' + id + (opts.talk ? ':t' : '') + (opts.blink ? ':b' : '');
+      const img = cache[vkey] || (cache[vkey] = build(portraitVariant(def, id, opts), Object.assign({ M: '#3a1414' }, pal)));
       if (def.glitch && !NP.Settings.values.reduceFlash) {
         // Мира — неполная запись: строки смещаются.
         for (let y = 0; y < 16; y++) {

@@ -77,7 +77,7 @@
         const key = pl.tx + ',' + pl.ty;
         if (Math.hypot(pl.px - pl.tx * TS, pl.py - pl.ty * TS) < 4) {
           if (dots.delete(key)) { if (dots.size % 3 === 0) api.sfx('step'); }
-          if (this.power.delete(key)) { fright = api.easy ? 8 : 6; api.sfx('evidence'); }
+          if (this.power.delete(key)) { fright = api.easy ? 8 : 6; api.sfx('evidence'); api.boom(OX + pl.px + 4, OY + pl.py + 4, '#7fe3ff', 20); }
         }
         if (fright > 0) fright -= dt;
         for (const gh of ghosts) {
@@ -85,7 +85,7 @@
           gh.speed = sp(fright > 0 ? 30 : gh.mode === 'chase' ? 46 : 42);
           advance(gh, dt, ghostChoose(gh));
           if (Math.hypot(gh.px - pl.px, gh.py - pl.py) < 6) {
-            if (fright > 0) { Object.assign(gh, mk(17, 9, gh.speed), { delay: 2.5 }); api.sfx('confirm'); }
+            if (fright > 0) { api.boom(OX + gh.px + 4, OY + gh.py + 4, '#3050d0', 24); api.shake(0.15); Object.assign(gh, mk(17, 9, gh.speed), { delay: 2.5 }); api.sfx('confirm'); }
             else return api.die();
           }
         }

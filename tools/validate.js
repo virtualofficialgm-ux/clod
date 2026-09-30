@@ -42,7 +42,7 @@ function checkActions(list, where) {
       case 'toast': key(x, where); break;
       case 'journal': case 'flag': case 'trust': case 'save': case 'sfx': case 'music': case 'wait': case 'freeze':
       case 'shake': case 'flash': case 'episode_end': case 'save_prechoice': break;
-      case 'checkpoint': break;
+      case 'checkpoint': case 'emote': break;
       case 'arcade': if (!D.arcades[x]) err(`${where}: нет автомата ${x}`); break;
       case 'if': checkActions(y, where + '/if'); checkActions(z, where + '/else'); break;
       default: err(`${where}: неизвестный эффект ${op}`);

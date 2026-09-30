@@ -55,6 +55,7 @@
           if (GS.addEvidence(x)) {
             const ev = NP.Data.evidence[x];
             NP.Audio.sfx('evidence');
+            if (Dir.mode === 'world' && NP.World.fx) NP.World.burst('evidence');
             NP.UI.toast(T('toast.new_' + ev.kind) + ': ' + T('ev.' + x + '.title'), 'ev');
             Dir.refreshObjective();
           }
@@ -85,6 +86,7 @@
         case 'wait': await NP.sleep(x); break;
         case 'if': return Dir.run(NP.cond(x) ? y : z);
         case 'freeze': NP.World.freezeGuard(x, y); break;
+        case 'emote': if (NP.World.emotes) NP.World.emote(x, y, z); break;
         case 'shake': if (!NP.Settings.values.reduceFlash) NP.World.shakeT = x || 0.4; break;
         case 'flash': Dir.flash(); break;
         case 'episode_end': await Dir.episodeEnd(); return false;
@@ -99,6 +101,7 @@
           GS.setGameResult(x, r);
           if (r === 'won') {
             NP.UI.toast(T('toast.trophy') + ': ' + T('arc.' + x + '.trophy'), 'ev');
+            if (NP.World.fx) NP.World.burst('trophy');
             // Первый трофей оживает и становится спутником-подсказчиком.
             if (!GS.flag('companion')) { GS.setFlag('companion'); await NP.Dialogue.run('e01_companion'); }
           } else {
@@ -199,7 +202,8 @@
       return new Promise((resolve) => {
         const prevMode = Dir.mode;
         Dir.mode = 'cutscene';
-        Dir.cut = { id, fx: cs.fx, t: 0, color: cs.color };
+        Dir.cut = { id, fx: cs.fx, t: 0, color: cs.color, stage: !!cs.stage };
+        if (cs.stage) NP.Stage.start(cs.stage);
         NP.UI.setHud(false);
         NP.UI.clearLabels();
         if (cs.music) NP.Audio.music(cs.music);
@@ -216,6 +220,7 @@
           box.removeEventListener('click', onClick);
           box.hidden = true;
           Dir.cut = null;
+          NP.Stage.stop();
           Dir.mode = prevMode === 'world' ? 'world' : 'blank';
           if (Dir.mode === 'world') NP.UI.setHud(true);
           NP.Input.clearPressed();
@@ -236,7 +241,13 @@
             if (f.speaker) NP.Audio.voice(f.speaker);
           }
           if (f.sfx) NP.Audio.sfx(f.sfx);
-          if (f.fx) Dir.cut.fx = f.fx;
+          if (f.fx) { Dir.cut.fx = f.fx; Dir.cut.stage = false; }
+          if (f.stage) {
+            if (!NP.Stage.active()) NP.Stage.start({ bg: f.stage });
+            NP.Stage.run([['bg', f.stage]]);
+            Dir.cut.stage = true;
+          }
+          if (f.do && NP.Stage.active()) NP.Stage.run(f.do);
           timer = setTimeout(next, f.ms || 3200);
         };
         const onKey = (e) => {
@@ -254,6 +265,7 @@
       const c = Dir.cut;
       c.t += dt;
       const t = c.t;
+      if (c.stage) { NP.Stage.update(dt); NP.Stage.draw(g); return; }
       if (c.fx === 'transfer') {
         // Пиксели офиса «перетекают» в синюю сетку рабочего стола.
         const k = Math.min(1, t / 9);
@@ -330,10 +342,14 @@
     // Проигрыш: игра вырывается в настоящий город и рассыпает его на кубики.
     playInvasion(id) {
       const def = NP.Data.arcades[id];
-      return Dir.playCutscene({ fx: 'invasion', color: def.color, frames: [
-        { key: 'cut.invasion.' + id, ms: 3600, sfx: 'alarm' },
-        { key: 'arc.' + id + '.news', ms: 4400 },
-      ] });
+      return Dir.playCutscene({
+        fx: 'invasion', color: def.color,
+        stage: { bg: 'city', vars: { color: def.color, siren: 1 }, actors: { mon: { kind: 'monster', color: def.color, x: 760, y: 70, scale: 3 } } },
+        frames: [
+          { key: 'cut.invasion.' + id, ms: 4200, sfx: 'alarm', do: [['move', 'mon', 420, 70, 1.2], ['after', 1.2, [['set', 'attack', 1], ['shake', 0.3]]]] },
+          { key: 'arc.' + id + '.news', ms: 4800, do: [['cam', 320, 220, 1.25, 3], ['shake', 0.5]] },
+        ],
+      });
     },
 
     // --- Итог эпизода

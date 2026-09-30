@@ -370,21 +370,87 @@
   };
 
   // ================================================================ КАТСЦЕНЫ
+  // Катсцены — анимированные сценки. frame.do — команды сцены (js/render/stage.js).
+  // Координаты офиса: карта офиса нарисована со сдвигом (112, 76), тайл 16.
+  const O = (tx, ty) => [112 + tx * 16, 76 + ty * 16];
   D.cutscenes = {
-    e01_intro: { fx: 'hall', music: 'title', frames: [
-      { title: true, key: 'cut.prologue.0', ms: 2600 }, { key: 'cut.prologue.1', ms: 4000 }, { key: 'cut.prologue.2', ms: 4200 },
-      { key: 'cut.prologue.3', ms: 4400, sfx: 'error' }, { key: 'cut.prologue.4', ms: 5200 },
-      { title: true, key: 'cut.prologue.5', ms: 2400, fx: 'title' },
-      { title: true, key: 'cut.intro.title', ms: 2800 }, { key: 'cut.intro.1', ms: 3600 }, { key: 'cut.intro.2', ms: 3600 },
-    ] },
-    e01_transfer: { fx: 'transfer', music: 'desktop', frames: [
-      { key: 'cut.transfer.1', ms: 4200, sfx: 'glitch' }, { key: 'cut.transfer.2', speaker: 'nul', ms: 4600 },
-      { key: 'cut.transfer.3', speaker: 'nul', ms: 5200 }, { key: 'cut.transfer.4', ms: 4200 }, { title: true, key: 'cut.transfer.5', ms: 2400 },
-    ] },
-    e01_erase: { fx: 'erase', frames: [{ key: 'cut.erase.1', ms: 3600, sfx: 'glitch' }, { key: 'cut.erase.2', ms: 4200 }] },
-    e01_outro: { fx: 'title', music: 'title', frames: [
-      { key: 'cut.outro.1', ms: 4600 }, { key: 'cut.outro.2', speaker: 'nul', ms: 5200 }, { title: true, key: 'cut.outro.3', ms: 3000 },
-    ] },
+    e01_intro: {
+      fx: 'title', music: 'title',
+      stage: {
+        bg: 'hall', vars: { score: '2 : 2' },
+        actors: {
+          ilya: { who: 'kid', x: 285, y: 272, dir: 'up', scale: 3, anim: 'play' },
+          gleb: { who: 'gleb', x: 375, y: 272, dir: 'up', scale: 3.3, anim: 'play' },
+        },
+      },
+      frames: [
+        { title: true, key: 'cut.prologue.0', ms: 2600 },
+        { key: 'cut.prologue.1', ms: 4200, do: [['cam', 320, 190, 1.2, 4]] },
+        { key: 'cut.prologue.2', ms: 4400, do: [['cam', 330, 210, 1.75, 1.6], ['emote', 'ilya', '!', 1.6], ['after', 1.8, [['emote', 'gleb', '♪', 1.6]]]] },
+        { key: 'cut.prologue.3', ms: 5200, sfx: 'alarm', do: [
+          ['set', 'score', '2 : 3'], ['flash'], ['shake', 0.3], ['face', 'gleb', 'down'], ['anim', 'gleb', 'cheer'], ['jump', 'gleb', 5],
+          ['burst', 375, 110, 'confetti'], ['set', 'cheer', 1], ['anim', 'ilya', 'idle'], ['cam', 320, 185, 1.3, 1.2],
+          ['after', 1.4, [['face', 'ilya', 'down'], ['anim', 'ilya', 'sad'], ['emote', 'ilya', '…', 3.5], ['burst', 285, 215, 'tears']]],
+        ] },
+        { key: 'cut.prologue.4', ms: 6000, do: [
+          ['set', 'cheer', 0], ['spawn', 'mira', { who: 'mira', x: -30, y: 252, dir: 'right', scale: 2.8 }],
+          ['walk', 'mira', 545, 3.8, 'up'], ['cam', 430, 190, 1.2, 3.8], ['after', 3.9, [['set', 'rec', 1], ['emote', 'mira', '★', 2]]],
+        ] },
+        { title: true, key: 'cut.prologue.5', ms: 2400, fx: 'title' },
+        { title: true, key: 'cut.intro.title', ms: 2600 },
+        { key: 'cut.intro.1', ms: 4600, stage: 'office', do: [
+          ['remove', 'ilya'], ['remove', 'gleb'], ['remove', 'mira'],
+          ['spawn', 'vera', { who: 'vera', x: O(10.5, 6)[0], y: O(10.5, 6)[1], dir: 'down', scale: 1 }],
+          ['spawn', 'ilya', { who: 'ilya', x: O(12.5, 12)[0], y: O(12.5, 12)[1] + 8, dir: 'up', scale: 1 }],
+          ['cam', 320, 200, 1.6, 0.001], ['cam', 250, 170, 2.2, 4.4],
+          ['walk', 'ilya', O(12.5, 8)[0], 1.4, null, O(12.5, 8)[1]],
+          ['after', 1.5, [['walk', 'ilya', O(3.5, 8)[0], 2.2, null, O(3.5, 8)[1]]]],
+          ['after', 1.9, [['emote', 'vera', '♥', 1.4]]],
+          ['after', 3.8, [['walk', 'ilya', O(3.5, 6)[0], 0.7, 'up', O(3.5, 6)[1]]]],
+        ] },
+        { key: 'cut.intro.2', ms: 4000, do: [['cam', 175, 150, 2.8, 2], ['after', 0.6, [['emote', 'ilya', '…', 2.5]]]] },
+      ],
+    },
+    e01_transfer: {
+      fx: 'transfer', music: 'desktop',
+      stage: { bg: 'desk', vars: { glow: 1 }, actors: { ilya: { who: 'ilya', x: 320, y: 336, dir: 'up', scale: 6 } } },
+      frames: [
+        { key: 'cut.transfer.1', ms: 4200, sfx: 'glitch', do: [['cam', 320, 175, 1.2, 4], ['after', 1.5, [['set', 'mirror', 1], ['emote', 'ilya', '?', 2]]]] },
+        { key: 'cut.transfer.2', speaker: 'nul', ms: 4600, do: [['shake', 0.2]] },
+        { key: 'cut.transfer.3', speaker: 'nul', ms: 5400, do: [['set', 'suck', 1], ['cam', 320, 160, 1.5, 5], ['shake', 0.4]] },
+        { key: 'cut.transfer.4', ms: 4600, do: [
+          ['set', 'suck', 0], ['remove', 'ilya'], ['bg', 'grid'], ['cam', 320, 180, 1, 0.001], ['flash'],
+          ['spawn', 'ilya2', { who: 'ilya', x: 320, y: -80, dir: 'down', scale: 5 }], ['drop', 'ilya2', 300, 1.1],
+          ['after', 1.7, [['emote', 'ilya2', '!', 1.6], ['cam', 320, 220, 1.3, 2]]],
+        ] },
+        { title: true, key: 'cut.transfer.5', ms: 2400 },
+      ],
+    },
+    e01_erase: {
+      fx: 'erase',
+      stage: { bg: 'terminal', vars: { glitch: 0.2 }, actors: { mira: { kind: 'face', who: 'mira', x: 320, y: 175, scale: 2, anim: 'talk' } } },
+      frames: [
+        { key: 'cut.erase.1', ms: 3800, sfx: 'glitch', do: [['set', 'glitch', 1], ['shake', 0.5], ['cam', 320, 175, 1.15, 3]] },
+        { key: 'cut.erase.2', ms: 4400, do: [['set', 'eat', 1], ['fade', 'mira', 0, 1.6], ['anim', 'mira', 'idle']] },
+      ],
+    },
+    e01_outro: {
+      fx: 'title', music: 'title',
+      stage: {
+        bg: 'office', vars: { trafficOff: 1 }, cam: { x: 220, y: 160, z: 2.4 },
+        actors: {
+          ilya: { who: 'ilya', x: O(3.5, 6)[0], y: O(3.5, 6)[1], dir: 'up', scale: 1 },
+          vera: { who: 'vera', x: O(10.5, 6)[0], y: O(10.5, 6)[1], dir: 'down', scale: 1 },
+        },
+      },
+      frames: [
+        { key: 'cut.outro.1', ms: 4800, do: [
+          ['walk', 'vera', O(5, 6)[0], 2, 'left'], ['after', 2.1, [['anim', 'vera', 'wave'], ['emote', 'vera', '?', 2.4]]],
+        ] },
+        { key: 'cut.outro.2', speaker: 'nul', ms: 5400, do: [['set', 'trafficOff', 0], ['set', 'green', 1], ['emote', 'ilya', '!', 1.6], ['cam', 280, 120, 2, 2.5]] },
+        { title: true, key: 'cut.outro.3', ms: 3000 },
+      ],
+    },
   };
 
   // ================================================================ ДИАЛОГИ

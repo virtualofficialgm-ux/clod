@@ -45,6 +45,7 @@
           if (h.x === food.x && h.y === food.y) {
             eaten++;
             api.sfx('blip');
+            api.boom(h.x * C + 5, OY + h.y * C + 5, PAL.dark, 12);
             if (eaten >= GOAL) return api.win();
             place();
           } else snake.pop();

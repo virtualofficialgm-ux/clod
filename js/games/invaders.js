@@ -67,7 +67,7 @@
             bombs.push({ x: lowest.x + 5, y: lowest.y + 7, vy: 70 * k + 20 });
           }
           for (const s of shots) for (const inv of alive) {
-            if (s.x >= inv.x && s.x <= inv.x + 10 && s.y >= inv.y && s.y <= inv.y + 6) { inv.alive = false; s.y = -99; killed++; api.sfx('blip'); }
+            if (s.x >= inv.x && s.x <= inv.x + 10 && s.y >= inv.y && s.y <= inv.y + 6) { inv.alive = false; s.y = -99; killed++; api.sfx('blip'); api.boom(inv.x + 5, inv.y + 3, ['#ff5a5f', '#ff9f43', '#b69cff', '#7fe3ff'][inv.row], 16); }
           }
           if (alive.some((s) => s.alive && s.y + 6 >= 136)) return api.die();
           if (!swarm.some((s) => s.alive)) {
@@ -88,8 +88,8 @@
               boss.cd = api.easy ? 2.4 : 1.7;
             }
           }
-          for (const s of shots) if (Math.abs(s.x - boss.x) < 20 && s.y < boss.y + 6 && s.y > boss.y - 6) { s.y = -99; boss.hp--; flashT = 0.08; api.sfx('rotate'); }
-          if (boss.hp <= 0) return api.win();
+          for (const s of shots) if (Math.abs(s.x - boss.x) < 20 && s.y < boss.y + 6 && s.y > boss.y - 6) { s.y = -99; boss.hp--; flashT = 0.08; api.sfx('rotate'); api.boom(s.x, boss.y + 4, '#ffd166', 8); api.shake(0.06); }
+          if (boss.hp <= 0) { for (let i = 0; i < 5; i++) api.boom(boss.x + (i - 2) * 8, boss.y, '#ff5a5f', 30); api.shake(0.6); return api.win(); }
         }
         for (const b of bombs) if (Math.abs(b.x - ship.x) < 5 && b.y > ship.y - 5 && b.y < ship.y + 5) return api.die();
       },

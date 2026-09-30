@@ -27,6 +27,9 @@
       else { p.x = W.checkpoint.x; p.y = W.checkpoint.y; p.dir = W.checkpoint.dir; }
       p.frame = 'idle';
       W.resetHazards();
+      W.fx = new NP.FX.Particles(500);
+      W.emotes = [];
+      W.dustT = 0;
       W.snapCamera();
     },
 
@@ -74,6 +77,8 @@
 
     update(dt, controllable) {
       W.t += dt;
+      if (W.fx) { W.fx.update(dt); W.ambient(dt); }
+      W.emotes = (W.emotes || []).filter((e) => (e.t += dt) < e.dur);
       if (W.scanT > 0) W.scanT -= dt;
       if (W.shakeT > 0) W.shakeT -= dt;
       if (W.fadeHit > 0) W.fadeHit -= dt;
@@ -86,6 +91,12 @@
           if (!W.blocked(nx, p.y)) p.x = nx;
           if (!W.blocked(p.x, ny)) p.y = ny;
           p.moving = true;
+          // Пыль из-под ног.
+          W.dustT -= dt;
+          if (W.dustT <= 0 && W.fx) {
+            W.dustT = 0.2;
+            W.fx.emit(p.x, p.y + 1, { count: 2, color: W.dustColor(), speed: 14, life: 0.45, angle: -Math.PI / 2, spread: 1.4, size: 2, gravity: -10 });
+          }
           if (Math.abs(a.x) > Math.abs(a.y)) p.dir = a.x < 0 ? 'left' : 'right';
           else p.dir = a.y < 0 ? 'up' : 'down';
         }
@@ -227,6 +238,7 @@
       for (const g of W.hz.guards) if (g.id === id) { g.frozen = seconds * (W.hz.easy ? 1.4 : 1); g.state = 'move'; g.lane = []; }
     },
     hit() {
+      if (W.fx) W.fx.emit(W.player.x, W.player.y - 8, { count: 30, color: ['#ff5a5f', '#ffffff', '#ffd166'], speed: 110, life: 0.7, size: 3, gravity: 120 });
       if (W.hz.dead) return;
       W.hz.dead = true;
       NP.Audio.sfx('hit');
@@ -259,6 +271,9 @@
       objs.sort((a, b) => a.y - b.y).forEach((o) => o.draw());
 
       if (W.hz) W.drawHazards(g, cx, cy, labels);
+      if (W.fx) W.fx.draw(g, cx, cy);
+      W.drawOverlay(g, cx, cy);
+      W.drawEmotes(g, cx, cy);
 
       // Подписанные состояния объектов и подсветка по запросу.
       for (const it of W.visibleInteractables()) {
@@ -293,10 +308,81 @@
 
     drawPlayer(g, cx, cy) {
       const p = W.player;
-      const spr = NP.Sprites.person('ilya', p.dir, p.frame);
+      const blink = W.t % 3.4 < 0.12;
+      const spr = NP.Sprites.person('ilya', p.dir, p.frame, blink);
+      // Шаг подпрыгивает, в покое — дыхание.
+      const bob = p.moving && p.frame === 'w1' ? -1 : 0;
+      const breathe = !p.moving && W.t % 1.6 < 0.8 ? 1 : 0;
       g.fillStyle = 'rgba(0,0,0,0.3)';
       g.fillRect(Math.round(p.x - 5 - cx), Math.round(p.y - 1 - cy), 10, 3);
-      g.drawImage(spr, Math.round(p.x - 6 - cx), Math.round(p.y - 18 - cy));
+      g.drawImage(spr, 0, 0, 12, 18, Math.round(p.x - 6 - cx), Math.round(p.y - 18 - cy) + bob + breathe, 12, 18 - breathe);
+    },
+
+    // --- Мультяшная жизнь мира
+    dustColor() {
+      return { office: '#b8ab98', desktop: '#7fb3ff', network: '#3cff9a', cache: '#b69cff', chase: '#ff9aa0', node: '#d9c4e8' }[W.scene.palette] || '#ccc';
+    },
+    emote(who, glyph, dur) { W.emotes.push({ who, glyph, t: 0, dur: dur || 1.8 }); },
+    burst(kind) {
+      const p = W.player;
+      if (kind === 'evidence') {
+        W.fx.emit(p.x, p.y - 12, { count: 26, color: ['#7fe3ff', '#ffffff', '#b69cff'], speed: 70, life: 0.9, size: 2, gravity: 60 });
+        W.fx.emit(p.x, p.y - 20, { count: 10, color: '#ffd166', speed: 30, life: 1.2, angle: -Math.PI / 2, spread: 0.7, glyph: '★' });
+        W.emote('player', '!', 1.4);
+      } else if (kind === 'trophy') {
+        W.fx.emit(p.x, p.y - 12, { count: 40, color: ['#ffd166', '#ff5a5f', '#6fe3a1', '#7fe3ff'], speed: 90, life: 1.4, size: 3, gravity: 90, spin: true });
+      }
+    },
+    // Фоновая жизнь: пылинки в лучах окна, всплывающие биты, пакеты по сетке, светлячки.
+    ambient(dt) {
+      if (NP.Settings.values.reduceFlash && Math.random() < 0.5) return;
+      const r = W.roomSize(), pal = W.scene.palette, rnd = NP.FX.rnd;
+      const at = () => [rnd(0, r.w), rnd(32, r.h)];
+      if (Math.random() > dt * 14) return;
+      const [x, y] = at();
+      if (pal === 'office') W.fx.emit(x, y, { count: 1, color: 'rgba(255,240,200,0.8)', speed: 4, life: 3, size: 1, drag: 0 });
+      else if (pal === 'desktop') W.fx.emit(x, y, { count: 1, color: ['#7fb3ff', '#cfe0ff'], speed: 6, life: 2.5, angle: -Math.PI / 2, spread: 0.3, glyph: Math.random() < 0.5 ? '0' : '1', drag: 0 });
+      else if (pal === 'network') W.fx.emit(0, Math.floor(rnd(2, r.h / 16 - 1)) * 16 + 8, { count: 1, color: '#3cff9a', speed: 90, angle: 0, spread: 0, life: 6, size: 2, drag: 0 });
+      else if (pal === 'cache') W.fx.emit(x, y, { count: 1, color: ['#b69cff', '#7fe3ff', '#ffd166'], speed: 8, life: 2, size: 1, spin: true, drag: 0 });
+      else if (pal === 'node') W.fx.emit(x, y, { count: 1, color: '#e6dcff', speed: 6, life: 3, size: 2, spin: true, drag: 0 });
+      else if (pal === 'chase') W.fx.emit(x, 0, { count: 1, color: '#ff5a5f', speed: 60, angle: Math.PI / 2, spread: 0.1, life: 3, size: 1, drag: 0 });
+      // Процессы и люди время от времени «думают вслух».
+      if (Math.random() < 0.02) {
+        const npcs = W.visibleInteractables().filter((it) => it.draw && (it.draw.kind === 'process' || it.draw.kind === 'person'));
+        if (npcs.length) {
+          const it = npcs[Math.floor(Math.random() * npcs.length)];
+          if (!W.emotes.some((e) => e.who === it.id)) W.emote(it.id, it.draw.kind === 'person' ? '…' : ['♪', '?', '#'][Math.floor(Math.random() * 3)], 2.2);
+        }
+      }
+    },
+    drawOverlay(g, cx, cy) {
+      const pal = W.scene.palette, t = W.t;
+      if (pal === 'office') {
+        // Солнечные лучи из окон.
+        g.globalAlpha = 0.07 + 0.02 * Math.sin(t * 0.7);
+        g.fillStyle = '#fff6d8';
+        const m = W.scene.map[1];
+        for (let x = 0; x < m.length; x++) if (m[x] === 'w') {
+          g.beginPath(); g.moveTo(x * 16 - cx, 32 - cy); g.lineTo(x * 16 + 16 - cx, 32 - cy); g.lineTo(x * 16 + 40 - cx, 150 - cy); g.lineTo(x * 16 + 24 - cx, 150 - cy); g.fill();
+        }
+        g.globalAlpha = 1;
+      } else if (pal === 'chase' && !NP.Settings.values.reduceFlash) {
+        g.fillStyle = 'rgba(255,40,60,' + (0.08 + 0.08 * Math.sin(t * 5)) + ')';
+        g.fillRect(0, 0, 640, 360);
+      }
+      NP.FX.vignette(g, pal === 'office' ? 0.35 : 0.55);
+    },
+    drawEmotes(g, cx, cy) {
+      for (const e of W.emotes) {
+        let x, y;
+        if (e.who === 'player') { x = W.player.x; y = W.player.y - 20; }
+        else {
+          const it = (W.scene.interactables || []).find((i) => i.id === e.who);
+          if (!it) continue;
+          x = (it.x + (it.w || 1) / 2) * 16; y = it.y * 16 - 2;
+        }
+        NP.FX.emote(g, x - cx, y - cy, e.glyph, e.t);
+      }
     },
 
     drawInteractable(g, it, cx, cy) {
@@ -306,9 +392,10 @@
       const t = W.t;
       switch (d.kind) {
         case 'person': {
-          const spr = NP.Sprites.person(d.who, d.dir || 'down', 'idle');
+          const spr = NP.Sprites.person(d.who, d.dir || 'down', 'idle', (t + it.x) % 2.9 < 0.12);
           g.fillStyle = 'rgba(0,0,0,0.3)'; g.fillRect(px + 3, py + 14, 10, 3);
-          g.drawImage(spr, px + 2, py - 2 + (Math.sin(t * 2) > 0.95 ? -1 : 0));
+          const br = t % 1.8 < 0.9 ? 1 : 0;
+          g.drawImage(spr, 0, 0, 12, 18, px + 2, py - 2 + br, 12, 18 - br);
           break;
         }
         case 'process': {

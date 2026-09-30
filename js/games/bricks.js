@@ -62,6 +62,7 @@
             if (ox < oy) ball.vx = -ball.vx; else ball.vy = -ball.vy;
             b.hp--;
             flash = 0.06;
+            if (!b.hp) { api.boom(b.x + BW / 2, b.y + BH / 2, ROW_COL[b.row], 16); api.shake(0.08); }
             api.sfx(b.hp ? 'rotate' : 'blip');
             break;
           }
