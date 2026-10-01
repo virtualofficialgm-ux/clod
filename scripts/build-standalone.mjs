@@ -65,10 +65,8 @@ const body = index.slice(index.indexOf('<body>') + 6, index.indexOf('</body>'))
 const html = `<title>Parri Pay</title>
 <style>
 ${read('public/styles.css')}
-.standalone-note { max-width: 960px; margin: 0 auto; padding: 12px 16px 0; font-size: 12px; color: var(--muted); }
 </style>
 ${body}
-<p class="standalone-note">Демо-версия: сервис и банки-партнёры работают в браузере, данные сбрасываются при перезагрузке страницы. Карты и банки тестовые.</p>
 <script>
 ${backend.replaceAll('</script', '<\\/script')}
 </script>
