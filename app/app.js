@@ -97,7 +97,7 @@ function seedState() {
 }
 let state;
 try { state = JSON.parse(localStorage.getItem(STORE)) || seedState(); } catch (e) { state = seedState(); }
-state.sheet = null; state.chat = state.chat || []; state.typing = false; state.confirmReset = false; state.confirmDel = false;
+state.sheet = null; state.chat = state.chat || []; state.typing = false; state.fab = false; state.confirmReset = false; state.confirmDel = false;
 const save = () => {
   try {
     const { sheet, draft, ...rest } = state;
@@ -250,34 +250,57 @@ const statusBadge = (s) => s === 'quote'
 const sw = (on, action, extra = '') => `<button class="switch ${on ? 'on' : ''}" role="switch" aria-checked="${on}" data-a="${action}" ${extra}></button>`;
 const nav = ({ title, left = '', right = '' }) => `<header class="nav"><div class="nav-left">${left}</div><div class="nav-title">${esc(title)}</div><div class="nav-right">${right}</div></header>`;
 
-function tripCard(t) {
-  const d = DEST[t.dest];
-  const c = costs(t);
-  const acts = actionsFor(t);
-  const doneN = acts.filter((x) => x.done).length;
-  const left = daysBetween(todayISO(), t.start);
+const ring = (pct, size, stroke, color, inner = '') => {
+  const r = (size - stroke) / 2, C = 2 * Math.PI * r, p = Math.max(0, Math.min(1, pct));
+  const m = size / 2;
+  return `<span class="ring" style="width:${size}px;height:${size}px"><svg viewBox="0 0 ${size} ${size}" aria-hidden="true"><circle cx="${m}" cy="${m}" r="${r}" fill="none" stroke="var(--track)" stroke-width="${stroke}"/><circle cx="${m}" cy="${m}" r="${r}" fill="none" stroke="${color}" stroke-width="${stroke}" stroke-linecap="round" stroke-dasharray="${C.toFixed(2)}" stroke-dashoffset="${(C * (1 - p)).toFixed(2)}" transform="rotate(-90 ${m} ${m})"/></svg><span class="ring-in">${inner}</span></span>`;
+};
+const thumb = (code, size) => `<span class="thumb" style="${artBg(code)};width:${size}px;height:${size}px"><b>${code}</b></span>`;
+const daysLeft = (t) => { const n = daysBetween(todayISO(), t.start); return n > 0 ? `через ${n} дн.` : n === 0 ? 'сегодня' : 'прошла'; };
+const homeTrip = () => { const L = state.trips.slice().sort((p, q) => p.start.localeCompare(q.start)); return L.find((t) => t.id === state.homeTrip) || L[0]; };
+
+function summaryCards(t, c) {
   const fit = c.total <= t.budget;
-  return `<button class="trip-card" data-a="open-trip" data-id="${t.id}">
-    ${art(t.dest)}
-    <div class="top">
-      <span class="when">${fmtRange(t.start, addDays(t.start, t.nights))} · ${t.travelers} чел.</span>
-      <span class="glass-pill">${left > 0 ? `через ${left} ${plural(left, 'день', 'дня', 'дней')}` : left === 0 ? 'сегодня' : 'прошла'}</span>
+  return `<div class="card hero-stat">
+      <div class="hero-stat-txt"><div class="mega num">${NF.format(Math.round(Math.abs(t.budget - c.total)))}<small>₽</small></div>
+        <div class="hero-lbl">${fit ? 'Запас бюджета' : 'Не хватает до бюджета'}</div>
+        <div class="hero-sub">${VARIANTS[t.variant].name}: ${NF.format(c.total)} из ${rub(t.budget)}</div></div>
+      ${ring(c.total / t.budget, 96, 10, fit ? 'var(--ink)' : 'var(--red)', ic('wallet'))}
     </div>
-    <div class="bottom">
-      <div><h3>${d.city}</h3><div style="font-size:14px;opacity:.85;margin-top:2px">${d.country}${t.example ? ' · пример' : ''}</div></div>
-      <div class="meta"><span>${VARIANTS[t.variant].name}: <b>${kRub(c.total)}</b></span><span>${fit ? 'в бюджете' : 'выше бюджета на ' + kRub(c.total - t.budget)}</span></div>
-      <div class="bar" aria-label="Дела: ${doneN} из ${acts.length}"><i style="width:${(doneN / acts.length) * 100}%"></i></div>
-      <div class="meta" style="font-size:13px;opacity:.9"><span>Дела: ${doneN} из ${acts.length}</span><span>${d.cur}</span></div>
-    </div>
+    <div class="macro-row">${['flights', 'lodging', 'food'].map((k) => {
+      const l = c.lines.find((x) => x.cat === k);
+      return `<div class="card macro"><b class="num">${kShort(l.amount)}</b><span>${CATS[k].name}</span>
+        ${ring(l.amount / c.total, 66, 7, CATS[k].color, `<span style="color:${CATS[k].color}">${ic(CAT_ICON[k])}</span>`)}</div>`;
+    }).join('')}</div>`;
+}
+
+function tripRow(t) {
+  const d = DEST[t.dest], c = costs(t);
+  const get = (k) => c.lines.find((l) => l.cat === k).amount;
+  const fit = c.total <= t.budget;
+  return `<button class="card log" data-a="open-trip" data-id="${t.id}">
+    ${thumb(t.dest, 92)}
+    <span class="log-body">
+      <span class="log-top"><b>${d.city}</b><span class="time-chip">${fmtRange(t.start, addDays(t.start, t.nights))}</span></span>
+      <span class="log-num"><b class="num">${rub(c.total)}</b><span class="pill ${fit ? 'ok' : 'bad'}">${fit ? 'в бюджете' : 'выше'}</span></span>
+      <span class="log-macros">${['flights', 'lodging', 'activities'].map((k) => `<span><i style="color:${CATS[k].color}">${ic(CAT_ICON[k])}</i>${kShort(get(k))}</span>`).join('')}</span>
+    </span>
   </button>`;
 }
 
 /* ---------------- Screens ---------------- */
 function screenTrips() {
   const list = state.trips.slice().sort((p, q) => p.start.localeCompare(q.start));
-  return `${nav({ title: 'Поездки', right: `<button class="glass-btn" data-a="new-trip" aria-label="Новая поездка">${ic('plus')}</button>` })}
-    <h1 class="large-title">Поездки</h1>
-    ${list.length ? list.map(tripCard).join('') : `<div class="card empty">${ic('trips')}<b style="color:var(--label)">Поездок пока нет</b>Расскажите, куда и на сколько хотите поехать, — Parri соберёт маршрут и посчитает бюджет.<button class="btn primary" data-a="new-trip">${ic('plus')} Новая поездка</button></div>`}
+  const sel = homeTrip();
+  return `<header class="home-head"><span class="logo"><span class="logo-mark">${ic('plane')}</span>Parri</span><span class="streak">${ic('trips')}<b>${list.length}</b></span></header>
+    ${list.length ? `<div class="strip" role="tablist" aria-label="Поездки">${list.map((t) => `<button class="strip-day ${t === sel ? 'on' : ''}" data-a="home-trip" data-id="${t.id}" aria-selected="${t === sel}"><span class="strip-code">${t.dest}</span><span class="strip-circ num">${toDate(t.start).getDate()}</span><span class="strip-m">${fmtD(t.start).split(' ')[1]}</span></button>`).join('')}
+      <button class="strip-day add" data-a="new-trip" aria-label="Новая поездка"><span class="strip-code">новая</span><span class="strip-circ">${ic('plus')}</span><span class="strip-m">&nbsp;</span></button></div>
+    <div class="section">
+      <div class="section-h"><h2>${DEST[sel.dest].city} <span class="h-sub">${daysLeft(sel)}</span></h2><button data-a="open-trip" data-id="${sel.id}">Открыть</button></div>
+      ${summaryCards(sel, costs(sel))}
+    </div>
+    <div class="section"><div class="section-h"><h2>Мои поездки</h2></div>${list.map(tripRow).join('')}</div>`
+    : `<div class="card empty">${ic('trips')}<b style="color:var(--label)">Поездок пока нет</b>Расскажите, куда и на сколько хотите поехать, — Parri соберёт маршрут и посчитает бюджет.<button class="btn primary" data-a="new-trip">${ic('plus')} Новая поездка</button></div>`}
     <div class="notice">${ic('shield')}<div><b>Оценка — не бронь.</b> Суммы в Parri — это расчёт по средним ценам или цена подключённого поставщика на момент проверки. Подтверждённой считается только бронь с номером от поставщика. В этой версии Parri не бронирует.</div></div>`;
 }
 
@@ -288,20 +311,19 @@ function screenTrip(t) {
   const sec = state.section;
   const body = { route: secRoute, budget: secBudget, docs: secDocs, todo: secTodo }[sec](t, c);
   return `${nav({ title: d.city, left: `<button class="glass-btn" data-a="back" aria-label="Назад">${ic('chevL')}</button>`, right: `<button class="glass-btn" data-a="edit-trip">Изменить</button>` }).replace('class="nav"', 'class="nav on-hero"')}
-    <section class="hero" style="${artBg(t.dest)}">
-      <span class="art"><span class="code" style="font-size:150px;top:70px">${t.dest}</span></span>
-      <h1>${d.city}</h1>
-      <p>${d.country} · ${fmtRange(t.start, end)} · ${t.nights + 1} ${plural(t.nights + 1, 'день', 'дня', 'дней')}</p>
-      <div class="hero-kpis">
-        <div><b>${kShort(c.total)}</b><span>${VARIANTS[t.variant].name}</span></div>
-        <div><b>${kShort(t.budget)}</b><span>Бюджет</span></div>
-        <div><b>${t.travelers} чел.</b><span>${{ calm: 'Спокойно', normal: 'Обычно', intense: 'Насыщенно' }[t.pace]}</span></div>
+    <section class="hero" style="${artBg(t.dest)}"><span class="hero-code">${t.dest}</span></section>
+    <div class="over">
+      <div class="trip-title">
+        <span class="time-chip">${fmtRange(t.start, end)} · ${t.nights + 1} ${plural(t.nights + 1, 'день', 'дня', 'дней')}</span>
+        <h1>${d.city}</h1>
+        <p>${d.country} · ${t.travelers} чел. · ${{ calm: 'спокойный темп', normal: 'обычный темп', intense: 'насыщенный темп' }[t.pace]}</p>
       </div>
-    </section>
-    <div class="seg sticky" role="tablist">
-      ${[['route', 'Маршрут'], ['budget', 'Бюджет'], ['docs', 'Документы'], ['todo', 'Дела']].map(([k, n]) => `<button role="tab" aria-selected="${sec === k}" class="${sec === k ? 'on' : ''}" data-a="section" data-k="${k}">${n}</button>`).join('')}
-    </div>
-    ${body}`;
+      ${summaryCards(t, c)}
+      <div class="seg sticky" role="tablist">
+        ${[['route', 'Маршрут'], ['budget', 'Бюджет'], ['docs', 'Документы'], ['todo', 'Дела']].map(([k, n]) => `<button role="tab" aria-selected="${sec === k}" class="${sec === k ? 'on' : ''}" data-a="section" data-k="${k}">${n}</button>`).join('')}
+      </div>
+      ${body}
+    </div>`;
 }
 
 function secRoute(t, c) {
@@ -313,7 +335,7 @@ function secRoute(t, c) {
     ? `<div class="notice">${ic('info')}<div><b>Мало времени на визу.</b> До вылета ${left} ${plural(left, 'день', 'дня', 'дней')}, а на оформление обычно нужно около ${entry.lead}. Подайте документы как можно скорее или перенесите даты.</div></div>` : '';
   return `${visaWarn}<div class="list">
       <button class="row variant-card" data-a="compare">
-        <span class="ico" style="background:var(--tint)">${ic('compare')}</span>
+        <span class="ico" style="background:var(--ink);color:var(--on-tint)">${ic('compare')}</span>
         <span class="grow"><span class="t" style="font-weight:600">Вариант «${VARIANTS[t.variant].name}»</span><span class="s" style="display:block">${fit ? `В бюджете, запас ${rub(t.budget - c.total)}` : `Выше бюджета на ${rub(c.total - t.budget)}`} · сравнить 3 варианта</span></span>
         ${ic('chevR', 'chev')}
       </button>
@@ -345,8 +367,7 @@ function secBudget(t, c) {
   t.expenses.forEach((e) => { byCat[e.cat] = (byCat[e.cat] || 0) + e.amount; });
   const max = Math.max(c.total, t.budget);
   return `<div class="card pad stack">
-      <div class="kv"><span>Оценка поездки</span>${fit ? '<span class="pill ok">В бюджете</span>' : '<span class="pill bad">Выше бюджета</span>'}</div>
-      <div class="big-num">${rub(c.total)}</div>
+      <div class="kv"><span>Оценка «${VARIANTS[t.variant].name}»</span><b>${rub(c.total)}</b></div>
       <div class="bar" style="height:12px;border-radius:6px">${c.lines.map((l) => `<i style="width:${(l.amount / max) * 100}%;background:${CATS[l.cat].color}"></i>`).join('')}</div>
       <div class="legend">${c.lines.map((l) => `<span><i style="background:${CATS[l.cat].color}"></i>${CATS[l.cat].name}</span>`).join('')}</div>
       <div class="kv"><span>Бюджет</span><b>${rub(t.budget)}</b></div>
@@ -554,7 +575,7 @@ function sheetNewTrip() {
 }
 
 function sheetCompare() {
-  const t = trip();
+  const t = trip(state.cmpTrip) || trip();
   const all = Object.keys(VARIANTS).map((k) => ({ k, c: costs(t, k) }));
   const best = bestFit(t);
   const cur = all.find((x) => x.k === t.variant);
@@ -580,7 +601,7 @@ function sheetCompare() {
 function sheetExpense() {
   const e = state.expDraft;
   return {
-    title: 'Новый расход',
+    title: `Расход · ${DEST[trip(e.trip).dest].city}`,
     left: `<button class="glass-btn" data-a="close">Отмена</button>`,
     body: `<div class="list">
         <label class="row"><span class="grow t">Сумма, ₽</span><input id="e-amount" class="inline-input" inputmode="numeric" data-e="amount" value="${e.amount ? NF.format(e.amount) : ''}" placeholder="0"></label>
@@ -660,8 +681,10 @@ function render() {
   lastKey = key;
 
   const tabs = [['trips', 'Поездки', 'trips'], ['todo', 'Дела', 'todo'], ['wallet', 'Кошелёк', 'wallet'], ['profile', 'Профиль', 'person']];
-  $tabs.innerHTML = `<nav class="tabbar" aria-label="Разделы">${tabs.map(([k, n, i]) => `<button class="tab ${state.tab === k ? 'on' : ''}" data-a="tab" data-k="${k}" aria-current="${state.tab === k}">${ic(i)}<span>${n}</span></button>`).join('')}</nav>
-    <button class="assist-btn" data-a="assistant" aria-label="Спросить Parri">${ic('sparkles')}</button>`;
+  const menu = [['new-trip', 'Новая поездка', 'plane'], ['add-expense', 'Добавить расход', 'coins'], ['assistant', 'Спросить Parri', 'sparkles'], ['compare', 'Сравнить варианты', 'compare']];
+  $tabs.innerHTML = `${state.fab ? `<div class="fab-scrim" data-a="fab"></div><div class="fab-menu">${menu.map(([a, n, i]) => `<button class="card fab-item" data-a="${a}" ${state.trips.length || a === 'new-trip' || a === 'assistant' ? '' : 'disabled'}>${ic(i)}<span>${n}</span></button>`).join('')}</div>` : ''}
+    <nav class="tabbar" aria-label="Разделы">${tabs.map(([k, n, i]) => `<button class="tab ${state.tab === k ? 'on' : ''}" data-a="tab" data-k="${k}" aria-current="${state.tab === k}">${ic(i)}<span>${n}</span></button>`).join('')}</nav>
+    <button class="fab ${state.fab ? 'open' : ''}" data-a="fab" aria-label="${state.fab ? 'Закрыть меню' : 'Добавить'}" aria-expanded="${!!state.fab}">${ic('plus')}</button>`;
 
   renderSheet();
   save();
@@ -722,9 +745,13 @@ function ask(q) {
 document.addEventListener('click', (ev) => {
   const el = ev.target.closest('[data-a]');
   if (!el || el.disabled) return;
-  const a = el.dataset.a, k = el.dataset.k, t = trip();
+  const a = el.dataset.a, k = el.dataset.k;
+  const t = trip() || (['compare', 'add-expense'].includes(el.dataset.a) ? homeTrip() : null);
   const d = state.draft;
+  if (a !== 'fab') state.fab = false;
   switch (a) {
+    case 'fab': state.fab = !state.fab; break;
+    case 'home-trip': state.homeTrip = el.dataset.id; break;
     case 'tab': state.tab = k; state.tripId = null; break;
     case 'open-trip': state.tripId = el.dataset.id; state.section = 'route'; break;
     case 'back': state.tripId = null; break;
@@ -732,22 +759,22 @@ document.addEventListener('click', (ev) => {
     case 'new-trip': state.draft = newDraft(); state.sheet = 'new'; break;
     case 'edit-trip': state.draft = newDraft(t); state.sheet = 'new'; break;
     case 'close': state.sheet = null; state.confirmDel = false; break;
-    case 'compare': state.sheet = 'compare'; t.compareSeen = true; t.done.compare = true; break;
+    case 'compare': state.sheet = 'compare'; state.cmpTrip = t.id; t.done.compare = true; break;
     case 'pick-variant': {
-      const tt = t || state.trips[0];
+      const tt = (state.sheet === 'compare' && trip(state.cmpTrip)) || t || state.trips[0];
       tt.variant = k; state.sheet = state.sheet === 'assistant' ? 'assistant' : null;
       toast(`Выбран вариант «${VARIANTS[k].name}»`); break;
     }
     case 'rebuild': { const tt = t || state.trips[0]; tt.seed += 1; if (state.sheet === 'assistant') state.sheet = null; state.tab = 'trips'; state.tripId = tt.id; state.section = 'route'; toast('Маршрут пересобран'); break; }
     case 'doc': { const order = ['todo', 'progress', 'done']; const cur = t.docs[el.dataset.id] || 'todo'; t.docs[el.dataset.id] = order[(order.indexOf(cur) + 1) % 3]; if (el.dataset.id === 'entry' || el.dataset.id === 'insurance' || el.dataset.id === 'stay') t.done[el.dataset.id] = t.docs[el.dataset.id] === 'done'; break; }
     case 'toggle-todo': { const tt = trip(el.dataset.trip); tt.done[el.dataset.id] = !tt.done[el.dataset.id]; break; }
-    case 'add-expense': state.expDraft = { amount: 0, note: '', cat: 'food' }; state.sheet = 'expense'; break;
+    case 'add-expense': state.expDraft = { amount: 0, note: '', cat: 'food', trip: t.id }; state.sheet = 'expense'; break;
     case 'e-cat': state.expDraft.cat = k; break;
     case 'e-save': {
       const e = state.expDraft;
       if (!e.amount) { toast('Введите сумму'); return; }
-      t.expenses.push({ id: uid(), cat: e.cat, amount: e.amount, note: e.note.trim(), date: todayISO(), src: 'manual' });
-      state.sheet = null; toast('Расход добавлен'); break;
+      trip(e.trip).expenses.push({ id: uid(), cat: e.cat, amount: e.amount, note: e.note.trim(), date: todayISO(), src: 'manual' });
+      state.sheet = null; toast(`Расход добавлен · ${DEST[trip(e.trip).dest].city}`); break;
     }
     case 'del-expense': t.expenses = t.expenses.filter((e) => e.id !== el.dataset.id); break;
     case 'import-pay': {
@@ -817,7 +844,7 @@ document.addEventListener('submit', (ev) => {
     ask(q);
   }
 });
-document.addEventListener('keydown', (ev) => { if (ev.key === 'Escape' && state.sheet) { state.sheet = null; render(); } });
+document.addEventListener('keydown', (ev) => { if (ev.key === 'Escape' && (state.sheet || state.fab)) { state.sheet = null; state.fab = false; render(); } });
 
 function submitDraft() {
   const d = state.draft;
