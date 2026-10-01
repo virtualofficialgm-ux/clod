@@ -1,8 +1,9 @@
-import { Droplet, Dumbbell, Flame, Minus, Plus, Sparkles, Trash2, User } from "lucide-react";
+import { ChevronRight, Droplet, Dumbbell, Flame, Minus, Plus, ScanLine, Sparkles, Trash2, User } from "lucide-react";
 import { useState } from "react";
 import type { Tab } from "../App";
 import { Ring, ScreenWithTitle, haptic } from "../components/ui";
 import { today, updateUser, useUser, type MealEntry } from "../store";
+import EquipmentScanner from "./EquipmentScanner";
 import Profile from "./Profile";
 import { WorkoutDetail, nextDayIndex } from "./Workouts";
 import { Sheet } from "../components/ui";
@@ -15,6 +16,7 @@ export default function Home({ go }: { go: (t: Tab) => void }) {
   const [profile, setProfile] = useState(false);
   const [workout, setWorkout] = useState<number | null>(null);
   const [meal, setMeal] = useState<MealEntry | null>(null);
+  const [scanner, setScanner] = useState(false);
 
   const meals = u.meals.filter((m) => m.date === day);
   const eaten = meals.reduce(
@@ -142,6 +144,10 @@ export default function Home({ go }: { go: (t: Tab) => void }) {
             </div>
           </div>
 
+          <div style={{ marginTop: 12 }}>
+            <ScanBanner onClick={() => setScanner(true)} />
+          </div>
+
           <div className="section-title">
             Тренировка дня
             <button onClick={() => go("workouts")}>Все</button>
@@ -209,6 +215,7 @@ export default function Home({ go }: { go: (t: Tab) => void }) {
         </div>
       </ScreenWithTitle>
 
+      {scanner && <EquipmentScanner onBack={() => setScanner(false)} />}
       {meal && <MealSheet meal={meal} onClose={() => setMeal(null)} />}
       {profile && <Profile onBack={() => setProfile(false)} />}
       {workout !== null && program && <WorkoutDetail index={workout} onBack={() => setWorkout(null)} />}
@@ -260,5 +267,20 @@ function MealSheet({ meal, onClose }: { meal: MealEntry; onClose: () => void }) 
         <Trash2 size={18} /> Удалить
       </button>
     </Sheet>
+  );
+}
+
+export function ScanBanner({ onClick }: { onClick: () => void }) {
+  return (
+    <button className="scan-banner" onClick={() => (haptic(12), onClick())}>
+      <span className="scan-icon">
+        <ScanLine size={28} />
+      </span>
+      <span style={{ flex: 1, minWidth: 0 }}>
+        <b style={{ fontSize: 17 }}>Сканер тренажёров</b>
+        <div style={{ fontSize: 13, opacity: 0.85, lineHeight: 1.3, marginTop: 2 }}>Сфотографируйте тренажёр — ИИ объяснит, что и как на нём делать по вашему плану</div>
+      </span>
+      <ChevronRight size={22} style={{ opacity: 0.7 }} />
+    </button>
   );
 }

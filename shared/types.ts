@@ -85,3 +85,27 @@ export interface ChatMessage {
   role: "user" | "assistant";
   content: string;
 }
+
+export const EquipmentSchema = z.object({
+  recognized: z.boolean().describe("false, если на фото нет спортивного тренажёра или снаряда"),
+  name: z.string().describe("Название тренажёра на русском"),
+  muscles: z.array(z.string()).describe("Целевые мышцы"),
+  description: z.string().describe("Одно-два предложения: что это за тренажёр и для чего он"),
+  setup: z.array(z.string()).describe("Как настроить под рост пользователя: сиденье, валики, рукояти, вес"),
+  steps: z.array(z.string()).describe("Техника выполнения по шагам"),
+  mistakes: z.array(z.string()),
+  safety: z.string(),
+  planMatch: z.object({
+    inPlan: z.boolean().describe("true, если упражнение на этом тренажёре уже есть в программе пользователя"),
+    dayTitle: z.string().describe("Название дня программы, куда это относится, или пустая строка"),
+    exercise: z.string().describe("Какое упражнение делать на тренажёре"),
+    sets: z.number().int(),
+    reps: z.string(),
+    restSec: z.number().int(),
+    weightTip: z.string().describe("С какого веса начать и как его подбирать"),
+  }),
+  alternatives: z.array(z.object({ name: z.string(), how: z.string() })).describe("Другие упражнения на этом тренажёре"),
+  coachNote: z.string().describe("Короткий персональный совет с учётом цели и уровня пользователя"),
+});
+
+export type EquipmentAnalysis = z.infer<typeof EquipmentSchema>;

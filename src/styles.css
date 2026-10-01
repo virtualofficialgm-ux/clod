@@ -416,3 +416,28 @@ input[type="range"].slider::-moz-range-thumb { width: 30px; height: 30px; border
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: .01ms !important; transition-duration: .01ms !important; }
 }
+
+/* ---------- Equipment scanner ---------- */
+.scanner-frame {
+  position: relative; display: block; width: 100%; aspect-ratio: 4 / 3; max-width: 100%;
+  border-radius: var(--r-xl); overflow: hidden;
+  background: radial-gradient(circle at 30% 30%, rgba(94,92,230,.35), transparent 60%), radial-gradient(circle at 70% 80%, rgba(64,200,224,.35), transparent 60%), var(--fill);
+  background-size: cover; background-position: center;
+}
+.scanner-frame.analyzing { width: 240px; margin: 0 auto; aspect-ratio: 1; }
+.scanner-frame .corner { position: absolute; width: 38px; height: 38px; border: 4px solid var(--ink); }
+.scanner-frame.analyzing .corner { border-color: #fff; }
+.corner.tl { top: 18px; left: 18px; border-right: 0; border-bottom: 0; border-radius: 14px 0 0 0; }
+.corner.tr { top: 18px; right: 18px; border-left: 0; border-bottom: 0; border-radius: 0 14px 0 0; }
+.corner.bl { bottom: 18px; left: 18px; border-right: 0; border-top: 0; border-radius: 0 0 0 14px; }
+.corner.br { bottom: 18px; right: 18px; border-left: 0; border-top: 0; border-radius: 0 0 14px 0; }
+.scan-beam { position: absolute; left: 24px; right: 24px; height: 3px; border-radius: 2px; background: var(--teal); box-shadow: 0 0 18px 4px var(--teal); animation: beam 2.2s var(--ease) infinite alternate; }
+@keyframes beam { from { top: 22%; } to { top: 78%; } }
+.scanner-cta { position: absolute; left: 50%; bottom: 22px; transform: translateX(-50%); height: 46px; padding: 0 18px; border-radius: 23px; display: inline-flex; align-items: center; gap: 8px; font-weight: 600; white-space: nowrap; }
+.plan-card { border-radius: var(--r-xl); padding: 18px; color: #fff; background: linear-gradient(140deg, #5e5ce6, #0a84ff 55%, #40c8e0); box-shadow: 0 18px 40px -16px rgba(10,132,255,.6); }
+.plan-stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin: 14px 0 12px; }
+.plan-stats div { background: rgba(255,255,255,.18); border-radius: 16px; padding: 10px 6px; text-align: center; display: flex; flex-direction: column; gap: 2px; }
+.plan-stats b { font-family: var(--font-round); font-size: 20px; }
+.plan-stats span { font-size: 12px; opacity: .85; }
+.scan-banner { width: 100%; display: flex; align-items: center; gap: 14px; text-align: left; border-radius: var(--r-xl); padding: 16px; color: #fff; background: linear-gradient(135deg, #1c1c3a, #5e5ce6 70%, #40c8e0); box-shadow: 0 14px 36px -14px rgba(94,92,230,.7); position: relative; overflow: hidden; }
+.scan-banner .scan-icon { width: 52px; height: 52px; border-radius: 16px; background: rgba(255,255,255,.18); display: grid; place-items: center; flex: none; }

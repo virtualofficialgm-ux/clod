@@ -5,7 +5,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { computePlan, ageFrom } from "../shared/nutrition";
-import { MealSchema, ProgramSchema, type ChatMessage, type Profile } from "../shared/types";
+import { EquipmentSchema, MealSchema, ProgramSchema, type ChatMessage, type Profile, type Program } from "../shared/types";
 
 const MODEL = process.env.CLAUDE_MODEL ?? "claude-opus-5-5";
 // Re-runs a request declined by safety classifiers on Anthropic's recommended fallback model.
@@ -122,6 +122,68 @@ app.post("/api/meal", async (req, res) => {
       output_config: { effort: "low", format: betaZodOutputFormat(MealSchema) },
       system: "Ты — нутрициолог, который точно оценивает калорийность еды по фото и описанию. Все тексты на русском.",
       messages: [{ role: "user", content }],
+    });
+    if (response.stop_reason === "refusal" || !response.parsed_output) {
+      res.status(422).json({ error: "refused" });
+      return;
+    }
+    res.json(response.parsed_output);
+  } catch (err) {
+    sendError(res, err);
+  }
+});
+
+function describeProgram(program: Program | null | undefined): string {
+  if (!program) return "Программа тренировок ещё не составлена.";
+  return program.days
+    .map((d, i) => `День ${i + 1} «${d.title}»: ${d.exercises.map((e) => `${e.name} ${e.sets}×${e.reps}, отдых ${e.restSec} с`).join("; ")}`)
+    .join("\n");
+}
+
+app.post("/api/equipment", async (req, res) => {
+  const { image, mediaType, question, profile, program } = req.body as {
+    image: string;
+    mediaType?: "image/jpeg" | "image/png" | "image/webp" | "image/gif";
+    question?: string;
+    profile: Profile;
+    program?: Program | null;
+  };
+  if (!image) {
+    res.status(400).json({ error: "no_image" });
+    return;
+  }
+  try {
+    const response = await client.beta.messages.parse({
+      model: MODEL,
+      max_tokens: 6000,
+      ...FALLBACK,
+      output_config: { effort: "medium", format: betaZodOutputFormat(EquipmentSchema) },
+      system: COACH_SYSTEM,
+      messages: [
+        {
+          role: "user",
+          content: [
+            { type: "image", source: { type: "base64", media_type: mediaType ?? "image/jpeg", data: image } },
+            {
+              type: "text",
+              text: `Пользователь сфотографировал тренажёр в зале. Определи, что это, и объясни, как на нём заниматься именно ему.
+
+Профиль:
+${describe(profile)}
+
+Его программа:
+${describeProgram(program)}
+${question ? `\nВопрос пользователя: «${question.slice(0, 500)}»` : ""}
+
+Правила:
+- Если упражнение на этом тренажёре (или его прямой аналог) есть в программе, укажи день и возьми подходы/повторы/отдых из программы (planMatch.inPlan = true).
+- Если нет — предложи, как вписать его в программу под цель и уровень пользователя (inPlan = false, dayTitle — самый подходящий день).
+- Настройку тренажёра объясняй с учётом роста ${profile.heightCm} см.
+- Если на фото не тренажёр, recognized = false, остальные поля заполни кратко.`,
+            },
+          ],
+        },
+      ],
     });
     if (response.stop_reason === "refusal" || !response.parsed_output) {
       res.status(422).json({ error: "refused" });

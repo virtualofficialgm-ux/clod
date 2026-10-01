@@ -4,6 +4,7 @@ import { Ambient, ToastHost, haptic } from "./components/ui";
 import Onboarding from "./onboarding/Onboarding";
 import AddSheet from "./screens/AddSheet";
 import Coach from "./screens/Coach";
+import EquipmentScanner from "./screens/EquipmentScanner";
 import Home from "./screens/Home";
 import Library from "./screens/Library";
 import Workouts from "./screens/Workouts";
@@ -23,6 +24,7 @@ export default function App() {
   const user = useUser();
   const [tab, setTab] = useState<Tab>("home");
   const [add, setAdd] = useState(false);
+  const [scanner, setScanner] = useState(false);
 
   useEffect(() => {
     const root = document.documentElement;
@@ -60,7 +62,8 @@ export default function App() {
               <Plus size={30} strokeWidth={2.4} />
             </button>
           </nav>
-          {add && <AddSheet onClose={() => setAdd(false)} />}
+          {add && <AddSheet onClose={() => setAdd(false)} onScan={() => setScanner(true)} />}
+          {scanner && <EquipmentScanner onBack={() => setScanner(false)} />}
         </>
       )}
       <ToastHost />

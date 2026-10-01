@@ -5,6 +5,8 @@ import { generateProgram } from "../api";
 import { Page, Ring, ScreenWithTitle, Sheet, haptic, toast } from "../components/ui";
 import { EXERCISES } from "../data/exercises";
 import { getState, today, uid, updateUser, useUser, type UserData } from "../store";
+import EquipmentScanner from "./EquipmentScanner";
+import { ScanBanner } from "./Home";
 
 const INTENSITY = { low: "Лёгкая", medium: "Средняя", high: "Высокая" };
 const GRADIENTS = [
@@ -26,6 +28,7 @@ export default function Workouts() {
   const u = useUser()!;
   const [open, setOpen] = useState<number | null>(null);
   const [regen, setRegen] = useState(false);
+  const [scanner, setScanner] = useState(false);
   const program = u.program;
 
   const weekStart = new Date();
@@ -60,6 +63,10 @@ export default function Workouts() {
                 <Stat label="недель" value={String(program.weeks)} />
                 <Stat label="всего" value={String(u.workouts.length)} />
               </div>
+            </div>
+
+            <div style={{ marginTop: 12 }}>
+              <ScanBanner onClick={() => setScanner(true)} />
             </div>
 
             <div className="section-title">План на неделю</div>
@@ -112,6 +119,7 @@ export default function Workouts() {
       </ScreenWithTitle>
       {open !== null && <WorkoutDetail index={open} onBack={() => setOpen(null)} />}
       {regen && <RegenSheet onClose={() => setRegen(false)} />}
+      {scanner && <EquipmentScanner onBack={() => setScanner(false)} />}
     </>
   );
 }

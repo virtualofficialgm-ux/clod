@@ -1,5 +1,5 @@
 import { useSyncExternalStore } from "react";
-import type { ChatMessage, MealAnalysis, NutritionPlan, Profile, Program } from "../shared/types";
+import type { ChatMessage, EquipmentAnalysis, MealAnalysis, NutritionPlan, Profile, Program } from "../shared/types";
 
 export interface Account {
   email: string;
@@ -24,6 +24,13 @@ export interface WorkoutLog {
   calories: number;
 }
 
+export interface EquipmentScan {
+  id: string;
+  date: string;
+  photo?: string;
+  result: EquipmentAnalysis;
+}
+
 export interface UserData {
   profile: Profile;
   plan: NutritionPlan;
@@ -33,6 +40,7 @@ export interface UserData {
   weights: { date: string; kg: number }[];
   water: Record<string, number>;
   chat: ChatMessage[];
+  scans?: EquipmentScan[];
   createdAt: string;
 }
 

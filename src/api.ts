@@ -1,4 +1,4 @@
-import type { ChatMessage, MealAnalysis, Profile, Program } from "../shared/types";
+import type { ChatMessage, EquipmentAnalysis, MealAnalysis, Profile, Program } from "../shared/types";
 import { localMeal, localProgram, localReply } from "./data/localCoach";
 
 export interface Result<T> {
@@ -33,6 +33,22 @@ export async function analyzeMeal(input: {
     /* offline */
   }
   return { data: localMeal(input.text ?? ""), ai: false };
+}
+
+/** Returns null when the AI is unavailable; the scanner then offers a manual machine list. */
+export async function scanEquipment(input: {
+  image: string;
+  question?: string;
+  profile: Profile;
+  program: Program | null;
+}): Promise<EquipmentAnalysis | null> {
+  try {
+    const res = await post("/api/equipment", { ...input, mediaType: "image/jpeg" });
+    if (res.ok) return (await res.json()) as EquipmentAnalysis;
+  } catch {
+    /* offline */
+  }
+  return null;
 }
 
 export async function chat(

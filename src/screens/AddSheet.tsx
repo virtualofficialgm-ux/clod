@@ -1,4 +1,4 @@
-import { Camera, Check, Droplet, Dumbbell, ImagePlus, PenLine, Scale, Sparkles } from "lucide-react";
+import { Camera, Check, Droplet, ImagePlus, PenLine, Scale, ScanLine, Sparkles } from "lucide-react";
 import { useRef, useState } from "react";
 import type { MealAnalysis } from "../../shared/types";
 import { analyzeMeal, prepareImage } from "../api";
@@ -8,7 +8,7 @@ import { computePlan } from "../../shared/nutrition";
 
 type Mode = "menu" | "describe" | "analyzing" | "result" | "weight";
 
-export default function AddSheet({ onClose }: { onClose: () => void }) {
+export default function AddSheet({ onClose, onScan }: { onClose: () => void; onScan: () => void }) {
   const u = useUser()!;
   const [mode, setMode] = useState<Mode>("menu");
   const [text, setText] = useState("");
@@ -112,7 +112,7 @@ export default function AddSheet({ onClose }: { onClose: () => void }) {
             }}
           />
           <Tile icon={<Scale size={26} />} color="linear-gradient(135deg, var(--green), var(--teal))" label="Записать вес" sub="Обновит план" onClick={() => setMode("weight")} />
-          <Tile icon={<Dumbbell size={26} />} color="linear-gradient(135deg, var(--red), var(--orange))" label="Тренировка" sub="Во вкладке" onClick={() => (toast("Откройте вкладку «Тренировки»"), onClose())} />
+          <Tile icon={<ScanLine size={26} />} color="linear-gradient(135deg, var(--indigo), var(--teal))" label="Сканер тренажёров" sub="Что и как делать" onClick={() => (onClose(), onScan())} />
         </div>
       )}
 
