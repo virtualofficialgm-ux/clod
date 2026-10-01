@@ -301,6 +301,7 @@ export class KeyService {
 
   async #resolve(conf, confirmed) {
     if (conf.type === 'payout') await this.pay.resolvePayoutConfirmation(conf.ref, confirmed);
+    if (conf.type === 'transfer') await this.pay.resolveTransferConfirmation(conf.ref, confirmed);
   }
 
   #cancelConfirmations(deviceId) {

@@ -51,6 +51,8 @@ export const MARKETS = {
     paymentCurrencies: ['AMD', 'USD'],
     partner: 'sandbox-am',
     settlementDelayDays: 1,
+    // Transfers to other banks go through the partner; fee disclosed separately.
+    bankTransfer: { feeBps: 50, minFee: 10_000, methods: ['phone', 'card', 'account'], phoneSystem: 'система быстрых платежей' },
     topupFeeBps: 0,
     kyc: {
       basic: { title: 'Базовая', procedure: 'Телефон и e-mail', maxPayment: 20_000_000, monthlyPayout: 50_000_000, maxBalance: 30_000_000 },
@@ -65,6 +67,7 @@ export const MARKETS = {
     paymentCurrencies: ['KZT'],
     partner: 'sandbox-kz',
     settlementDelayDays: 2,
+    bankTransfer: { feeBps: 50, minFee: 10_000, methods: ['phone', 'card', 'account'], phoneSystem: 'система мгновенных платежей' },
     topupFeeBps: 0,
     kyc: {
       basic: { title: 'Базовая', procedure: 'Телефон и ИИН', maxPayment: 25_000_000, monthlyPayout: 50_000_000, maxBalance: 50_000_000 },
@@ -78,6 +81,7 @@ export const MARKETS = {
     paymentCurrencies: ['EUR', 'USD'],
     partner: 'sandbox-eu',
     settlementDelayDays: 1,
+    bankTransfer: { feeBps: 0, minFee: 0, methods: ['account', 'card'], phoneSystem: null },
     topupFeeBps: 100,
     kyc: {
       basic: { title: 'Базовая', procedure: 'E-mail и телефон, лимит по PSD2', maxPayment: 15_000, monthlyPayout: 100_000, maxBalance: 15_000 },
@@ -162,10 +166,23 @@ export const KEY_STAGES = {
 };
 
 export const SEED_USERS = [
-  { id: 'u_anna', name: 'Анна', market: 'AM', kycLevel: 'verified' },
-  { id: 'u_boris', name: 'Борис (исполнитель)', market: 'AM', kycLevel: 'basic' },
-  { id: 'u_dana', name: 'Дана', market: 'KZ', kycLevel: 'basic' },
-  { id: 'u_emil', name: 'Эмиль', market: 'EU', kycLevel: 'verified' },
+  { id: 'u_anna', name: 'Анна', market: 'AM', kycLevel: 'verified', phone: '+37491000001' },
+  { id: 'u_boris', name: 'Борис (исполнитель)', market: 'AM', kycLevel: 'basic', phone: '+37491000002' },
+  { id: 'u_dana', name: 'Дана', market: 'KZ', kycLevel: 'basic', phone: '+77010000003' },
+  { id: 'u_emil', name: 'Эмиль', market: 'EU', kycLevel: 'verified', phone: '+491510000004' },
+  { id: 'u_gor', name: 'Гор', market: 'AM', kycLevel: 'verified', phone: '+37491000005' },
+];
+
+// Sandbox stand-in for the phone's address book. In the app the real contacts
+// stay on the device: only hashes of the numbers are sent for matching.
+export const SANDBOX_CONTACTS = [
+  { name: 'Борис', phone: '+374 91 000002' },
+  { name: 'Гор', phone: '+374 91 000005' },
+  { name: 'Анна', phone: '+374 91 000001' },
+  { name: 'Мама', phone: '+374 77 123456' },
+  { name: 'Арам, сосед', phone: '+374 94 111222' },
+  { name: 'Дана', phone: '+7 701 000 0003' },
+  { name: 'Лиана', phone: '+374 98 765432' },
 ];
 
 export const SEED_MERCHANTS = [

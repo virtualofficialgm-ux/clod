@@ -4,7 +4,8 @@ import {
 import { Store } from '../store.js';
 import { Ledger } from '../ledger.js';
 import { Idempotency } from '../idempotency.js';
-import { quote, topupQuote } from '../fees.js';
+import { quote, topupQuote, transferQuote } from '../fees.js';
+import { sha256Hex } from '../crypto.js';
 import { PayError, bps, assertAmount, format } from '../money.js';
 import { evaluatePayment } from './antifraud.js';
 import { reconcile } from './reconciliation.js';
@@ -89,6 +90,7 @@ export class PayService {
       paymentCurrencies: m.paymentCurrencies,
       partner: m.partner,
       settlementDelayDays: m.settlementDelayDays,
+      bankTransfer: m.bankTransfer,
       kyc: m.kyc,
       regulated: Object.fromEntries(Object.entries(m.regulated).map(([k, v]) => [k, v
         ? { available: true }
@@ -586,7 +588,7 @@ export class PayService {
 
   // --- Payouts ----------------------------------------------------------------
 
-  async requestPayout(partyId, { amount, destination }) {
+  async requestPayout(partyId, { amount, destination, fee = 0, kind = 'payout', recipientName = null, method = null, message = '' }) {
     this.require('payouts');
     const party = this.party(partyId);
     assertAmount(amount);
@@ -609,6 +611,11 @@ export class PayService {
       currency,
       partner,
       destination: maskDestination(destination),
+      kind,
+      fee,
+      recipientName,
+      method,
+      message,
       status: 'processing',
       createdAt: this.now().toISOString(),
     };
@@ -617,7 +624,10 @@ export class PayService {
       operationId: `payout_lock:${payout.id}`,
       description: `Выплата ${payout.id}`,
       currency,
-      transfers: [{ from: this.acct(partyId, 'available'), to: `payout:${payout.id}`, amount }],
+      transfers: [
+        { from: this.acct(partyId, 'available'), to: `payout:${payout.id}`, amount },
+        { from: this.acct(partyId, 'available'), to: `payout:${payout.id}`, amount: fee },
+      ].filter((t) => t.amount > 0),
       meta: { payoutId: payout.id },
     });
     this.store.payouts.set(payout.id, payout);
@@ -628,7 +638,8 @@ export class PayService {
       payout.status = 'awaiting_confirmation';
       payout.destinationToken = destination;
       payout.confirmation = this.keys.requestConfirmation(partyId, key, {
-        type: 'payout', ref: payout.id, text: `Вывод ${format(amount, currency)} на ${payout.destination}`,
+        type: 'payout', ref: payout.id,
+        text: kind === 'transfer' ? `Перевод ${format(amount, currency)} · ${recipientName ?? payout.destination} · ${payout.destination}` : `Вывод ${format(amount, currency)} на ${payout.destination}`,
       });
       this.#notify(partyId, 'Подтвердите выплату на Parri Key', payout.id);
       return payout;
@@ -678,17 +689,126 @@ export class PayService {
   #onPayoutResult(payout, ok, reason) {
     if (payout.status !== 'processing' && !(payout.status === 'awaiting_confirmation' && !ok)) return 'ignored_terminal';
     if (ok) {
-      this.ledger.post({ operationId: `payout_done:${payout.id}`, description: `Выплата ${payout.id}`, currency: payout.currency, transfers: [{ from: `payout:${payout.id}`, to: `external:${payout.partner}`, amount: payout.amount }] });
+      this.ledger.post({
+        operationId: `payout_done:${payout.id}`, description: `Выплата ${payout.id}`, currency: payout.currency,
+        transfers: [
+          { from: `payout:${payout.id}`, to: `external:${payout.partner}`, amount: payout.amount },
+          { from: `payout:${payout.id}`, to: 'revenue:transfer_fee', amount: payout.fee ?? 0 },
+        ].filter((t) => t.amount > 0),
+      });
       payout.status = 'succeeded';
       payout.documentId = this.#issueDocument('payout_statement', null, null, { payout }).id;
-      this.#notify(payout.partyId, 'Выплата отправлена', payout.id);
+      this.#notify(payout.partyId, payout.kind === 'transfer' ? `Перевод ${payout.recipientName ?? ''} отправлен в банк получателя` : 'Выплата отправлена', payout.id);
     } else {
-      this.ledger.post({ operationId: `payout_unlock:${payout.id}`, description: `Отмена выплаты ${payout.id}`, currency: payout.currency, transfers: [{ from: `payout:${payout.id}`, to: this.acct(payout.partyId, 'available'), amount: payout.amount }] });
+      this.ledger.post({ operationId: `payout_unlock:${payout.id}`, description: `Отмена выплаты ${payout.id}`, currency: payout.currency, transfers: [{ from: `payout:${payout.id}`, to: this.acct(payout.partyId, 'available'), amount: payout.amount + (payout.fee ?? 0) }] });
       payout.status = 'failed';
       payout.failureReason = reason ?? 'rejected';
       this.#notify(payout.partyId, reason === 'not_confirmed' ? 'Выплата отменена: не подтверждена на Parri Key' : 'Выплата не прошла, средства вернулись на баланс', payout.id);
     }
     return ok ? 'paid_out' : 'payout_failed';
+  }
+
+  // --- Transfers to people -------------------------------------------------------
+
+  static normalizePhone(phone) {
+    const digits = String(phone ?? '').replace(/[^\d+]/g, '');
+    return digits.startsWith('+') ? `+${digits.slice(1).replace(/\+/g, '')}` : digits ? `+${digits}` : '';
+  }
+
+  // Contact discovery: the app sends SHA-256 hashes of normalized numbers, never the
+  // address book itself. Only contacts who have Parri Pay are returned.
+  async matchContacts(userId, hashes) {
+    const me = this.store.users.get(userId);
+    if (!me) throw new PayError('forbidden', 'Поиск контактов доступен пользователям', 403);
+    const wanted = new Set((hashes ?? []).slice(0, 2000).map(String));
+    const out = [];
+    for (const u of this.store.users.values()) {
+      if (u.id === userId || !u.phone) continue;
+      const h = await sha256Hex(PayService.normalizePhone(u.phone));
+      if (wanted.has(h)) out.push({ hash: h, userId: u.id, name: u.name, market: u.market, sameMarket: u.market === me.market });
+    }
+    return out;
+  }
+
+  transferQuote(userId, { type, amount, method }) {
+    const me = this.store.users.get(userId);
+    if (!me) throw new PayError('forbidden', 'Переводы доступны пользователям', 403);
+    return transferQuote({ market: me.market, type, amount, method });
+  }
+
+  // Transfer to another Parri Pay user: instant and free, inside the partner-held accounts.
+  async transferToUser(senderId, { recipientId, amount, message = '' }) {
+    this.require('payouts');
+    const sender = this.store.users.get(senderId);
+    const recipient = this.store.users.get(recipientId);
+    if (!sender) throw new PayError('forbidden', 'Переводы доступны пользователям', 403);
+    if (!recipient) throw new PayError('recipient_not_found', 'Получатель не найден в Parri Pay', 404);
+    if (recipient.id === sender.id) throw new PayError('self_transfer', 'Нельзя перевести самому себе');
+    if (recipient.market !== sender.market) {
+      throw new PayError('cross_market', 'Получатель в другой стране: переводы между рынками пока недоступны. Переведите в банк получателя.', 422);
+    }
+    assertAmount(amount);
+    const q = transferQuote({ market: sender.market, type: 'pay', amount });
+    const t = {
+      id: Store.id('trf'), senderId, recipientId, amount, fee: 0, currency: q.currency, message: String(message).slice(0, 140),
+      status: 'processing', createdAt: this.now().toISOString(),
+    };
+    this.ledger.post({
+      operationId: `transfer_lock:${t.id}`, description: `Перевод ${t.id}`, currency: t.currency,
+      transfers: [{ from: this.acct(senderId, 'available'), to: `transfer:${t.id}`, amount }],
+    });
+    this.store.transfers.set(t.id, t);
+    const key = this.keys?.activeKeyFor(senderId);
+    if (key) {
+      t.status = 'awaiting_confirmation';
+      t.confirmation = this.keys.requestConfirmation(senderId, key, { type: 'transfer', ref: t.id, text: `Перевод ${format(amount, t.currency)} · ${recipient.name}` });
+      return t;
+    }
+    this.#completeTransfer(t);
+    return t;
+  }
+
+  #completeTransfer(t) {
+    this.ledger.post({
+      operationId: `transfer_done:${t.id}`, description: `Перевод ${t.id}`, currency: t.currency,
+      transfers: [{ from: `transfer:${t.id}`, to: this.acct(t.recipientId, 'available'), amount: t.amount }],
+    });
+    t.status = 'succeeded';
+    t.completedAt = this.now().toISOString();
+    const sender = this.store.users.get(t.senderId);
+    const recipient = this.store.users.get(t.recipientId);
+    t.documentId = this.#issueDocument('transfer_receipt', null, null, { transfer: t, sender, recipient }).id;
+    this.#notify(t.senderId, `Перевод ${format(t.amount, t.currency)} · ${recipient.name}`, t.id);
+    this.#notify(t.recipientId, `${sender.name} перевёл(а) вам ${format(t.amount, t.currency)}${t.message ? `: «${t.message}»` : ''}`, t.id);
+  }
+
+  async resolveTransferConfirmation(transferId, confirmed) {
+    const t = this.store.transfers.get(transferId);
+    if (!t || t.status !== 'awaiting_confirmation') return t;
+    if (confirmed) {
+      this.#completeTransfer(t);
+    } else {
+      this.ledger.post({
+        operationId: `transfer_unlock:${t.id}`, description: `Отмена перевода ${t.id}`, currency: t.currency,
+        transfers: [{ from: `transfer:${t.id}`, to: this.acct(t.senderId, 'available'), amount: t.amount }],
+      });
+      t.status = 'failed';
+      this.#notify(t.senderId, 'Перевод отменён: не подтверждён на Parri Key', t.id);
+    }
+    return t;
+  }
+
+  // Transfer to any bank: card, account or phone via the partner. Same safeguards as payouts.
+  async transferToBank(senderId, { method, destination, recipientName, amount, message = '' }) {
+    const sender = this.store.users.get(senderId);
+    if (!sender) throw new PayError('forbidden', 'Переводы доступны пользователям', 403);
+    assertAmount(amount);
+    const q = transferQuote({ market: sender.market, type: 'bank', amount, method });
+    const dest = validateDestination(method, destination);
+    if (!recipientName?.trim()) throw new PayError('recipient_required', 'Укажите имя получателя');
+    return this.requestPayout(senderId, {
+      amount, destination: dest, fee: q.fee, kind: 'transfer', recipientName: recipientName.trim().slice(0, 60), method, message: String(message).slice(0, 140),
+    });
   }
 
   // --- Top-ups ----------------------------------------------------------------
@@ -854,7 +974,8 @@ export class PayService {
         if (o.payerId === partyId && o.status === 'paid') reservedByMe += held;
       }
       let payoutsInProgress = 0;
-      for (const p of this.store.payouts.values()) if (p.partyId === partyId && ['processing', 'awaiting_confirmation'].includes(p.status) && p.currency === currency) payoutsInProgress += p.amount;
+      for (const p of this.store.payouts.values()) if (p.partyId === partyId && ['processing', 'awaiting_confirmation'].includes(p.status) && p.currency === currency) payoutsInProgress += p.amount + (p.fee ?? 0);
+      for (const t of this.store.transfers.values()) if (t.senderId === partyId && t.status === 'awaiting_confirmation' && t.currency === currency) payoutsInProgress += t.amount;
       return {
         currency,
         // Real money that can be paid out right now.
@@ -925,7 +1046,21 @@ export class PayService {
         out.push({ kind: 'topup', at: t.createdAt, topupId: t.id, description: 'Пополнение баланса', amount: t.amount, currency: t.currency, status: t.status, fee: t.fee, confirmationUrl: t.status === 'requires_action' ? t.confirmationUrl : null, documents: this.#docRefs(t.documentId ? [t.documentId] : [], partyId) });
       }
     }
+    for (const t of this.store.transfers.values()) {
+      if (t.senderId === partyId) {
+        const r = this.store.users.get(t.recipientId);
+        out.push({ kind: 'transfer', direction: 'out', at: t.createdAt, transferId: t.id, description: r.name, counterparty: r.name, message: t.message, amount: -t.amount, currency: t.currency, status: t.status, confirmationId: t.status === 'awaiting_confirmation' ? t.confirmation?.id : null, documents: this.#docRefs(t.documentId ? [t.documentId] : [], partyId) });
+      }
+      if (t.recipientId === partyId && t.status === 'succeeded') {
+        const snd = this.store.users.get(t.senderId);
+        out.push({ kind: 'transfer', direction: 'in', at: t.completedAt ?? t.createdAt, transferId: t.id, description: snd.name, counterparty: snd.name, message: t.message, amount: t.amount, currency: t.currency, status: t.status, documents: this.#docRefs(t.documentId ? [t.documentId] : [], partyId) });
+      }
+    }
     for (const p of this.store.payouts.values()) {
+      if (p.partyId === partyId && p.kind === 'transfer') {
+        out.push({ kind: 'transfer', direction: 'out', bank: true, method: p.method, at: p.createdAt, payoutId: p.id, description: p.recipientName, counterparty: p.recipientName, message: p.message, destination: p.destination, fee: p.fee, amount: -(p.amount + (p.fee ?? 0)), currency: p.currency, status: p.status, confirmationId: p.status === 'awaiting_confirmation' ? p.confirmation?.id : null, documents: this.#docRefs(p.documentId ? [p.documentId] : [], partyId) });
+        continue;
+      }
       if (p.partyId === partyId) out.push({ kind: 'payout', confirmationId: p.status === 'awaiting_confirmation' ? p.confirmation?.id : null, at: p.createdAt, payoutId: p.id, description: `Выплата на ${p.destination}`, amount: -p.amount, currency: p.currency, status: p.status, documents: this.#docRefs(p.documentId ? [p.documentId] : [], partyId) });
     }
     return out.sort((a, b) => b.at.localeCompare(a.at));
@@ -1057,6 +1192,7 @@ export class PayService {
       refund_receipt: 'Чек возврата',
       payout_statement: 'Подтверждение выплаты',
       topup_receipt: 'Чек пополнения',
+      transfer_receipt: 'Чек перевода',
     };
     const doc = { id: Store.id('doc'), type, title: titles[type], issuedAt: this.now().toISOString(), orderId: order?.id ?? null, lines: [], notes: [] };
     const q = payment?.quote;
@@ -1095,10 +1231,26 @@ export class PayService {
         { label: 'Списано с карты', amount: topup.total, currency: topup.currency, total: true },
       ];
       doc.notes.push(`Средства хранятся на счёте у финансового партнёра ${topup.partner}.`);
+    } else if (type === 'transfer_receipt') {
+      const { transfer, sender, recipient } = extra;
+      doc.title = 'Чек перевода';
+      doc.partyIds = [transfer.senderId, transfer.recipientId];
+      doc.lines = [
+        { label: `${sender.name} → ${recipient.name}`, amount: transfer.amount, currency: transfer.currency },
+        { label: 'Комиссия', amount: 0, currency: transfer.currency },
+        { label: 'Итого', amount: transfer.amount, currency: transfer.currency, total: true },
+      ];
+      doc.notes.push('Перевод внутри Parri Pay: деньги зачислены мгновенно.');
+      if (transfer.message) doc.notes.push(`Сообщение: ${transfer.message}`);
     } else if (type === 'payout_statement') {
       const { payout } = extra;
       doc.partyIds = [payout.partyId];
-      doc.lines = [{ label: `Выплата на ${payout.destination}`, amount: payout.amount, currency: payout.currency, total: true }];
+      if (payout.kind === 'transfer') doc.title = 'Чек перевода в банк';
+      doc.lines = payout.kind === 'transfer' ? [
+        { label: `Перевод · ${payout.recipientName} · ${payout.destination}`, amount: payout.amount, currency: payout.currency },
+        { label: 'Комиссия за перевод в другой банк', amount: payout.fee, currency: payout.currency },
+        { label: 'Итого списано', amount: payout.amount + payout.fee, currency: payout.currency, total: true },
+      ] : [{ label: `Выплата на ${payout.destination}`, amount: payout.amount, currency: payout.currency, total: true }];
       doc.notes.push(`Партнёр: ${payout.partner}, операция ${payout.partnerPayoutId}`);
     }
     this.store.documents.set(doc.id, doc);
@@ -1109,6 +1261,37 @@ export class PayService {
 
 function rateLabel(rate, from, to) {
   return rate >= 1 ? `1 ${from} = ${rate.toFixed(4)} ${to}` : `1 ${to} = ${(1 / rate).toFixed(2)} ${from}`;
+}
+
+// Sandbox-level checks of bank details; the partner performs the authoritative validation.
+function validateDestination(method, destination) {
+  const raw = String(destination ?? '').trim();
+  if (method === 'card') {
+    const digits = raw.replace(/\s/g, '');
+    if (!/^\d{16,19}$/.test(digits) || !luhn(digits)) throw new PayError('invalid_card', 'Проверьте номер карты получателя');
+    return digits;
+  }
+  if (method === 'account') {
+    const acc = raw.replace(/\s/g, '').toUpperCase();
+    if (!/^[A-Z0-9]{10,34}$/.test(acc)) throw new PayError('invalid_account', 'Проверьте номер счёта или IBAN');
+    return acc;
+  }
+  if (method === 'phone') {
+    const phone = PayService.normalizePhone(raw);
+    if (!/^\+\d{9,15}$/.test(phone)) throw new PayError('invalid_phone', 'Проверьте номер телефона получателя');
+    return phone;
+  }
+  throw new PayError('method_unavailable', 'Неизвестный способ перевода');
+}
+
+function luhn(digits) {
+  let sum = 0;
+  for (let i = 0; i < digits.length; i++) {
+    let d = Number(digits[digits.length - 1 - i]);
+    if (i % 2 === 1) { d *= 2; if (d > 9) d -= 9; }
+    sum += d;
+  }
+  return sum % 10 === 0;
 }
 
 function maskDestination(dest) {

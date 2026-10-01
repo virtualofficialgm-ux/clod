@@ -168,3 +168,59 @@ test('Key Pay contactless needs an issuing partner on the market', () => {
   const pay = app.keys.models('u_anna').find((m) => m.id === 'pay');
   assert.equal(pay.contactlessPayments.available, false);
 });
+
+test('transfer to a Parri Pay contact is instant, free and found by phone hash', async () => {
+  const { sha256Hex } = await import('../src/crypto.js');
+  const { PayService } = await import('../src/services/pay.js');
+  const app = createApp();
+  const { service } = app;
+  await topUp(app, 'u_anna', 2_000_000);
+  const hashes = await Promise.all(['+374 91 000002', '+374 77 123456'].map((p) => sha256Hex(PayService.normalizePhone(p))));
+  const matches = await service.matchContacts('u_anna', hashes);
+  assert.deepEqual(matches.map((m) => m.userId), ['u_boris']);
+
+  const t = await service.transferToUser('u_anna', { recipientId: 'u_boris', amount: 500_000, message: 'За ужин' });
+  assert.equal(t.status, 'succeeded');
+  assert.equal(service.balance('u_boris').balances[0].available, 500_000);
+  assert.equal(service.balance('u_anna').balances[0].available, 1_500_000);
+  assert.ok(service.operations('u_boris').some((o) => o.kind === 'transfer' && o.direction === 'in'));
+  await assert.rejects(() => service.transferToUser('u_anna', { recipientId: 'u_dana', amount: 1000 }), { code: 'cross_market' });
+  await assert.rejects(() => service.transferToUser('u_anna', { recipientId: 'u_boris', amount: 9_000_000 }), { code: 'insufficient_funds' });
+  assertBalanced(service);
+});
+
+test('transfer to another bank charges a disclosed fee and validates details', async () => {
+  const app = createApp({ level: 'platform' });
+  const { service, partners } = app;
+  await topUp(app, 'u_anna', 2_000_000);
+  await assert.rejects(() => service.transferToBank('u_anna', { method: 'card', destination: '4242 4242 4242 4241', recipientName: 'Лиана', amount: 100_000 }), { code: 'invalid_card' });
+  const q = service.transferQuote('u_anna', { type: 'bank', amount: 1_000_000, method: 'phone' });
+  assert.equal(q.fee, 10_000); // max(0.5%, 100 AMD)
+  const p = await service.transferToBank('u_anna', { method: 'phone', destination: '+374 98 765432', recipientName: 'Лиана', amount: 1_000_000 });
+  assert.equal(service.balance('u_anna').balances[0].available, 990_000);
+  await partners[AM].processPending();
+  assert.equal(p.status, 'succeeded');
+  assert.equal(service.ledger.balance('revenue:transfer_fee', 'AMD'), 10_000);
+  assert.equal(service.reconciliation(AM).issues.length, 0);
+  assertBalanced(service);
+});
+
+test('transfers wait for Parri Key confirmation when a key is linked', async () => {
+  const app = createApp();
+  const { service, keys } = app;
+  await topUp(app, 'u_anna', 1_000_000);
+  const { device } = await linkKey(app, 'u_anna');
+  const t = await service.transferToUser('u_anna', { recipientId: 'u_gor', amount: 300_000 });
+  assert.equal(t.status, 'awaiting_confirmation');
+  assert.equal(service.balance('u_gor').balances[0].available, 0);
+  const [conf] = keys.pendingConfirmations('u_anna');
+  await keys.confirm('u_anna', conf.id, { signature: await device.sign('payment', conf.message, { presence: true }) });
+  assert.equal(t.status, 'succeeded');
+  assert.equal(service.balance('u_gor').balances[0].available, 300_000);
+
+  const t2 = await service.transferToUser('u_anna', { recipientId: 'u_gor', amount: 100_000 });
+  await keys.confirm('u_anna', t2.confirmation.id, { decline: true });
+  assert.equal(t2.status, 'failed');
+  assert.equal(service.balance('u_anna').balances[0].available, 700_000);
+  assertBalanced(service);
+});

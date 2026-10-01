@@ -1,5 +1,6 @@
 import { randomUUID } from 'node:crypto';
-import { MARKETS, PRODUCTS, PARTNERS, SERVICE_API_KEYS, SEED_USERS, SEED_MERCHANTS } from '../config.js';
+import { MARKETS, PRODUCTS, PARTNERS, SERVICE_API_KEYS, SEED_USERS, SEED_MERCHANTS, SANDBOX_CONTACTS } from '../config.js';
+import { PayService } from '../services/pay.js';
 import { PayError, format } from '../money.js';
 import { quote, topupQuote } from '../fees.js';
 import { renderDocument, renderCheckout } from './pages.js';
@@ -64,6 +65,17 @@ export function createRouter({ service, partners, receiveWebhook, clock, keys, k
   route('POST', '/api/topups', ({ req, body }) => {
     const id = user(req);
     return service.idempotency.run(`topup:${id}`, idemKey(req), body, () => service.requestTopup(id, { amount: Number(body.amount) }));
+  });
+
+  // --- Transfers to people ----------------------------------------------------
+  route('POST', '/api/contacts/match', ({ req, body }) => service.matchContacts(user(req), body.hashes));
+  route('POST', '/api/transfers/quote', ({ req, body }) => service.transferQuote(user(req), { type: body.type, amount: Number(body.amount), method: body.method }));
+  route('POST', '/api/transfers', ({ req, body }) => {
+    const id = user(req);
+    const amount = Number(body.amount);
+    return service.idempotency.run(`transfer:${id}`, idemKey(req), body, () => (body.type === 'bank'
+      ? service.transferToBank(id, { method: body.method, destination: body.destination, recipientName: body.recipientName, amount, message: body.message })
+      : service.transferToUser(id, { recipientId: body.recipientId, amount, message: body.message })));
   });
 
   // --- Parri Key ------------------------------------------------------------
@@ -180,6 +192,13 @@ export function createRouter({ service, partners, receiveWebhook, clock, keys, k
     } catch (err) {
       throw new PayError(err.code ?? 'device_error', err.message, 409);
     }
+  });
+
+  // Sandbox address book of the signed-in user's phone.
+  route('GET', '/api/sandbox/contacts', ({ req }) => {
+    const me = service.party(user(req));
+    const mine = PayService.normalizePhone(me.phone);
+    return SANDBOX_CONTACTS.filter((c) => PayService.normalizePhone(c.phone) !== mine);
   });
 
   route('POST', '/api/sandbox/process', async () => {

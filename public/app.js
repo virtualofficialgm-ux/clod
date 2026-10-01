@@ -42,6 +42,10 @@ const P = {
   nfc: '<path d="M6 8.5a5 5 0 0 1 0 7M9.5 6a9 9 0 0 1 0 12M13 3.5a13 13 0 0 1 0 17"/>',
   left: '<path d="m15 6-6 6 6 6"/>',
   right: '<path d="m9 6 6 6-6 6"/>',
+  search: '<circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/>',
+  phone: '<rect x="7" y="2" width="10" height="20" rx="3"/><path d="M11 18h2"/>',
+  card: '<rect x="3" y="5" width="18" height="14" rx="3"/><path d="M3 10h18M7 15h4"/>',
+  users: '<circle cx="9" cy="8" r="3.5"/><path d="M2.5 20a6.5 6.5 0 0 1 13 0"/><path d="M16 4.5a3.5 3.5 0 0 1 0 7M18.5 20a6.5 6.5 0 0 0-3-5.5"/>',
   cpu: '<rect x="6" y="6" width="12" height="12" rx="2"/><path d="M9 2v4M15 2v4M9 18v4M15 18v4M2 9h4M2 15h4M18 9h4M18 15h4"/>',
 };
 const icon = (name, size = 22, stroke = 1.9) => `<svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${stroke}" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${P[name] ?? ''}</svg>`;
@@ -67,12 +71,13 @@ function opVisual(o) {
   if (o.kind === 'refund') return { cls: 'refund', icon: 'back' };
   if (o.kind === 'income') return { cls: 'income', icon: 'arrowIn' };
   if (o.kind === 'topup') return { cls: 'income', icon: 'plus' };
+  if (o.kind === 'transfer') return { cls: 'transfer', icon: o.bank ? 'bank' : null, text: initials(o.counterparty ?? '?') };
   return { cls: o.product ?? 'tasks', icon: PRODUCT_ICON[o.product] ?? 'send' };
 }
 
 // --- State & API ----------------------------------------------------------------
 const state = {
-  meta: null, me: null, tab: 'home', filter: 'all', key: null,
+  meta: null, me: null, tab: 'home', filter: 'all', key: null, payMode: 'transfer', contacts: null, search: '',
   pay: { product: 'tasks', currency: null, amount: '15000', description: 'Сборка шкафа', payeeId: null, source: null },
 };
 let userId = storageGet('parri.user') ?? 'u_anna';
@@ -151,65 +156,108 @@ function go(tab) {
 window.addEventListener('scroll', () => $('.topbar').classList.toggle('scrolled', window.scrollY > 40), { passive: true });
 
 async function render() {
-  const titles = { home: 'Главная', pay: 'Оплата', key: 'Parri Key', history: 'История', more: 'Ещё' };
+  const titles = { home: 'Главная', pay: 'Платежи', key: 'Parri Key', history: 'История', more: 'Профиль' };
   $('#topbar-title').textContent = titles[state.tab];
   await guard(() => SCREENS[state.tab]());
 }
 
 // --- Home -----------------------------------------------------------------------------
+// Ring chart: segments drawn to scale on one circle.
+function ring(size, stroke, segments, total, track = 'var(--fill)') {
+  const r = (size - stroke) / 2;
+  const c = 2 * Math.PI * r;
+  let offset = 0;
+  const arcs = segments.filter((x) => x.value > 0).map((x) => {
+    const len = total > 0 ? (x.value / total) * c : 0;
+    const arc = `<circle cx="${size / 2}" cy="${size / 2}" r="${r}" fill="none" stroke="${x.color}" stroke-width="${stroke}" stroke-linecap="round"
+      stroke-dasharray="${Math.max(0, len - (segments.length > 1 ? stroke * 0.6 : 0))} ${c}" stroke-dashoffset="${-offset}" transform="rotate(-90 ${size / 2} ${size / 2})"/>`;
+    offset += len;
+    return arc;
+  }).join('');
+  return `<svg width="${size}" height="${size}" viewBox="0 0 ${size} ${size}" aria-hidden="true"><circle cx="${size / 2}" cy="${size / 2}" r="${r}" fill="none" stroke="${track}" stroke-width="${stroke}"/>${arcs}</svg>`;
+}
+
+function weekStrip(ops) {
+  const days = ['Вс', 'Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб'];
+  const now = new Date();
+  const active = new Set(ops.map((o) => new Date(o.at).toDateString()));
+  return `<div class="week">${Array.from({ length: 7 }, (_, k) => {
+    const d = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 6 + k);
+    const today = k === 6;
+    return `<div class="d${today ? ' today' : ''}">${days[d.getDay()]}<span class="c${active.has(d.toDateString()) ? ' has' : ''}">${d.getDate()}</span></div>`;
+  }).join('')}</div>`;
+}
+
 async function renderHome() {
   const [b, ops, subs] = await Promise.all([
     api('/api/me/balance'), api('/api/me/operations'),
     isBusiness() ? Promise.resolve([]) : api('/api/me/subscriptions'),
     loadKey(),
+    isBusiness() ? Promise.resolve(null) : loadContacts(),
   ]);
   const pending = state.key?.confirmations ?? [];
   const c = b.balances.find((x) => x.currency === cur()) ?? b.balances[0];
   const expected = c.expected.pendingSettlement + c.expected.reservedForMyOrders;
   const restricted = c.restricted.reservedInMyPurchases + c.restricted.payoutsInProgress;
+  const total = c.available + expected + restricted;
   const [int, dec] = fmt(c.available).split(',');
   const l = b.limits;
   const used = l ? Math.min(100, Math.round((l.payoutUsedThisMonth / l.monthlyPayout) * 100)) : 0;
-  const activeSub = subs.find((s) => s.status === 'active' || s.status === 'past_due');
+  const activeSub = subs.find((x) => x.status === 'active' || x.status === 'past_due');
+  const people = (state.contacts ?? []).filter((x) => x.match?.sameMarket);
+  const stat = (key, label, value, color, ic) => `<button class="stat" data-sheet="${key}">
+    <div class="v">${value}</div><div class="k">${label}</div>
+    <div class="mini">${ring(46, 5, [{ value: key === 'bonus' ? Number(b.bonuses.points > 0) : (key === 'expected' ? expected : restricted), color }], key === 'bonus' ? 1 : Math.max(total, 1))}<i style="color:${color}">${icon(ic, 16, 2.2)}</i></div></button>`;
 
   $('#screen').innerHTML = `
     <div class="fade-in">
       <div class="eyebrow">${esc(state.me.name)}${market() ? ` · ${esc(market().name)}` : ' · бизнес-счёт'}</div>
-      <h1 class="large-title">Кошелёк</h1>
+      <h1 class="large-title">Parri Pay</h1>
     </div>
+    ${weekStrip(ops)}
+
+    ${pending.map((x) => `<button class="banner glass" data-confirm="${x.id}">
+      <span class="ico">${icon('key', 20, 2.1)}</span>
+      <div style="flex:1;min-width:0"><div style="font-weight:700">Подтвердите на Parri Key</div><div style="color:var(--muted);font-size:13px">${esc(x.text)}</div></div>${chevron}</button>`).join('')}
 
     <section class="hero fade-in" aria-label="Баланс">
-      <div class="hero-label">${icon('shield', 16, 2)} Доступно к выводу</div>
-      <div class="hero-amount">${int}<small>,${dec} ${c.currency}</small></div>
-      <div class="hero-sub">Реальные деньги на счёте у банка-партнёра</div>
-      <div class="hero-split">
-        <button data-sheet="expected"><div class="k">Ожидается</div><div class="v">${short(expected)}</div></button>
-        <button data-sheet="restricted"><div class="k">Недоступно</div><div class="v">${short(restricted)}</div></button>
-        <button data-sheet="bonus" class="bonus"><div class="k">Бонусы</div><div class="v">${(b.bonuses.points / 100).toLocaleString('ru-RU')} б.</div></button>
+      <div class="main">
+        <div class="hero-amount">${int}<small>${dec !== '00' ? `,${dec}` : ''} ${c.currency}</small></div>
+        <div class="hero-label">Доступно · реальные деньги</div>
       </div>
+      <div class="ringbox">${ring(96, 10, [
+        { value: c.available, color: 'var(--fg)' },
+        { value: expected, color: 'var(--c-expected)' },
+        { value: restricted, color: 'var(--c-restricted)' },
+      ], Math.max(total, 1))}<span class="center">${icon('wallet', 20, 2)}</span></div>
     </section>
 
-    ${pending.map((c) => `<button class="banner glass" data-confirm="${c.id}">
-      <span class="ico">${icon('key', 20, 2.1)}</span>
-      <div class="main" style="flex:1;min-width:0"><div class="title" style="font-weight:600">Подтвердите на Parri Key</div><div class="sub" style="color:var(--muted);font-size:13px">${esc(c.text)}</div></div>${chevron}</button>`).join('')}
+    <section class="stats">
+      ${stat('expected', 'Ожидается', short(expected), 'var(--c-expected)', 'clock')}
+      ${stat('restricted', 'Недоступно', short(restricted), 'var(--c-restricted)', 'lock')}
+      ${stat('bonus', 'Бонусы · не деньги', `${(b.bonuses.points / 100).toLocaleString('ru-RU')}`, 'var(--c-bonus)', 'heart')}
+    </section>
 
     <section class="actions">
       ${isBusiness() ? quickAction('docs', 'doc', 'Документы') : quickAction('topup', 'plus', 'Пополнить')}
-      ${quickAction('pay', 'send', 'Оплатить')}
-      ${quickAction('payout', 'down', 'Вывести')}
-      ${quickAction('subs', 'repeat', 'Подписки')}
+      ${isBusiness() ? quickAction('payout', 'down', 'Вывести') : quickAction('transfer', 'users', 'Перевести')}
+      ${isBusiness() ? quickAction('subs', 'repeat', 'Подписки') : quickAction('pay', 'send', 'Оплатить')}
+      ${isBusiness() ? quickAction('more', 'grid', 'Профиль') : quickAction('payout', 'down', 'Вывести')}
     </section>
 
-    ${l ? `<section>
-      <div class="group glass">
+    ${people.length ? `<section>
+      <div class="section-head"><h2>Перевести</h2><button class="link" data-go="pay">Все контакты</button></div>
+      <div class="people">${people.map((x) => `<button class="person" data-person="${esc(x.match.userId)}"><span class="pic">${esc(initials(x.name))}<span class="badge">P</span></span><span>${esc(x.name)}</span></button>`).join('')}</div>
+    </section>` : ''}
+
+    ${l ? `<section><div class="group glass">
         <button class="row" data-sheet="limits">
-          <span class="ico sq" style="background:var(--c-payout)">${icon('lock', 17, 2.2)}</span>
+          <span class="ico sq">${icon('lock', 17, 2.2)}</span>
           <div class="main"><div class="title">Лимит выплат · ${esc(l.title)}</div>
-            <div class="sub">Осталось ${money(l.payoutRemaining, l.currency)} из ${money(l.monthlyPayout, l.currency)}</div>
+            <div class="sub">Осталось ${money(l.payoutRemaining, l.currency)}</div>
             <div class="meter"><i style="width:${used}%"></i></div></div>
           ${chevron}
-        </button>
-      </div></section>` : ''}
+        </button></div></section>` : ''}
 
     ${activeSub ? `<section><div class="group glass"><button class="row" data-sheet="subs">
       <span class="ico sq fit">${icon('heart', 17, 2.2)}</span>
@@ -217,8 +265,8 @@ async function renderHome() {
       <div class="end">${pill(SUB_STATUS, activeSub.status)}</div></button></div></section>` : ''}
 
     <section>
-      <div class="section-head"><h2>Операции</h2>${ops.length ? '<button class="link" data-go="history">Все</button>' : ''}</div>
-      ${ops.length ? `<div class="group glass">${ops.slice(0, 5).map(opRow).join('')}</div>` : emptyOps()}
+      <div class="section-head"><h2>Недавние операции</h2>${ops.length ? '<button class="link" data-go="history">Все</button>' : ''}</div>
+      ${ops.length ? `<div class="cards">${ops.slice(0, 5).map(opRow).join('')}</div>` : emptyOps()}
     </section>`;
   bindOps(ops);
   updateBell();
@@ -231,12 +279,13 @@ function opRow(o, i) {
   const v = opVisual(o);
   const sub = o.kind === 'payment' ? (o.status === 'awaiting_payment' ? 'Ожидает оплаты' : RESERVATION[o.reservation]?.[0] ?? ORDER_STATUS[o.status]?.[0])
     : o.kind === 'income' ? (o.settled ? 'Доступно' : o.status === 'completed' ? 'Ждёт расчёта банка' : 'В резерве до завершения')
-      : OP_STATUS[o.status]?.[0];
+      : o.kind === 'transfer' ? (o.status === 'succeeded' ? (o.direction === 'in' ? 'Перевод вам' : o.bank ? 'Перевод в банк' : 'Перевод · Parri Pay') : OP_STATUS[o.status]?.[0])
+        : OP_STATUS[o.status]?.[0];
   const via = o.kind === 'payment' && o.source === 'balance' ? 'с баланса · ' : '';
   const when = new Date(o.at).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
   const failed = ['canceled', 'failed'].includes(o.status);
   return `<button class="row" data-op="${i}">
-    <span class="ico ${v.cls}">${icon(v.icon, 20, 2.1)}</span>
+    <span class="ico ${v.cls}">${v.icon ? icon(v.icon, 20, 2.1) : esc(v.text)}</span>
     <div class="main"><div class="title">${esc(o.description)}</div><div class="sub">${via}${esc(sub ?? '')} · ${when}</div></div>
     <div class="end"><div class="amount ${o.amount > 0 && o.kind !== 'payment' ? 'in' : ''} ${failed ? 'muted' : ''}">${signed(o.kind === 'payment' ? -Math.abs(o.amount) : o.amount, o.currency)}</div></div>
   </button>`;
@@ -244,8 +293,9 @@ function opRow(o, i) {
 
 function bindOps(ops) {
   $('#screen').onclick = (e) => {
-    const t = e.target.closest('[data-op],[data-sheet],[data-go],[data-filter],[data-confirm]');
+    const t = e.target.closest('[data-op],[data-sheet],[data-go],[data-filter],[data-confirm],[data-person]');
     if (!t) return;
+    if (t.dataset.person) return guard(() => sheetTransferPay(t.dataset.person));
     if (t.dataset.confirm) return guard(() => sheetConfirm(t.dataset.confirm));
     if (t.dataset.op !== undefined) return sheetOperation(ops[Number(t.dataset.op)]);
     if (t.dataset.go) return go(t.dataset.go);
@@ -256,7 +306,8 @@ function bindOps(ops) {
 
 function openNamedSheet(name) {
   const map = {
-    pay: () => go('pay'), payout: sheetPayout, topup: sheetTopup, subs: sheetSubscriptions, docs: sheetDocuments, limits: sheetLimits,
+    pay: () => { state.payMode = 'service'; go('pay'); }, transfer: () => { state.payMode = 'transfer'; go('pay'); }, more: () => go('more'),
+    payout: sheetPayout, topup: sheetTopup, subs: sheetSubscriptions, docs: sheetDocuments, limits: sheetLimits,
     expected: () => sheetBalanceExplain('expected'), restricted: () => sheetBalanceExplain('restricted'), bonus: () => sheetBalanceExplain('bonus'),
     notifications: sheetNotifications, users: sheetUsers, business: sheetBusiness, markets: sheetMarkets, levels: sheetLevels,
   };
@@ -265,8 +316,18 @@ function openNamedSheet(name) {
 
 // --- Pay ----------------------------------------------------------------------------------
 async function renderPay() {
+  return state.payMode === 'service' ? renderServicePay() : renderTransfers();
+}
+
+const payHeader = () => `<h1 class="large-title">Платежи</h1>
+  <div class="segmented" role="group" aria-label="Тип платежа">
+    <button data-mode="transfer" aria-pressed="${state.payMode === 'transfer'}">Перевод человеку</button>
+    <button data-mode="service" aria-pressed="${state.payMode === 'service'}">Оплата услуг</button>
+  </div>`;
+
+async function renderServicePay() {
   if (isBusiness()) {
-    $('#screen').innerHTML = `<h1 class="large-title">Оплата</h1><div class="group glass"><div class="empty">Бизнес-счёт принимает оплату через свой сервис.<br>Чтобы заплатить, выберите покупателя.<br><br><button class="btn" data-sheet="users">Сменить пользователя</button></div></div>`;
+    $('#screen').innerHTML = `<h1 class="large-title">Платежи</h1><div class="group glass"><div class="empty">Бизнес-счёт принимает оплату через свой сервис.<br>Чтобы заплатить, выберите покупателя.<br><br><button class="btn" data-sheet="users">Сменить пользователя</button></div></div>`;
     bindOps([]);
     return;
   }
@@ -285,7 +346,7 @@ async function renderPay() {
   if (p.product === 'tasks' && !p.payeeId) p.product = 'food';
 
   $('#screen').innerHTML = `
-    <div><div class="eyebrow">Единая платёжная форма</div><h1 class="large-title">Оплата</h1></div>
+    ${payHeader()}
     <div class="segmented" role="group" aria-label="Сервис">
       <button data-product="tasks" aria-pressed="${p.product === 'tasks'}" ${executors.length ? '' : 'disabled'}>Parri Tasks</button>
       <button data-product="food" aria-pressed="${p.product === 'food'}">Parri Food</button>
@@ -318,12 +379,13 @@ async function renderPay() {
     </div>`;
 
   $('#screen').onclick = (e) => {
-    const t = e.target.closest('[data-product],[data-currency],[data-sheet],[data-source]');
+    const t = e.target.closest('[data-product],[data-currency],[data-sheet],[data-source],[data-mode]');
     if (!t) return;
+    if (t.dataset.mode) { state.payMode = t.dataset.mode; renderPay(); return undefined; }
     if (t.dataset.sheet) return openNamedSheet(t.dataset.sheet);
-    if (t.dataset.source) { p.source = t.dataset.source; renderPay(); return undefined; }
-    if (t.dataset.product) { p.product = t.dataset.product; p.description = p.product === 'tasks' ? 'Сборка шкафа' : 'Ужин на двоих'; renderPay(); }
-    if (t.dataset.currency) { p.currency = t.dataset.currency; renderPay(); }
+    if (t.dataset.source) { p.source = t.dataset.source; renderServicePay(); return undefined; }
+    if (t.dataset.product) { p.product = t.dataset.product; p.description = p.product === 'tasks' ? 'Сборка шкафа' : 'Ужин на двоих'; renderServicePay(); }
+    if (t.dataset.currency) { p.currency = t.dataset.currency; renderServicePay(); }
   };
   $('#pay-amount').addEventListener('input', (e) => { p.amount = e.target.value; updateQuote(); });
   $('#pay-desc').addEventListener('input', (e) => { p.description = e.target.value; });
@@ -426,9 +488,9 @@ async function sheetCheckout(url) {
 // --- History -------------------------------------------------------------------------------
 async function renderHistory() {
   const ops = await api('/api/me/operations');
-  const filters = { all: 'Все', payment: 'Оплаты', income: 'Пополнения', payout: 'Выплаты' };
-  const list = ops.map((o, i) => ({ o, i })).filter(({ o }) => state.filter === 'all' || o.kind === state.filter
-    || (state.filter === 'payment' && o.kind === 'refund') || (state.filter === 'income' && o.kind === 'topup'));
+  const filters = { all: 'Все', payment: 'Оплаты', transfer: 'Переводы', account: 'Счёт' };
+  const groupsOf = { payment: ['payment', 'refund', 'income'], transfer: ['transfer'], account: ['topup', 'payout'] };
+  const list = ops.map((o, i) => ({ o, i })).filter(({ o }) => state.filter === 'all' || groupsOf[state.filter]?.includes(o.kind));
   const groups = new Map();
   const today = new Date().toDateString();
   const yesterday = new Date(Date.now() - 86_400_000).toDateString();
@@ -442,14 +504,14 @@ async function renderHistory() {
     <h1 class="large-title">История</h1>
     <div class="segmented" role="group" aria-label="Фильтр">${Object.entries(filters).map(([k, v]) => `<button data-filter="${k}" aria-pressed="${state.filter === k}">${v}</button>`).join('')}</div>
     ${list.length ? [...groups].map(([day, items]) => `<section><div class="group-title">${esc(day)}</div>
-      <div class="group glass">${items.map(({ o, i }) => opRow(o, i)).join('')}</div></section>`).join('') : emptyOps()}`;
+      <div class="cards">${items.map(({ o, i }) => opRow(o, i)).join('')}</div></section>`).join('') : emptyOps()}`;
   bindOps(ops);
 }
 
 // --- Operation detail -----------------------------------------------------------------------
 function sheetOperation(o) {
   const v = opVisual(o);
-  const titles = { payment: 'Оплата', income: 'Поступление', refund: 'Возврат', payout: 'Выплата', topup: 'Пополнение' };
+  const titles = { payment: 'Оплата', income: 'Поступление', refund: 'Возврат', payout: 'Выплата', topup: 'Пополнение', transfer: 'Перевод' };
   const statusPills = [];
   if (o.kind === 'payment' || o.kind === 'income') {
     statusPills.push(pill(ORDER_STATUS, o.status));
@@ -464,6 +526,7 @@ function sheetOperation(o) {
   }
   if (o.kind === 'payment' && o.status === 'paid' && o.escrow) actions.push(`<button class="btn primary" data-act="complete">${icon('check', 18, 2.4)} Подтвердить выполнение</button>`);
   if (o.kind === 'income' && ['paid', 'completed'].includes(o.status)) actions.push(`<button class="btn" data-act="refund">${icon('back', 18, 2.2)} Оформить возврат</button>`);
+  if (o.kind === 'transfer' && o.confirmationId) actions.push(`<button class="btn primary" data-act="confirm">${icon('key', 18, 2.2)} Подтвердить на Parri Key</button>`);
   if (o.kind === 'payout' && o.confirmationId) actions.push(`<button class="btn primary" data-act="confirm">${icon('key', 18, 2.2)} Подтвердить на Parri Key</button>`);
   if (o.kind === 'topup' && o.confirmationUrl) actions.push('<button class="btn primary" data-act="topup-pay">Продолжить оплату</button>');
 
@@ -474,13 +537,19 @@ function sheetOperation(o) {
   if (o.orderId) rows.push(infoRow('Заказ', o.orderId));
   if (o.kind === 'payment') rows.push(infoRow('Источник', o.source === 'balance' ? 'Баланс Parri' : 'Банковская карта'));
   if (o.kind === 'topup') rows.push(infoRow('Комиссия за пополнение', money(o.fee, o.currency)));
+  if (o.kind === 'transfer') {
+    rows.push(infoRow(o.direction === 'in' ? 'Отправитель' : 'Получатель', o.counterparty));
+    rows.push(infoRow('Куда', o.bank ? `${{ phone: 'По номеру телефона', card: 'На карту', account: 'На счёт' }[o.method]} · ${o.destination}` : 'Parri Pay · мгновенно'));
+    if (o.bank) rows.push(infoRow('Комиссия', money(o.fee, o.currency)));
+    if (o.message) rows.push(infoRow('Сообщение', o.message));
+  }
   if (o.refunded) rows.push(infoRow('Возвращено', money(o.refunded, o.orderCurrency)));
   if (o.kind === 'payment' && o.escrow && o.status === 'paid') rows.push(infoRow('Резерв', 'Исполнитель получит деньги после вашего подтверждения'));
 
   openSheet(`
     ${sheetHead(titles[o.kind])}
     <div class="detail-top">
-      <span class="ico ${v.cls}">${icon(v.icon, 30, 2)}</span>
+      <span class="ico ${v.cls}">${v.icon ? icon(v.icon, 30, 2) : esc(v.text)}</span>
       <div class="big">${signed(o.kind === 'payment' ? -Math.abs(o.amount) : o.amount, o.currency)}</div>
       <div class="what">${esc(o.description)}</div>
       <div class="pills" style="justify-content:center">${statusPills.join('')}</div>
@@ -663,7 +732,7 @@ function renderMore() {
   const m = market();
   const caps = state.meta.capabilities;
   $('#screen').innerHTML = `
-    <h1 class="large-title">Ещё</h1>
+    <h1 class="large-title">Профиль</h1>
     <div class="group glass"><button class="row" data-sheet="users" style="min-height:76px">
       <span class="avatar" style="width:52px;height:52px;font-size:19px">${esc(initials(me.name))}</span>
       <div class="main"><div class="title" style="font-size:18px">${esc(me.name)}</div><div class="sub">${m ? `${esc(m.name)} · ${me.kycLevel === 'verified' ? 'полная идентификация' : 'базовая идентификация'}` : 'Бизнес-счёт'}</div></div>${chevron}
@@ -723,7 +792,8 @@ function sheetUsers() {
     });
   });
 }
-$('#who').addEventListener('click', () => sheetUsers());
+$('#who').addEventListener('click', () => go('more'));
+$('#fab').addEventListener('click', () => sheetActions());
 
 async function sheetBusiness() {
   const caps = state.meta.capabilities;
@@ -771,6 +841,202 @@ function sheetLevels() {
     <div><div class="eyebrow">Условие перехода</div><div style="font-weight:500">${esc(l.transition)}</div></div>
   </div>`).join('')}`);
 }
+
+// --- Transfers to people ----------------------------------------------------------------
+const METHOD = {
+  phone: { title: 'По номеру телефона', icon: 'phone', placeholder: '+374 98 765432', field: 'Телефон' },
+  card: { title: 'На карту любого банка', icon: 'card', placeholder: '4242 4242 4242 4242', field: 'Номер карты' },
+  account: { title: 'На счёт или IBAN', icon: 'bank', placeholder: 'AM12 3456 7890 1234 5678', field: 'Счёт' },
+};
+
+async function sha256(text) {
+  const d = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(text));
+  return [...new Uint8Array(d)].map((x) => x.toString(16).padStart(2, '0')).join('');
+}
+const normalizePhone = (p) => { const d = String(p).replace(/[^\d+]/g, ''); return d.startsWith('+') ? `+${d.slice(1).replace(/\+/g, '')}` : `+${d}`; };
+
+// The address book stays on the device; only hashes of numbers go to Parri for matching.
+async function loadContacts(extra = []) {
+  if (state.contacts && !extra.length) return state.contacts;
+  const book = [...(state.contacts?.map(({ name, phone }) => ({ name, phone })) ?? await api('/api/sandbox/contacts')), ...extra];
+  const withHash = await Promise.all(book.map(async (x) => ({ ...x, hash: await sha256(normalizePhone(x.phone)) })));
+  const matches = await api('/api/contacts/match', { method: 'POST', body: { hashes: withHash.map((x) => x.hash) } });
+  const byHash = new Map(matches.map((m) => [m.hash, m]));
+  const seen = new Set();
+  state.contacts = withHash.filter((x) => !seen.has(x.hash) && seen.add(x.hash)).map((x) => ({ ...x, match: byHash.get(x.hash) ?? null }))
+    .sort((a, b) => Number(Boolean(b.match)) - Number(Boolean(a.match)) || a.name.localeCompare(b.name, 'ru'));
+  return state.contacts;
+}
+
+async function renderTransfers() {
+  if (isBusiness()) {
+    $('#screen').innerHTML = `${payHeader()}<div class="group glass"><div class="empty">Переводы людям доступны личным аккаунтам.</div></div>`;
+  } else {
+    const contacts = await loadContacts();
+    const m = market();
+    const q = state.search.trim().toLowerCase();
+    const list = contacts.filter((x) => !q || x.name.toLowerCase().includes(q) || x.phone.replace(/\D/g, '').includes(q.replace(/\D/g, '') || '§'));
+    const withPay = list.filter((x) => x.match);
+    const others = list.filter((x) => !x.match);
+    const pickerSupported = 'contacts' in navigator && 'select' in navigator.contacts;
+    $('#screen').innerHTML = `
+      ${payHeader()}
+      <label class="search">${icon('search', 20, 2.2)}<input id="t-search" placeholder="Имя или номер телефона" value="${esc(state.search)}" autocomplete="off"></label>
+
+      <section><div class="group-title">С Parri Pay · мгновенно и без комиссии</div>
+        ${withPay.length ? `<div class="cards">${withPay.map((x) => contactRow(x)).join('')}</div>` : '<div class="group glass"><div class="empty">Никто из найденных контактов пока не пользуется Parri Pay</div></div>'}
+      </section>
+
+      <section><div class="group-title">В любой банк</div><div class="group glass">
+        ${m.bankTransfer.methods.map((k) => `<button class="row" data-bank="${k}"><span class="ico">${icon(METHOD[k].icon, 20, 2)}</span>
+          <div class="main"><div class="title">${METHOD[k].title}</div><div class="sub">${k === 'phone' ? esc(m.bankTransfer.phoneSystem) : 'через банк-партнёр'} · ${m.bankTransfer.feeBps ? `${m.bankTransfer.feeBps / 100}%, мин. ${money(m.bankTransfer.minFee, m.settlementCurrency)}` : 'без комиссии'}</div></div>${chevron}</button>`).join('')}
+      </div></section>
+
+      ${others.length ? `<section><div class="group-title">Контакты без Parri Pay</div><div class="cards">${others.map((x) => contactRow(x)).join('')}</div></section>` : ''}
+      ${pickerSupported ? `<button class="btn" id="pick-contacts">${icon('users', 20, 2)} Выбрать из контактов телефона</button>` : ''}
+      <p class="hint">Номера сверяются по хешу: ваша адресная книга не загружается в Parri.</p>`;
+    const input = $('#t-search');
+    input.addEventListener('input', () => { state.search = input.value; clearTimeout(input.t); input.t = setTimeout(() => renderTransfers().then(() => { const el = $('#t-search'); el.focus(); el.setSelectionRange(el.value.length, el.value.length); }), 250); });
+    $('#pick-contacts')?.addEventListener('click', () => guard(async () => {
+      const picked = await navigator.contacts.select(['name', 'tel'], { multiple: true });
+      const extra = picked.flatMap((x) => (x.tel ?? []).map((tel) => ({ name: x.name?.[0] ?? tel, phone: tel })));
+      if (extra.length) { await loadContacts(extra); renderTransfers(); }
+    }));
+  }
+  $('#screen').onclick = (e) => {
+    const t = e.target.closest('[data-mode],[data-person],[data-bank],[data-contact]');
+    if (!t) return;
+    if (t.dataset.mode) { state.payMode = t.dataset.mode; renderPay(); return; }
+    guard(async () => {
+      if (t.dataset.person) return sheetTransferPay(t.dataset.person);
+      if (t.dataset.bank) return sheetTransferBank({ method: t.dataset.bank });
+      const x = state.contacts.find((c) => c.hash === t.dataset.contact);
+      const m = market();
+      return sheetTransferBank({ method: m.bankTransfer.methods.includes('phone') ? 'phone' : m.bankTransfer.methods[0], destination: x.phone, recipientName: x.name });
+    });
+  };
+}
+
+function contactRow(x) {
+  const pay = x.match;
+  const other = pay && !pay.sameMarket;
+  return `<button class="row" ${pay && !other ? `data-person="${esc(pay.userId)}"` : `data-contact="${esc(x.hash)}"`}>
+    <span class="ico transfer" style="border-radius:50%">${esc(initials(x.name))}</span>
+    <div class="main"><div class="title">${esc(x.name)}</div><div class="sub">${esc(x.phone)}</div></div>
+    <div class="end">${pay ? (other ? '<span class="pill">Другая страна · в банк</span>' : '<span class="pill ok">Parri Pay</span>') : '<span class="pill">В банк по номеру</span>'}</div></button>`;
+}
+
+async function sheetTransferPay(recipientId) {
+  const [b] = await Promise.all([api('/api/me/balance'), loadContacts(), loadKey()]);
+  const contact = state.contacts.find((x) => x.match?.userId === recipientId);
+  const name = contact?.name ?? state.meta.sandbox.users.find((u) => u.id === recipientId)?.name ?? 'Получатель';
+  const c = b.balances[0];
+  openSheet(`
+    ${sheetHead('Перевод')}
+    <div class="recipient glass"><span class="pic">${esc(initials(name))}</span>
+      <div style="flex:1;min-width:0"><div style="font:700 18px var(--font-round)">${esc(name)}</div><div class="hint" style="text-align:left;padding:0">Parri Pay · мгновенно · без комиссии</div></div></div>
+    <section class="amount-entry glass">
+      <label for="tr-amount">Сумма</label>
+      <div class="field"><input id="tr-amount" inputmode="decimal" placeholder="0" aria-label="Сумма перевода"><span class="cur">${c.currency}</span></div>
+      <div class="seg-wrap"><span class="pill">С баланса · ${money(c.available, c.currency)}</span></div>
+    </section>
+    <div class="group glass"><div class="field-row"><label for="tr-msg">Сообщение</label><input id="tr-msg" placeholder="Необязательно" maxlength="140"></div></div>
+    <button class="btn primary" id="tr-go" disabled>Перевести</button>
+    ${activeKey() ? '<p class="hint">Перевод нужно будет подтвердить на Parri Key.</p>' : ''}
+    ${c.available === 0 ? `<button class="btn" data-topup>${icon('plus', 18, 2.4)} Сначала пополнить баланс</button>` : ''}`, (root) => {
+    const input = $('#tr-amount', root);
+    const go = $('#tr-go', root);
+    input.addEventListener('input', () => {
+      const v = toMinor(input.value);
+      const ok = v > 0 && v <= c.available;
+      go.disabled = !ok;
+      go.textContent = v > c.available ? 'Недостаточно средств' : v > 0 ? `Перевести ${money(v, c.currency)}` : 'Перевести';
+    });
+    root.querySelector('[data-topup]')?.addEventListener('click', () => guard(sheetTopup));
+    go.addEventListener('click', () => guard(async () => {
+      go.disabled = true;
+      const t = await api('/api/transfers', { method: 'POST', body: { type: 'pay', recipientId, amount: toMinor(input.value), message: $('#tr-msg', root).value }, idempotent: true });
+      if (t.status === 'awaiting_confirmation') return sheetConfirm(t.confirmation.id);
+      closeSheet();
+      toast(`Отправлено: ${money(t.amount, t.currency)} · ${name}`);
+      return render();
+    }));
+    input.focus();
+  });
+}
+
+async function sheetTransferBank({ method, destination = '', recipientName = '' }) {
+  const [b] = await Promise.all([api('/api/me/balance'), loadKey()]);
+  const c = b.balances[0];
+  const m = market();
+  let current = method;
+  const draw = () => {
+    const meta = METHOD[current];
+    openSheet(`
+      ${sheetHead('Перевод в другой банк')}
+      <div class="segmented" role="group" aria-label="Способ">${m.bankTransfer.methods.map((k) => `<button data-method="${k}" aria-pressed="${k === current}">${{ phone: 'Телефон', card: 'Карта', account: 'Счёт' }[k]}</button>`).join('')}</div>
+      <div class="group glass">
+        <div class="field-row"><label for="bt-dest">${meta.field}</label><input id="bt-dest" value="${esc(destination)}" placeholder="${meta.placeholder}" inputmode="${current === 'account' ? 'text' : 'tel'}"></div>
+        <div class="field-row"><label for="bt-name">Получатель</label><input id="bt-name" value="${esc(recipientName)}" placeholder="Имя и фамилия"></div>
+        <div class="field-row"><label for="bt-msg">Сообщение</label><input id="bt-msg" placeholder="Необязательно" maxlength="140"></div>
+      </div>
+      <section class="amount-entry glass">
+        <label for="bt-amount">Сумма · с баланса ${money(c.available, c.currency)}</label>
+        <div class="field"><input id="bt-amount" inputmode="decimal" placeholder="0" aria-label="Сумма перевода"><span class="cur">${c.currency}</span></div>
+      </section>
+      <div id="bt-quote"></div>
+      <button class="btn primary" id="bt-go" disabled>Перевести</button>
+      <p class="hint">${current === 'phone' ? `Через ${esc(m.bankTransfer.phoneSystem)} — получатель увидит перевод в своём банке.` : 'Перевод отправит банк-партнёр Parri. Реквизиты проверяет банк получателя.'}</p>`, (root) => {
+      const amount = $('#bt-amount', root);
+      const go = $('#bt-go', root);
+      let timer;
+      const update = () => {
+        destination = $('#bt-dest', root).value; recipientName = $('#bt-name', root).value;
+        clearTimeout(timer);
+        timer = setTimeout(async () => {
+          const v = toMinor(amount.value);
+          if (!v || v <= 0) { $('#bt-quote', root).innerHTML = ''; go.disabled = true; return; }
+          const q = await api('/api/transfers/quote', { method: 'POST', body: { type: 'bank', amount: v, method: current } });
+          $('#bt-quote', root).innerHTML = `<div class="group glass breakdown">
+            ${line('Получатель получит', money(q.amount, q.currency))}
+            ${line(`Комиссия за перевод в другой банк${q.feeBps ? ` · ${q.feeBps / 100}%, мин. ${money(q.minFee, q.currency)}` : ''}`, q.fee ? money(q.fee, q.currency) : 'без комиссии')}
+            ${line('Спишем с баланса', money(q.total, q.currency), 'total')}
+            ${line('Срок', q.arrival)}</div>`;
+          const enough = q.total <= c.available;
+          go.disabled = !enough || !destination.trim() || !recipientName.trim();
+          go.textContent = enough ? `Перевести ${money(q.amount, q.currency)}` : 'Недостаточно средств';
+        }, 150);
+      };
+      root.addEventListener('input', update);
+      root.addEventListener('click', (e) => { const k = e.target.closest('[data-method]')?.dataset.method; if (k && k !== current) { current = k; destination = ''; draw(); } });
+      go.addEventListener('click', () => guard(async () => {
+        go.disabled = true;
+        const p = await api('/api/transfers', { method: 'POST', body: { type: 'bank', method: current, destination, recipientName, amount: toMinor(amount.value), message: $('#bt-msg', root).value }, idempotent: true });
+        if (p.status === 'awaiting_confirmation') return sheetConfirm(p.confirmation.id);
+        closeSheet();
+        toast('Перевод отправлен в банк получателя');
+        return render();
+      }));
+      update();
+    });
+  };
+  draw();
+}
+
+function sheetActions() {
+  const tiles = isBusiness()
+    ? [['payout', 'down', 'Вывести'], ['docs', 'doc', 'Документы']]
+    : [['transfer', 'users', 'Перевести'], ['pay', 'send', 'Оплатить'], ['topup', 'plus', 'Пополнить'], ['payout', 'down', 'Вывести']];
+  openSheet(`${sheetHead('Новая операция')}<div class="tiles">${tiles.map(([k, ic, t]) => `<button class="tile" data-tile="${k}"><span class="ico">${icon(ic, 24, 2)}</span>${t}</button>`).join('')}</div>`, (root) => {
+    root.addEventListener('click', (e) => {
+      const k = e.target.closest('[data-tile]')?.dataset.tile;
+      if (!k) return;
+      if (k === 'transfer' || k === 'pay') closeSheet();
+      openNamedSheet(k);
+    });
+  });
+}
+
 
 // --- Top-up ------------------------------------------------------------------------------
 async function sheetTopup() {
@@ -1038,7 +1304,7 @@ async function sheetConfirm(confirmationId) {
         if (c === 'ok') {
           const signature = await deviceSign(device.serial, 'payment', conf.message);
           await api(`/api/keys/confirmations/${conf.id}`, { method: 'POST', body: { signature } });
-          toast('Подтверждено ключом. Выплата отправлена в банк');
+          toast(conf.type === 'transfer' ? 'Подтверждено ключом. Перевод выполнен' : 'Подтверждено ключом. Деньги отправлены в банк');
         } else {
           await api(`/api/keys/confirmations/${conf.id}`, { method: 'POST', body: { decline: true } });
           toast('Действие отклонено, деньги остались на балансе');
@@ -1083,6 +1349,8 @@ async function selectUser(id) {
   userId = id;
   state.pay.source = null;
   state.key = null;
+  state.contacts = null;
+  state.search = '';
   storageSet('parri.user', id);
   state.me = await api('/api/me');
   $('#who').textContent = initials(state.me.name);
