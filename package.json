@@ -1,0 +1,15 @@
+{
+  "name": "parri-pay",
+  "version": "0.1.0",
+  "description": "Parri Pay — payments, payouts and financial capabilities for Parri brand services (Pay Connect stage)",
+  "type": "module",
+  "private": true,
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "start": "node src/http/server.js",
+    "start:platform": "PARRI_PAY_LEVEL=platform node src/http/server.js",
+    "test": "node --test"
+  }
+}

@@ -1,0 +1,118 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Parri Pay</title>
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">Parri <span>Pay</span></div>
+    <div id="level" class="level"></div>
+    <label class="who">
+      <span>Пользователь</span>
+      <select id="user"></select>
+    </label>
+  </header>
+
+  <nav class="tabs" id="tabs">
+    <button data-tab="wallet" class="active">Кошелёк</button>
+    <button data-tab="pay">Оплатить</button>
+    <button data-tab="history">История</button>
+    <button data-tab="subs">Подписки</button>
+    <button data-tab="payouts">Выплаты</button>
+    <button data-tab="docs">Документы</button>
+    <button data-tab="business">Бизнес</button>
+    <button data-tab="about">Рынки и уровни</button>
+  </nav>
+
+  <main>
+    <div id="flash" class="flash" hidden></div>
+
+    <section id="tab-wallet" class="tab">
+      <div id="balance" class="cards"></div>
+      <h2>Ограничения</h2>
+      <div id="limits" class="panel"></div>
+      <h2>Уведомления</h2>
+      <ul id="notifications" class="list"></ul>
+    </section>
+
+    <section id="tab-pay" class="tab" hidden>
+      <p id="pay-business" class="panel empty" hidden>Платёжная форма доступна покупателям. Бизнес принимает оплату через API своего сервиса.</p>
+      <form id="pay-form" class="panel form">
+        <label>Сервис
+          <select name="product">
+            <option value="tasks">Parri Tasks — оплата исполнителю (с резервированием)</option>
+            <option value="food">Parri Food — заказ еды</option>
+          </select>
+        </label>
+        <label data-for="tasks">Исполнитель
+          <select name="payeeId"></select>
+        </label>
+        <label>Описание
+          <input name="description" value="Сборка шкафа" maxlength="120">
+        </label>
+        <label><span id="amount-label">Сумма</span>
+          <input name="amount" type="number" min="1" step="0.01" value="10000">
+        </label>
+        <label>Валюта оплаты
+          <select name="currency"></select>
+        </label>
+        <div id="quote" class="quote"></div>
+        <button class="primary" type="submit">Перейти к оплате</button>
+        <p class="hint">Данные карты вводятся на странице банка-партнёра. Parri хранит только статус платежа.</p>
+      </form>
+    </section>
+
+    <section id="tab-history" class="tab" hidden>
+      <div class="row-actions"><button id="refresh">Обновить</button></div>
+      <ul id="operations" class="list ops"></ul>
+    </section>
+
+    <section id="tab-subs" class="tab" hidden>
+      <div id="plans" class="panel"></div>
+      <ul id="subscriptions" class="list"></ul>
+    </section>
+
+    <section id="tab-payouts" class="tab" hidden>
+      <form id="payout-form" class="panel form">
+        <p id="payout-available" class="big"></p>
+        <label>Сумма
+          <input name="amount" type="number" min="0.01" step="0.01">
+        </label>
+        <label>Карта или счёт получателя
+          <input name="destination" value="card_4242424242424242">
+        </label>
+        <button class="primary" type="submit">Вывести</button>
+        <p class="hint">В песочнице реквизиты с «fail» отклоняются партнёром — средства возвращаются на баланс.</p>
+      </form>
+    </section>
+
+    <section id="tab-docs" class="tab" hidden>
+      <ul id="documents" class="list"></ul>
+    </section>
+
+    <section id="tab-business" class="tab" hidden>
+      <div id="business"></div>
+    </section>
+
+    <section id="tab-about" class="tab" hidden>
+      <h2>Уровни развития</h2>
+      <div id="levels" class="levels"></div>
+      <h2>Рынки</h2>
+      <div id="markets" class="cards"></div>
+      <h2>Песочница</h2>
+      <div class="panel sandbox">
+        <p id="clock" class="hint"></p>
+        <button data-sandbox="process">Обработать операции партнёров</button>
+        <button data-sandbox="settle">Провести расчёт партнёра</button>
+        <button data-sandbox="advance">Перевести часы на 31 день</button>
+      </div>
+    </section>
+  </main>
+
+  <dialog id="modal"><div id="modal-body"></div><form method="dialog"><button>Закрыть</button></form></dialog>
+  <script type="module" src="/app.js"></script>
+</body>
+</html>
