@@ -1,7 +1,7 @@
 {
-  "name": "Parri Fit — ИИ-тренер",
-  "short_name": "Parri Fit",
-  "description": "Персональные тренировки, питание и подсчёт калорий по фото с ИИ",
+  "name": "Parri — Fit и Food",
+  "short_name": "Parri",
+  "description": "Тренировки и питание с ИИ в одном плане",
   "start_url": "/",
   "display": "standalone",
   "orientation": "portrait",

@@ -1,4 +1,5 @@
-import type { ChatMessage, EquipmentAnalysis, MealAnalysis, Profile, Program } from "../shared/types";
+import type { ChatMessage, EquipmentAnalysis, MealAnalysis, Menu, Profile, Program } from "../shared/types";
+import { localMenu } from "./data/recipes";
 import { localMeal, localProgram, localReply } from "./data/localCoach";
 
 export interface Result<T> {
@@ -10,9 +11,9 @@ async function post(url: string, body: unknown): Promise<Response> {
   return fetch(url, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
 }
 
-export async function generateProgram(profile: Profile, wish = ""): Promise<Result<Program>> {
+export async function generateProgram(profile: Profile, wish = "", log = ""): Promise<Result<Program>> {
   try {
-    const res = await post("/api/program", { profile, wish });
+    const res = await post("/api/program", { profile, wish, log });
     if (res.ok) return { data: (await res.json()) as Program, ai: true };
   } catch {
     /* offline */
@@ -51,13 +52,24 @@ export async function scanEquipment(input: {
   return null;
 }
 
+export async function generateMenu(profile: Profile, schedule: number[], wish = ""): Promise<Result<Menu>> {
+  try {
+    const res = await post("/api/menu", { profile, schedule, wish });
+    if (res.ok) return { data: (await res.json()) as Menu, ai: true };
+  } catch {
+    /* offline */
+  }
+  return { data: localMenu(profile, schedule), ai: false };
+}
+
 export async function chat(
   profile: Profile,
   messages: ChatMessage[],
   onText: (full: string) => void,
+  log = "",
 ): Promise<boolean> {
   try {
-    const res = await post("/api/chat", { profile, messages });
+    const res = await post("/api/chat", { profile, messages, log });
     if (res.ok && res.body) {
       const reader = res.body.getReader();
       const decoder = new TextDecoder();

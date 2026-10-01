@@ -24,6 +24,24 @@ export interface Profile {
   diet: Diet;
   source: string;
   units: "metric" | "imperial";
+  /** Training days, 0 = Monday … 6 = Sunday. workoutsPerWeek mirrors its length. */
+  days?: number[];
+  sessionMin?: number;
+  preferences?: string[];
+  limitations?: string[];
+  limitationsNote?: string;
+  reminders?: boolean;
+  reminderTime?: string; // HH:MM
+  // Parri Food
+  budgetWeek?: number; // ₽ per week for the household
+  cookTimeMin?: number; // max minutes per meal on weekdays
+  tastes?: string[];
+  dislikes?: string;
+  allergies?: string[];
+  household?: number;
+  pantry?: string[];
+  /** Separate consent: lets Fit and Food share schedule and goals. */
+  linkFitFood?: boolean;
 }
 
 export interface NutritionPlan {
@@ -109,3 +127,44 @@ export const EquipmentSchema = z.object({
 });
 
 export type EquipmentAnalysis = z.infer<typeof EquipmentSchema>;
+
+export const IngredientSchema = z.object({
+  name: z.string(),
+  qty: z.number(),
+  unit: z.string().describe("г, мл, шт, ст. л. и т. п."),
+});
+
+export const RecipeSchema = z.object({
+  title: z.string(),
+  timeMin: z.number().int(),
+  servings: z.number().int(),
+  kcal: z.number().int().describe("Приблизительно на порцию"),
+  protein: z.number().int(),
+  carbs: z.number().int(),
+  fat: z.number().int(),
+  costRub: z.number().int().describe("Примерная стоимость всего блюда в рублях"),
+  ingredients: z.array(IngredientSchema),
+  steps: z.array(z.string()),
+  substitutions: z.array(z.object({ ingredient: z.string(), options: z.array(z.string()) })),
+  usesLeftovers: z.boolean().describe("Использует остатки предыдущих блюд или продукты, которые уже есть дома"),
+});
+
+export const MenuDaySchema = z.object({
+  training: z.boolean().describe("День тренировки по расписанию пользователя"),
+  meals: z.array(z.object({ slot: z.enum(["breakfast", "lunch", "dinner", "snack"]), recipe: RecipeSchema })),
+});
+
+export const MenuSchema = z.object({
+  days: z.array(MenuDaySchema).describe("Ровно 7 дней, с понедельника"),
+  shopping: z.array(
+    z.object({ name: z.string(), qty: z.number(), unit: z.string(), category: z.string(), costRub: z.number().int() }),
+  ),
+  totalRub: z.number().int(),
+  notes: z.array(z.string()),
+  clarify: z.array(z.string()).describe("Ингредиенты с неизвестным составом, которые надо уточнить из-за аллергий"),
+});
+
+export type Ingredient = z.infer<typeof IngredientSchema>;
+export type Recipe = z.infer<typeof RecipeSchema>;
+export type MenuDay = z.infer<typeof MenuDaySchema>;
+export type Menu = z.infer<typeof MenuSchema>;

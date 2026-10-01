@@ -1,19 +1,26 @@
 import {
-  Apple, ArrowLeft, Bell, Building2, Check, Dumbbell, Flame, Heart, Home, Leaf, Mail, Moon, Rabbit,
+  ArrowLeft, Bell, Building2, Check, Dumbbell, Flame, Heart, Home, Leaf, Mail, Rabbit,
   Salad, Sparkles, Sprout, Sun, Target, Trees, TrendingDown, TrendingUp, Turtle, Utensils, Zap, Fish, Minus,
 } from "lucide-react";
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { computePlan } from "../../shared/nutrition";
-import type { Profile, Program } from "../../shared/types";
-import { generateProgram } from "../api";
+import type { Menu, Profile, Program } from "../../shared/types";
+import { generateMenu, generateProgram } from "../api";
 import { Wheel, Ruler } from "../components/pickers";
 import { Ambient, Ring, Segmented, Sheet, haptic, toast } from "../components/ui";
 import { getState, hash, setState, today, type Account, type UserData } from "../store";
 
 type StepId =
-  | "welcome" | "gender" | "workouts" | "source" | "experience" | "tried" | "longterm" | "body" | "birth"
-  | "goal" | "target" | "realistic" | "speed" | "twice" | "place" | "equipment" | "obstacles" | "diet"
-  | "accomplish" | "potential" | "notify" | "thanks" | "loading" | "result" | "account";
+  | "welcome" | "gender" | "source" | "experience" | "schedule" | "body" | "birth" | "goal" | "target" | "speed"
+  | "place" | "equipment" | "preferences" | "limitations" | "obstacles" | "foodIntro" | "diet" | "allergies" | "tastes"
+  | "kitchen" | "link" | "reminders" | "howitworks" | "thanks" | "loading" | "result" | "account";
+
+const WEEK = ["Пн", "Вт", "Ср", "Чт", "Пт", "Сб", "Вс"];
+
+export function plural(n: number, one: string, few: string, many: string) {
+  const m10 = n % 10, m100 = n % 100;
+  return m10 === 1 && m100 !== 11 ? one : m10 >= 2 && m10 <= 4 && (m100 < 10 || m100 >= 20) ? few : many;
+}
 
 const DEFAULT: Profile = {
   name: "",
@@ -33,13 +40,28 @@ const DEFAULT: Profile = {
   diet: "classic",
   source: "",
   units: "metric",
+  days: [0, 2, 4],
+  sessionMin: 45,
+  preferences: [],
+  limitations: [],
+  limitationsNote: "",
+  reminders: true,
+  reminderTime: "18:00",
+  budgetWeek: 5000,
+  cookTimeMin: 30,
+  tastes: [],
+  dislikes: "",
+  allergies: [],
+  household: 1,
+  pantry: [],
+  linkFitFood: true,
 };
 
 let pendingProgram: Promise<{ data: Program; ai: boolean }> | null = null;
+let pendingMenu: Promise<{ data: Menu; ai: boolean }> | null = null;
 
 export default function Onboarding() {
   const [p, setP] = useState<Profile>(DEFAULT);
-  const [tried, setTried] = useState<boolean | null>(null);
   const [history, setHistory] = useState<StepId[]>(["welcome"]);
   const [dir, setDir] = useState<"fwd" | "back">("fwd");
   const [signIn, setSignIn] = useState(false);
@@ -47,11 +69,11 @@ export default function Onboarding() {
   const set = (patch: Partial<Profile>) => setP((x) => ({ ...x, ...patch }));
 
   const flow = useMemo<StepId[]>(() => {
-    const f: StepId[] = ["welcome", "gender", "workouts", "source", "experience", "tried", "longterm", "body", "birth", "goal"];
-    if (p.goal !== "maintain") f.push("target", "realistic", "speed", "twice");
+    const f: StepId[] = ["welcome", "gender", "source", "experience", "schedule", "body", "birth", "goal"];
+    if (p.goal !== "maintain") f.push("target", "speed");
     f.push("place");
     if (p.place !== "gym") f.push("equipment");
-    f.push("obstacles", "diet", "accomplish", "potential", "notify", "thanks", "loading", "result", "account");
+    f.push("preferences", "limitations", "obstacles", "foodIntro", "diet", "allergies", "tastes", "kitchen", "link", "reminders", "howitworks", "thanks", "loading", "result", "account");
     return f;
   }, [p.goal, p.place]);
 
@@ -67,7 +89,6 @@ export default function Onboarding() {
   };
 
   const progress = Math.max(0, flow.indexOf(step)) / (flow.indexOf("thanks") || 1);
-  const diffKg = Math.abs(p.targetWeightKg - p.weightKg);
 
   if (step === "welcome") {
     return (
@@ -75,8 +96,11 @@ export default function Onboarding() {
         <Ambient />
         <div className="ob-body center" style={{ alignItems: "center", textAlign: "center" }}>
           <WelcomeHero />
-          <h1 style={{ fontSize: 38, marginTop: 36 }}>Тренировки и питание с ИИ</h1>
-          <p className="sub" style={{ maxWidth: 300 }}>Персональный план, подсчёт калорий по фото и тренер в кармане 24/7</p>
+          <div className="wordmark" style={{ marginTop: 34 }}>
+            parri<span>fit · food</span>
+          </div>
+          <h1 style={{ fontSize: 34, marginTop: 14 }}>Цель → реалистичный план</h1>
+          <p className="sub" style={{ maxWidth: 320 }}>Тренировки под ваш опыт, оборудование и расписание. Меню под бюджет и вкусы. Один план вместо нескольких дневников.</p>
         </div>
         <div className="ob-foot">
           <button className="btn btn-primary" onClick={next}>Начать</button>
@@ -112,23 +136,6 @@ export default function Onboarding() {
         />
       ),
     },
-    workouts: {
-      title: "Сколько тренировок в неделю вы делаете?",
-      sub: "Это поможет точнее рассчитать энергозатраты.",
-      ok: true,
-      center: true,
-      body: (
-        <Options
-          value={String(p.workoutsPerWeek <= 2 ? 2 : p.workoutsPerWeek <= 5 ? 4 : 6)}
-          onChange={(v) => set({ workoutsPerWeek: Number(v) })}
-          options={[
-            { value: "2", label: "0–2", hint: "Изредка", icon: <Dot n={1} /> },
-            { value: "4", label: "3–5", hint: "Несколько раз в неделю", icon: <Dot n={2} /> },
-            { value: "6", label: "6+", hint: "Атлет", icon: <Dot n={3} /> },
-          ]}
-        />
-      ),
-    },
     source: {
       title: "Откуда вы о нас узнали?",
       ok: !!p.source,
@@ -156,27 +163,6 @@ export default function Onboarding() {
           ]}
         />
       ),
-    },
-    tried: {
-      title: "Вы пробовали другие фитнес-приложения?",
-      ok: tried !== null,
-      center: true,
-      body: (
-        <Options
-          value={tried === null ? "" : tried ? "yes" : "no"}
-          onChange={(v) => setTried(v === "yes")}
-          options={[
-            { value: "yes", label: "Да", icon: <Check size={20} /> },
-            { value: "no", label: "Нет", icon: <Minus size={20} /> },
-          ]}
-        />
-      ),
-    },
-    longterm: {
-      title: "Parri Fit даёт долгосрочный результат",
-      ok: true,
-      center: true,
-      body: <LongTermChart />,
     },
     body: {
       title: "Рост и вес",
@@ -234,32 +220,11 @@ export default function Onboarding() {
         </div>
       ),
     },
-    realistic: {
-      title: "",
-      ok: true,
-      center: true,
-      cta: "Продолжить",
-      body: (
-        <div style={{ textAlign: "center" }} className="fade-in">
-          <h1 style={{ marginTop: 0 }}>
-            {p.goal === "lose" ? "Сбросить" : "Набрать"}{" "}
-            <span style={{ color: "var(--orange)" }}>{fmtW(diffKg, p.units)}</span> — реалистичная цель. Это вполне по силам!
-          </h1>
-          <p className="sub">90% пользователей отмечают заметный результат уже через месяц с Parri Fit — и легко его удерживают.</p>
-        </div>
-      ),
-    },
     speed: {
       title: "Как быстро вы хотите достичь цели?",
       ok: true,
       center: true,
       body: <SpeedPicker p={p} set={set} />,
-    },
-    twice: {
-      title: `${p.goal === "lose" ? "Худейте" : "Растите"} в 2 раза эффективнее с Parri Fit`,
-      ok: true,
-      center: true,
-      body: <TwiceChart goal={p.goal} />,
     },
     place: {
       title: "Где вы будете тренироваться?",
@@ -324,35 +289,227 @@ export default function Onboarding() {
         />
       ),
     },
-    accomplish: {
-      title: "Чего бы вы хотели добиться?",
-      ok: p.accomplishments.length > 0,
+    schedule: {
+      title: "Когда вам удобно тренироваться?",
+      sub: "Выберите дни и сколько времени есть на одно занятие.",
+      ok: (p.days?.length ?? 0) > 0,
+      body: (
+        <div>
+          <div className="week-pick">
+            {WEEK.map((d, i) => {
+              const on = p.days?.includes(i);
+              return (
+                <button
+                  key={d}
+                  className={`option ${on ? "on" : ""}`}
+                  onClick={() => {
+                    haptic();
+                    const days = on ? (p.days ?? []).filter((x) => x !== i) : [...(p.days ?? []), i].sort();
+                    set({ days, workoutsPerWeek: Math.max(1, days.length) });
+                  }}
+                >
+                  {d}
+                </button>
+              );
+            })}
+          </div>
+          <div className="caption" style={{ margin: "10px 4px 22px" }}>
+            {(p.days?.length ?? 0) > 0 ? `${p.days!.length} ${plural(p.days!.length, "тренировка", "тренировки", "тренировок")} в неделю` : "Выберите хотя бы один день"}
+          </div>
+          <div style={{ fontWeight: 600, marginBottom: 10 }}>Длительность занятия</div>
+          <Options
+            value={String(p.sessionMin ?? 45)}
+            onChange={(v) => set({ sessionMin: Number(v) })}
+            options={[
+              { value: "20", label: "20 минут", hint: "Коротко, но регулярно" },
+              { value: "45", label: "45 минут", hint: "Оптимально для большинства" },
+              { value: "60", label: "60+ минут", hint: "Полноценная тренировка в зале" },
+            ]}
+          />
+        </div>
+      ),
+    },
+    preferences: {
+      title: "Что вам нравится в тренировках?",
+      sub: "Программа будет ближе к тому, что вам по душе.",
+      ok: true,
       body: (
         <Multi
-          value={p.accomplishments}
-          onChange={(accomplishments) => set({ accomplishments })}
+          value={p.preferences ?? []}
+          onChange={(preferences) => set({ preferences })}
           options={[
-            ["Питаться здоровее", <Apple size={20} key="a" />],
-            ["Больше энергии и лучше настроение", <Sun size={20} key="s" />],
-            ["Стать сильнее и выносливее", <Dumbbell size={20} key="d" />],
-            ["Уверенность в своём теле", <Sparkles size={20} key="sp" />],
-            ["Лучше спать", <Moon size={20} key="m" />],
+            ["Силовые", <Dumbbell size={20} key="d" />],
+            ["Кардио", <Heart size={20} key="h" />],
+            ["Функциональные и круговые", <Zap size={20} key="z" />],
+            ["Растяжка и мобильность", <Sprout size={20} key="s" />],
+            ["Короткие интенсивные", <Flame size={20} key="f" />],
           ]}
         />
       ),
     },
-    potential: {
-      title: "У вас отличный потенциал, чтобы достичь цели",
+    limitations: {
+      title: "Есть ли ограничения?",
+      sub: "Мы не будем включать упражнения, которые их нагружают. Это не медицинская оценка — при болях проконсультируйтесь с врачом.",
       ok: true,
-      center: true,
-      body: <PotentialChart />,
+      body: (
+        <div>
+          <Multi
+            value={p.limitations ?? []}
+            onChange={(limitations) => set({ limitations })}
+            options={["Колени", "Поясница", "Плечи", "Запястья", "Шея", "Давление / сердце", "Беременность"]}
+          />
+          <textarea
+            id="ob-limits"
+            className="field"
+            rows={2}
+            style={{ marginTop: 12 }}
+            placeholder="Другое (необязательно)"
+            value={p.limitationsNote ?? ""}
+            onChange={(e) => set({ limitationsNote: e.target.value })}
+          />
+        </div>
+      ),
     },
-    notify: {
-      title: "Достигайте целей с напоминаниями",
+    foodIntro: {
+      title: "",
       ok: true,
       center: true,
-      cta: "Продолжить",
-      body: <NotifyMock />,
+      cta: "Настроить питание",
+      body: (
+        <div style={{ textAlign: "center" }} className="fade-in">
+          <div className="brand-mark" style={{ margin: "0 auto 26px" }}>
+            <Utensils size={44} />
+          </div>
+          <div className="caption" style={{ fontSize: 15, fontWeight: 600 }}>PARRI FOOD</div>
+          <h1 style={{ marginTop: 6 }}>Теперь — меню на неделю</h1>
+          <p className="sub">Подберём рецепты под бюджет, вкусы и время на готовку и соберём список покупок.</p>
+        </div>
+      ),
+    },
+    allergies: {
+      title: "Аллергии и исключения",
+      sub: "Проверяем состав каждого продукта. Если состав неизвестен, попросим уточнить.",
+      ok: true,
+      body: (
+        <div>
+          <Multi
+            value={p.allergies ?? []}
+            onChange={(allergies) => set({ allergies })}
+            options={["Глютен", "Молочное", "Яйца", "Орехи", "Арахис", "Рыба", "Морепродукты", "Соя", "Кунжут"]}
+          />
+          <input
+            id="ob-dislikes"
+            className="field"
+            style={{ marginTop: 12 }}
+            placeholder="Не ем (через запятую): грибы, печень…"
+            value={p.dislikes ?? ""}
+            onChange={(e) => set({ dislikes: e.target.value })}
+          />
+        </div>
+      ),
+    },
+    tastes: {
+      title: "Что вы любите есть?",
+      ok: true,
+      body: (
+        <Multi
+          value={p.tastes ?? []}
+          onChange={(tastes) => set({ tastes })}
+          options={["Домашняя русская кухня", "Средиземноморская", "Азиатская", "Кавказская", "Мексиканская", "Простые блюда из 3–5 продуктов", "Супы", "Выпечка без сахара"]}
+        />
+      ),
+    },
+    kitchen: {
+      title: "Бюджет и время на готовку",
+      ok: true,
+      body: <KitchenStep p={p} set={set} />,
+    },
+    link: {
+      title: "Связать тренировки и питание?",
+      sub: "Отдельное согласие. Его можно отозвать в профиле в любой момент.",
+      ok: true,
+      center: true,
+      body: (
+        <div>
+          <div className="glass card stack" style={{ gap: 10 }}>
+            {[
+              ["🗓️", "Parri Food увидит дни тренировок и добавит в эти дни больше белка и углеводов"],
+              ["🎯", "Общие цели: один план вместо нескольких дневников"],
+              ["🔒", "Передаются только расписание и цель — не дневник и не медицинские данные"],
+            ].map(([e, t]) => (
+              <div key={t} className="row" style={{ alignItems: "flex-start" }}>
+                <span style={{ fontSize: 22 }}>{e}</span>
+                <span style={{ lineHeight: 1.35 }}>{t}</span>
+              </div>
+            ))}
+          </div>
+          <Options
+            value={p.linkFitFood ? "yes" : "no"}
+            onChange={(v) => set({ linkFitFood: v === "yes" })}
+            options={[
+              { value: "yes", label: "Да, согласовать Fit и Food", icon: <Check size={20} /> },
+              { value: "no", label: "Нет, вести отдельно", icon: <Minus size={20} /> },
+            ]}
+          />
+        </div>
+      ),
+    },
+    reminders: {
+      title: "Напоминания о тренировках",
+      sub: "Напомним в дни занятий. Уведомление придёт, если приложение установлено на экран «Домой».",
+      ok: true,
+      center: true,
+      body: (
+        <div>
+          <Options
+            value={p.reminders === false ? "off" : "on"}
+            onChange={(v) => set({ reminders: v === "on" })}
+            options={[
+              { value: "on", label: "Напоминать", icon: <Bell size={20} /> },
+              { value: "off", label: "Не нужно", icon: <Minus size={20} /> },
+            ]}
+          />
+          {p.reminders !== false && (
+            <div className="glass card row" style={{ marginTop: 16 }}>
+              <b>Время</b>
+              <span className="spacer" />
+              <input
+                id="ob-reminder-time"
+                type="time"
+                className="field"
+                style={{ width: 150, height: 44, textAlign: "center" }}
+                value={p.reminderTime ?? "18:00"}
+                onChange={(e) => set({ reminderTime: e.target.value })}
+              />
+            </div>
+          )}
+        </div>
+      ),
+    },
+    howitworks: {
+      title: "Как работает Parri",
+      ok: true,
+      body: (
+        <div className="stack">
+          {[
+            ["1", "План", "ИИ составит программу под опыт, оборудование, расписание и ограничения"],
+            ["2", "Дневник", "Записывайте подходы и как прошла тренировка — это займёт секунды"],
+            ["3", "Корректировка", "Нагрузка меняется по фактическому выполнению: легко — прибавим, тяжело — оставим, больно — заменим"],
+            ["4", "Питание", "Меню, рецепты и список покупок под ваш бюджет"],
+          ].map(([n, t, d]) => (
+            <div key={n} className="glass card row" style={{ alignItems: "flex-start" }}>
+              <span className="step-num">{n}</span>
+              <span>
+                <b>{t}</b>
+                <div className="caption" style={{ fontSize: 15, lineHeight: 1.35 }}>{d}</div>
+              </span>
+            </div>
+          ))}
+          <p className="caption" style={{ textAlign: "center", lineHeight: 1.4 }}>
+            Parri помогает держать режим, но не ставит диагнозы и не гарантирует результат.
+          </p>
+        </div>
+      ),
     },
     thanks: {
       title: "",
@@ -401,10 +558,13 @@ export default function Onboarding() {
           className="btn btn-primary"
           disabled={!s.ok}
           onClick={() => {
-            if (step === "notify" && "Notification" in window && Notification.permission === "default") {
+            if (step === "reminders" && p.reminders !== false && "Notification" in window && Notification.permission === "default") {
               Notification.requestPermission().catch(() => undefined);
             }
-            if (step === "thanks") pendingProgram = generateProgram(p);
+            if (step === "thanks") {
+              pendingProgram = generateProgram(p);
+              pendingMenu = generateMenu(p, p.linkFitFood ? (p.days ?? []) : []);
+            }
             next();
           }}
         >
@@ -468,16 +628,6 @@ function Multi({
         );
       })}
     </div>
-  );
-}
-
-function Dot({ n }: { n: number }) {
-  return (
-    <span style={{ display: "grid", gap: 3, gridTemplateColumns: n > 1 ? "1fr 1fr" : "1fr" }}>
-      {Array.from({ length: n }, (_, i) => (
-        <i key={i} style={{ width: 6, height: 6, borderRadius: 3, background: "currentColor", display: "block" }} />
-      ))}
-    </span>
   );
 }
 
@@ -585,115 +735,6 @@ function SpeedPicker({ p, set }: { p: Profile; set: (x: Partial<Profile>) => voi
   );
 }
 
-function LongTermChart() {
-  return (
-    <div className="glass card fade-in">
-      <div style={{ fontWeight: 600, marginBottom: 12 }}>Ваш вес</div>
-      <svg viewBox="0 0 300 160" width="100%">
-        <path d="M10 40 C 80 45, 110 120, 150 120 S 230 50, 290 30" fill="none" stroke="var(--red)" strokeWidth="3" strokeLinecap="round" />
-        <path d="M10 40 C 80 50, 140 110, 290 128" fill="none" stroke="var(--ink)" strokeWidth="3.5" strokeLinecap="round" />
-        <path d="M10 40 C 80 50, 140 110, 290 128 L290 160 L10 160 Z" fill="var(--fill)" />
-        <circle cx="10" cy="40" r="6" fill="var(--bg-elevated)" stroke="var(--ink)" strokeWidth="3" />
-        <circle cx="290" cy="128" r="6" fill="var(--bg-elevated)" stroke="var(--ink)" strokeWidth="3" />
-        <text x="200" y="26" fontSize="12" fill="var(--red)">Обычная диета</text>
-        <text x="16" y="150" fontSize="12" fill="var(--label-2)">Месяц 1</text>
-        <text x="236" y="150" fontSize="12" fill="var(--label-2)">Месяц 6</text>
-      </svg>
-      <div className="row" style={{ gap: 8, marginTop: 8 }}>
-        <span className="badge" style={{ background: "var(--ink)", color: "var(--on-ink)" }}>Parri Fit</span>
-        <span className="caption">80% пользователей Parri Fit сохраняют результат даже через 6 месяцев</span>
-      </div>
-    </div>
-  );
-}
-
-function TwiceChart({ goal }: { goal: Profile["goal"] }) {
-  return (
-    <div className="glass card fade-in">
-      <div className="grid-2" style={{ alignItems: "end", height: 220, padding: "0 10px" }}>
-        {[
-          { label: "Без Parri Fit", h: 30, v: "20%", ink: false },
-          { label: "С Parri Fit", h: 70, v: "2X", ink: true },
-        ].map((b) => (
-          <div key={b.label} style={{ textAlign: "center", height: "100%", display: "flex", flexDirection: "column", justifyContent: "flex-end" }}>
-            <div style={{ fontWeight: 600, marginBottom: 10 }}>{b.label}</div>
-            <div
-              style={{
-                height: `${b.h}%`,
-                borderRadius: 18,
-                background: b.ink ? "var(--ink)" : "var(--fill-2)",
-                color: b.ink ? "var(--on-ink)" : "var(--label)",
-                display: "grid",
-                placeItems: "end center",
-                paddingBottom: 14,
-                fontWeight: 700,
-                fontSize: 20,
-                animation: "rise .8s var(--ease) both",
-              }}
-            >
-              {b.v}
-            </div>
-          </div>
-        ))}
-      </div>
-      <p className="caption" style={{ textAlign: "center", marginTop: 16, fontSize: 15 }}>
-        Parri Fit помогает {goal === "lose" ? "худеть" : "прогрессировать"} легче и держит вас в тонусе.
-      </p>
-    </div>
-  );
-}
-
-function PotentialChart() {
-  return (
-    <div className="glass card fade-in">
-      <div style={{ fontWeight: 600 }}>Динамика результата</div>
-      <svg viewBox="0 0 300 170" width="100%" style={{ marginTop: 10 }}>
-        <defs>
-          <linearGradient id="pg" x1="0" x2="0" y1="0" y2="1">
-            <stop offset="0" stopColor="var(--orange)" stopOpacity=".45" />
-            <stop offset="1" stopColor="var(--orange)" stopOpacity="0" />
-          </linearGradient>
-        </defs>
-        <path d="M20 140 C 70 138, 90 120, 120 112 S 200 60, 280 22 L280 150 L20 150 Z" fill="url(#pg)" />
-        <path d="M20 140 C 70 138, 90 120, 120 112 S 200 60, 280 22" fill="none" stroke="var(--orange)" strokeWidth="3.5" strokeLinecap="round" />
-        {[
-          [20, 140],
-          [120, 112],
-          [200, 70],
-          [280, 22],
-        ].map(([x, y], i) => (
-          <circle key={i} cx={x} cy={y} r="6" fill="var(--bg-elevated)" stroke="var(--orange)" strokeWidth="3" />
-        ))}
-        <text x="10" y="166" fontSize="12" fill="var(--label-2)">3 дня</text>
-        <text x="106" y="166" fontSize="12" fill="var(--label-2)">7 дней</text>
-        <text x="236" y="166" fontSize="12" fill="var(--label-2)">30 дней</text>
-      </svg>
-      <p className="caption" style={{ fontSize: 15, marginTop: 10 }}>
-        Исходя из данных, результаты обычно приходят с задержкой, но после 7 дней вы начнёте замечать прогресс!
-      </p>
-    </div>
-  );
-}
-
-function NotifyMock() {
-  return (
-    <div className="fade-in" style={{ display: "grid", placeItems: "center" }}>
-      <div className="glass strong" style={{ width: 280, borderRadius: 28, overflow: "hidden", textAlign: "center" }}>
-        <div style={{ padding: "22px 18px 16px" }}>
-          <Bell size={28} style={{ marginBottom: 8 }} />
-          <div style={{ fontWeight: 600, fontSize: 17 }}>Parri Fit хочет отправлять вам уведомления</div>
-          <div className="caption" style={{ marginTop: 6 }}>Напоминания о тренировках, воде и приёмах пищи</div>
-        </div>
-        <div className="grid-2" style={{ gap: 0, borderTop: "0.5px solid var(--separator)" }}>
-          <div style={{ padding: 14, color: "var(--label-2)", borderRight: "0.5px solid var(--separator)" }}>Не разрешать</div>
-          <div style={{ padding: 14, fontWeight: 600, background: "var(--ink)", color: "var(--on-ink)" }}>Разрешить</div>
-        </div>
-      </div>
-      <div style={{ fontSize: 40, marginTop: 14, animation: "rise .8s var(--spring) both" }}>👆</div>
-    </div>
-  );
-}
-
 function WelcomeHero() {
   return (
     <div style={{ position: "relative", width: 250, height: 300 }}>
@@ -761,8 +802,8 @@ function Loading({ profile, onDone }: { profile: Profile; onDone: () => void }) 
     raf = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(raf);
   }, []);
-  const items = ["Калории", "Углеводы", "Белки", "Жиры", "Индекс здоровья", "Программа тренировок"];
-  const stage = pct < 25 ? "Применяем BMR-формулу…" : pct < 55 ? "Рассчитываем БЖУ…" : pct < 85 ? "ИИ составляет тренировки…" : "Завершаем результаты…";
+  const items = ["Калории и БЖУ", "Расписание тренировок", "Программа под ограничения", "Меню на неделю", "Список покупок", "Проверка аллергенов"];
+  const stage = pct < 25 ? "Рассчитываем норму…" : pct < 55 ? "ИИ составляет тренировки…" : pct < 85 ? "Подбираем рецепты под бюджет…" : "Собираем список покупок…";
   return (
     <div className="ob">
       <Ambient />
@@ -808,19 +849,33 @@ function Result({ profile, onNext }: { profile: Profile; onNext: () => void }) {
           <div style={{ width: 44, height: 44, borderRadius: "50%", background: "var(--ink)", color: "var(--on-ink)", display: "grid", placeItems: "center", margin: "0 auto" }}>
             <Check size={24} />
           </div>
-          <h1 style={{ fontSize: 30 }}>Поздравляем, ваш персональный план готов!</h1>
+          <h1 style={{ fontSize: 30 }}>Ваш план готов</h1>
           {profile.goal !== "maintain" && (
             <>
-              <div style={{ fontWeight: 600, marginTop: 14 }}>Вы должны {profile.goal === "lose" ? "сбросить" : "набрать"}:</div>
+              <div style={{ fontWeight: 600, marginTop: 14 }}>Ориентир при выбранном темпе:</div>
               <div className="glass" style={{ display: "inline-block", marginTop: 10, padding: "8px 16px", borderRadius: 20, fontWeight: 600 }}>
-                {fmtW(Math.abs(profile.targetWeightKg - profile.weightKg), profile.units)} к {date}
+                {profile.goal === "lose" ? "−" : "+"}
+                {fmtW(Math.abs(profile.targetWeightKg - profile.weightKg), profile.units)} примерно к {date}
               </div>
+              <div className="caption" style={{ marginTop: 8 }}>Это оценка, а не гарантия: темп зависит от многих факторов.</div>
             </>
           )}
         </div>
-        <div className="glass card" style={{ marginTop: 26 }}>
-          <div style={{ fontWeight: 700, fontSize: 18 }}>Рекомендация на день</div>
-          <div className="caption">Вы можете изменить это в любое время</div>
+        <div className="grid-2" style={{ marginTop: 22 }}>
+          <div className="glass card" style={{ padding: 16 }}>
+            <div className="caption" style={{ fontWeight: 700, letterSpacing: ".04em" }}>PARRI FIT</div>
+            <div className="mid-num" style={{ marginTop: 6 }}>{profile.days?.length ?? profile.workoutsPerWeek}×{profile.sessionMin ?? 45} мин</div>
+            <div className="caption">{(profile.days ?? []).map((d) => WEEK[d]).join(", ") || "в неделю"}</div>
+          </div>
+          <div className="glass card" style={{ padding: 16, marginTop: 0 }}>
+            <div className="caption" style={{ fontWeight: 700, letterSpacing: ".04em" }}>PARRI FOOD</div>
+            <div className="mid-num" style={{ marginTop: 6 }}>{(profile.budgetWeek ?? 5000).toLocaleString("ru-RU")} ₽</div>
+            <div className="caption">в неделю · {profile.household ?? 1} чел.</div>
+          </div>
+        </div>
+        <div className="glass card" style={{ marginTop: 12 }}>
+          <div style={{ fontWeight: 700, fontSize: 18 }}>Ориентир на день</div>
+          <div className="caption">Приблизительный расчёт, можно изменить в любое время</div>
           <div className="grid-2" style={{ marginTop: 14 }}>
             {tiles.map((t, i) => (
               <div key={t.label} className="glass" style={{ borderRadius: 20, padding: 14 }}>
@@ -854,12 +909,12 @@ function Result({ profile, onNext }: { profile: Profile; onNext: () => void }) {
           </div>
         </div>
         <div className="glass card" style={{ marginTop: 12 }}>
-          <b>Как достичь цели:</b>
+          <b>Что дальше:</b>
           {[
-            ["💪", "Следуйте программе тренировок от ИИ"],
-            ["📸", "Фотографируйте еду — ИИ посчитает калории"],
-            ["🥩", `Ешьте ${plan.protein} г белка в день`],
-            ["💧", `Пейте ${(plan.waterMl / 1000).toFixed(1).replace(".", ",")} л воды`],
+            ["💪", "Тренируйтесь по плану и отмечайте подходы — нагрузка подстроится"],
+            ["🛒", "Купите продукты по списку на неделю"],
+            ["🥩", `Ориентир по белку — ${plan.protein} г в день`],
+            ["🔔", profile.reminders === false ? "Напоминания выключены" : `Напомним в дни тренировок в ${profile.reminderTime ?? "18:00"}`],
           ].map(([e, t]) => (
             <div key={t} className="row" style={{ marginTop: 10 }}>
               <span style={{ fontSize: 22 }}>{e}</span>
@@ -888,7 +943,7 @@ function AccountStep({ profile, onBack }: { profile: Profile; onBack: () => void
         </div>
       </div>
       <h1>Сохраните свой прогресс</h1>
-      <p className="sub">Создайте аккаунт, чтобы план, тренировки и история питания всегда были с вами.</p>
+      <p className="sub">Создайте аккаунт Parri — один на тренировки и питание.</p>
       <AuthForm mode="signup" profile={profile} />
     </div>
   );
@@ -929,6 +984,11 @@ function AuthForm({ mode, profile }: { mode: "signin" | "signup"; profile?: Prof
       const email = account.email;
       pendingProgram?.then(({ data: program }) =>
         setState((st) => (st.data[email] ? { ...st, data: { ...st.data, [email]: { ...st.data[email], program } } } : st)),
+      );
+      pendingMenu?.then(({ data: menu }) =>
+        setState((st) =>
+          st.data[email] ? { ...st, data: { ...st.data, [email]: { ...st.data[email], menu, menuAt: new Date().toISOString(), shopChecked: {} } } } : st,
+        ),
       );
       toast("Аккаунт создан 🎉");
     } else {
@@ -1053,4 +1113,66 @@ function GoogleLogo() {
 
 function range(a: number, b: number) {
   return Array.from({ length: b - a + 1 }, (_, i) => a + i);
+}
+
+const PANTRY = ["Крупы", "Макароны", "Яйца", "Курица", "Картофель", "Лук и морковь", "Консервы", "Замороженные овощи", "Молочное"];
+
+function KitchenStep({ p, set }: { p: Profile; set: (x: Partial<Profile>) => void }) {
+  const people = p.household ?? 1;
+  return (
+    <div className="stack" style={{ gap: 20 }}>
+      <div className="glass card row">
+        <b style={{ flex: 1 }}>Сколько человек питается</b>
+        <button className="circle-btn" style={{ background: "var(--fill)", width: 38, height: 38 }} onClick={() => set({ household: Math.max(1, people - 1) })} aria-label="Меньше">
+          <Minus size={18} />
+        </button>
+        <b className="mid-num" style={{ width: 28, textAlign: "center" }}>{people}</b>
+        <button className="circle-btn" style={{ background: "var(--ink)", color: "var(--on-ink)", width: 38, height: 38 }} onClick={() => set({ household: Math.min(8, people + 1) })} aria-label="Больше">
+          +
+        </button>
+      </div>
+      <div>
+        <div className="row" style={{ marginBottom: 10 }}>
+          <b>Бюджет на продукты в неделю</b>
+          <span className="spacer" />
+          <span className="mid-num" style={{ whiteSpace: "nowrap" }}>{(p.budgetWeek ?? 5000).toLocaleString("ru-RU")} ₽</span>
+        </div>
+        <input
+          id="ob-budget"
+          className="slider"
+          type="range"
+          min={1500}
+          max={25000}
+          step={500}
+          value={p.budgetWeek ?? 5000}
+          onChange={(e) => (haptic(3), set({ budgetWeek: Number(e.target.value) }))}
+        />
+        <div className="caption" style={{ marginTop: 6 }}>≈ {Math.round((p.budgetWeek ?? 5000) / 7 / people)} ₽ в день на человека</div>
+      </div>
+      <div>
+        <b>Время на готовку в будни</b>
+        <div className="chips" style={{ marginTop: 10 }}>
+          {[15, 30, 45, 60].map((m) => (
+            <button key={m} className={`chip ${(p.cookTimeMin ?? 30) === m ? "on" : ""}`} onClick={() => set({ cookTimeMin: m })}>
+              до {m} мин
+            </button>
+          ))}
+        </div>
+      </div>
+      <div>
+        <b>Что уже есть дома</b>
+        <div className="caption" style={{ margin: "2px 0 10px" }}>Используем в меню и не добавим в список покупок</div>
+        <div className="chips" style={{ flexWrap: "wrap", margin: 0, padding: 0 }}>
+          {PANTRY.map((x) => {
+            const on = p.pantry?.includes(x);
+            return (
+              <button key={x} className={`chip ${on ? "on" : ""}`} onClick={() => set({ pantry: on ? p.pantry!.filter((y) => y !== x) : [...(p.pantry ?? []), x] })}>
+                {x}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+    </div>
+  );
 }

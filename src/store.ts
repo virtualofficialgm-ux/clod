@@ -1,5 +1,6 @@
 import { useSyncExternalStore } from "react";
-import type { ChatMessage, EquipmentAnalysis, MealAnalysis, NutritionPlan, Profile, Program } from "../shared/types";
+import type { ExerciseEntry, Feedback, SetLog } from "../shared/progression";
+import type { ChatMessage, EquipmentAnalysis, MealAnalysis, Menu, NutritionPlan, Profile, Program } from "../shared/types";
 
 export interface Account {
   email: string;
@@ -22,6 +23,16 @@ export interface WorkoutLog {
   durationMin: number;
   sets: number;
   calories: number;
+  dayIndex?: number;
+  feedback?: Feedback;
+  entries?: { name: string; sets: SetLog[] }[];
+}
+
+export interface Booking {
+  id: string;
+  trainerId: string;
+  slot: string; // ISO date-time
+  createdAt: string;
 }
 
 export interface EquipmentScan {
@@ -41,6 +52,16 @@ export interface UserData {
   water: Record<string, number>;
   chat: ChatMessage[];
   scans?: EquipmentScan[];
+  exerciseLog?: Record<string, ExerciseEntry[]>;
+  bookings?: Booking[];
+  foodLink?: { enabled: boolean; consentAt?: string };
+  videoWaitlist?: boolean;
+  menu?: Menu | null;
+  menuAt?: string;
+  shopChecked?: Record<string, boolean>;
+  /** Composite products whose composition the user has checked against their allergies. */
+  confirmedIngredients?: string[];
+  lastReminder?: string;
   createdAt: string;
 }
 
@@ -117,4 +138,23 @@ export function today(d = new Date()): string {
 
 export function uid(): string {
   return Math.random().toString(36).slice(2, 10) + Date.now().toString(36);
+}
+
+/** Compact text summary of recent training for the AI (actual sets and feedback). */
+export function trainingLog(d: UserData, n = 6): string {
+  const fb = { easy: "легко", ok: "нормально", hard: "тяжело", pain: "был дискомфорт/боль" };
+  return d.workouts
+    .slice(-n)
+    .map((w) => {
+      const ex = (w.entries ?? [])
+        .map((e) => `${e.name}: ${e.sets.map((s) => (s.weight ? `${s.weight}кг×${s.reps}` : `${s.reps}`)).join(", ")}`)
+        .join("; ");
+      return `${w.date} «${w.title}», ${w.durationMin} мин, ощущения: ${w.feedback ? fb[w.feedback] : "—"}${ex ? `. ${ex}` : ""}`;
+    })
+    .join("\n");
+}
+
+/** Schedule shared with Food only when the user consented to link the two. */
+export function sharedSchedule(d: UserData): number[] {
+  return d.profile.linkFitFood ? (d.profile.days ?? []) : [];
 }

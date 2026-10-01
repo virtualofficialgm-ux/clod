@@ -1,13 +1,26 @@
 import { Calculator, Clock, HeartPulse, Scale, Search, Weight } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useMemo, useState, type ReactNode } from "react";
 import { ageFrom, bmi } from "../../shared/nutrition";
 import { Md, Page, Row, ScreenWithTitle, Sheet, haptic } from "../components/ui";
 import { ARTICLES, CATEGORIES, type Article } from "../data/articles";
 import { EXERCISES, MUSCLES, type ExerciseInfo, type Muscle } from "../data/exercises";
 import { useUser } from "../store";
 
-export default function Library() {
-  const [cat, setCat] = useState<Article["category"] | "Все">("Все");
+function Shell({ asPage, onBack, children }: { asPage?: boolean; onBack?: () => void; children: ReactNode }) {
+  if (!asPage) return <ScreenWithTitle title="Знания" kicker="Спорт и питание">{children}</ScreenWithTitle>;
+  return (
+    <Page title="Знания" onBack={onBack ?? (() => undefined)}>
+      <h1 className="large-title">
+        <small>Спорт и питание</small>
+        Знания
+      </h1>
+      {children}
+    </Page>
+  );
+}
+
+export default function Library({ asPage, onBack, initial = "Все" }: { asPage?: boolean; onBack?: () => void; initial?: Article["category"] | "Все" }) {
+  const [cat, setCat] = useState<Article["category"] | "Все">(initial);
   const [article, setArticle] = useState<Article | null>(null);
   const [exercises, setExercises] = useState(false);
   const [tool, setTool] = useState<"bmi" | "orm" | "hr" | null>(null);
@@ -16,7 +29,7 @@ export default function Library() {
 
   return (
     <>
-      <ScreenWithTitle title="Знания" kicker="Спорт и питание">
+      <Shell asPage={asPage} onBack={onBack}>
         <div className="stagger">
           <button className="hero-img" style={{ width: "100%", background: featured.gradient, textAlign: "left", placeItems: "end start", padding: 20 }} onClick={() => setArticle(featured)}>
             <span style={{ position: "absolute", right: 18, top: 14, fontSize: 64 }}>{featured.emoji}</span>
@@ -57,7 +70,7 @@ export default function Library() {
             ))}
           </div>
         </div>
-      </ScreenWithTitle>
+      </Shell>
 
       {article && (
         <Page title={article.title} onBack={() => setArticle(null)}>

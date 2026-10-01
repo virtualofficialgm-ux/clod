@@ -5,7 +5,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { computePlan, ageFrom } from "../shared/nutrition";
-import { EquipmentSchema, MealSchema, ProgramSchema, type ChatMessage, type Profile, type Program } from "../shared/types";
+import { EquipmentSchema, MealSchema, MenuSchema, ProgramSchema, type ChatMessage, type Profile, type Program } from "../shared/types";
 
 const MODEL = process.env.CLAUDE_MODEL ?? "claude-opus-5-5";
 // Re-runs a request declined by safety classifiers on Anthropic's recommended fallback model.
@@ -17,6 +17,11 @@ app.use(express.json({ limit: "12mb" }));
 
 const GOALS = { lose: "снизить вес", maintain: "поддерживать вес и форму", gain: "набрать мышечную массу" };
 const PLACES = { gym: "в зале", home: "дома", outdoor: "на улице" };
+const WEEKDAYS = ["пн", "вт", "ср", "чт", "пт", "сб", "вс"];
+
+function trainingDays(p: Profile): number {
+  return Math.max(1, Math.min(7, p.days?.length || p.workoutsPerWeek));
+}
 
 function describe(p: Profile): string {
   const plan = computePlan(p);
@@ -25,18 +30,31 @@ function describe(p: Profile): string {
     `Пол: ${p.gender}, возраст: ${ageFrom(p.birthDate)}`,
     `Рост: ${p.heightCm} см, вес: ${p.weightKg} кг, цель по весу: ${p.targetWeightKg} кг`,
     `Цель: ${GOALS[p.goal]}, темп: ${p.weeklyRateKg} кг/нед`,
-    `Тренировок в неделю: ${p.workoutsPerWeek}, уровень: ${p.experience}, где: ${PLACES[p.place]}`,
+    `Тренировок в неделю: ${trainingDays(p)}${p.days?.length ? ` (${p.days.map((d) => WEEKDAYS[d]).join(", ")})` : ""}, по ${p.sessionMin ?? 45} мин; уровень: ${p.experience}, где: ${PLACES[p.place]}`,
     `Инвентарь: ${p.equipment.join(", ") || "нет"}`,
+    `Предпочтения в тренировках: ${p.preferences?.join(", ") || "—"}`,
+    `Ограничения и чувствительные зоны: ${[...(p.limitations ?? []), p.limitationsNote].filter(Boolean).join(", ") || "нет"}`,
     `Питание: ${p.diet}; что мешает: ${p.obstacles.join(", ") || "—"}; хочет: ${p.accomplishments.join(", ") || "—"}`,
     `Норма: ${plan.calories} ккал, Б ${plan.protein} г, У ${plan.carbs} г, Ж ${plan.fat} г, вода ${plan.waterMl} мл`,
   ].join("\n");
 }
 
-const COACH_SYSTEM = `Ты — Parri Fit, персональный ИИ-тренер и нутрициолог в мобильном приложении.
+const COACH_SYSTEM = `Ты — ИИ-помощник приложения Parri: раздел Parri Fit (тренировки) и Parri Food (питание и меню).
 Отвечай на русском, дружелюбно и по делу, как опытный тренер. Опирайся на доказательную спортивную науку.
 Пиши коротко: мобильный экран, 2–6 абзацев или компактный список. Без таблиц и заголовков крупнее жирного текста.
 Если вопрос касается боли, травмы, болезни, беременности или лекарств — дай общую безопасную информацию и посоветуй обратиться к врачу.
-Не ставь диагнозы. Не советуй экстремальные дефициты калорий (ниже 1200 ккал) и запрещённые препараты.`;
+Не ставь диагнозы и не обещай гарантированный результат. Не советуй экстремальные дефициты калорий (ниже 1200 ккал) и запрещённые препараты.
+Калорийность блюд всегда называй приблизительной.`;
+
+function foodProfile(p: Profile): string {
+  return [
+    `Бюджет на неделю: ${p.budgetWeek ? `${p.budgetWeek} ₽` : "не задан"}, человек в семье: ${p.household ?? 1}`,
+    `Время на готовку в будни: до ${p.cookTimeMin ?? 30} мин`,
+    `Тип питания: ${p.diet}; любит: ${p.tastes?.join(", ") || "—"}; не ест: ${p.dislikes || "—"}`,
+    `Аллергии и исключения: ${p.allergies?.join(", ") || "нет"}`,
+    `Есть дома: ${p.pantry?.join(", ") || "не указано"}`,
+  ].join("\n");
+}
 
 function sendError(res: Response, err: unknown) {
   if (err instanceof Anthropic.AuthenticationError || err instanceof Anthropic.PermissionDeniedError) {
@@ -61,6 +79,7 @@ app.get("/api/status", (_req, res) => {
 app.post("/api/program", async (req, res) => {
   const profile = req.body.profile as Profile;
   const wish = typeof req.body.wish === "string" ? req.body.wish.slice(0, 500) : "";
+  const log = typeof req.body.log === "string" ? req.body.log.slice(0, 4000) : "";
   try {
     const response = await client.beta.messages.parse({
       model: MODEL,
@@ -75,9 +94,11 @@ app.post("/api/program", async (req, res) => {
 
 ${describe(profile)}
 ${wish ? `\nПожелание пользователя: ${wish}` : ""}
+${log ? `\nФактическое выполнение и обратная связь за последние тренировки:\n${log}\nСкорректируй нагрузку: где было легко — прибавь, где тяжело — оставь, где была боль — замени упражнение на безопасный аналог.` : ""}
 
 Требования:
-- Ровно ${Math.max(1, Math.min(7, profile.workoutsPerWeek))} тренировочных дней (days), учитывая место и инвентарь.
+- Ровно ${trainingDays(profile)} тренировочных дней (days), каждый примерно на ${profile.sessionMin ?? 45} минут, учитывая место и инвентарь.
+- Не включай упражнения, которые нагружают перечисленные ограничения; учитывай предпочтения.
 - Для каждого дня 4–7 упражнений с подходами, повторами, отдыхом, мышечной группой и подсказкой по технике.
 - Учитывай уровень подготовки и цель; прогрессия рассчитана на weeks недель (4–8).
 - 3–5 практичных советов (tips) по восстановлению и питанию под цель.
@@ -195,8 +216,56 @@ ${question ? `\nВопрос пользователя: «${question.slice(0, 500
   }
 });
 
+app.post("/api/menu", async (req, res) => {
+  const { profile, wish, schedule } = req.body as { profile: Profile; wish?: string; schedule?: number[] };
+  const plan = computePlan(profile);
+  try {
+    const stream = client.beta.messages.stream({
+      model: MODEL,
+      max_tokens: 64000,
+      ...FALLBACK,
+      output_config: { effort: "medium", format: betaZodOutputFormat(MenuSchema) },
+      system: COACH_SYSTEM,
+      messages: [
+        {
+          role: "user",
+          content: `Составь меню на неделю (7 дней с понедельника) для этой семьи.
+
+${foodProfile(profile)}
+Ориентир для пользователя: ${plan.calories} ккал, белок ${plan.protein} г в день (цель: ${GOALS[profile.goal]}).
+${schedule?.length ? `Тренировки по дням: ${schedule.map((d) => WEEKDAYS[d]).join(", ")} — в эти дни training = true, больше углеводов и белка вокруг тренировки.` : "Расписание тренировок не передано."}
+${wish ? `Пожелание: «${String(wish).slice(0, 500)}»` : ""}
+
+Требования:
+- 3–4 приёма пищи в день; рецепты простые, в пределах времени на готовку.
+- Укладывайся в бюджет; повторно используй ингредиенты и остатки (например, ужин → обед следующего дня), отмечай usesLeftovers.
+- Используй продукты, которые уже есть дома, и не добавляй их в список покупок.
+- Строго исключи аллергены и нелюбимые продукты. Если у продукта может быть неизвестный состав (соусы, готовые смеси), добавь его в clarify.
+- Для 1–2 ингредиентов в рецепте дай варианты замены.
+- Список покупок сгруппируй по категориям (Овощи и фрукты, Мясо и рыба, Молочное, Бакалея, Прочее) с ценами в рублях.
+- Количество ингредиентов указывай на всю семью. Калории — приблизительно, на порцию.`,
+        },
+      ],
+    });
+    const final = await stream.finalMessage();
+    if (final.stop_reason === "refusal") {
+      res.status(422).json({ error: "refused" });
+      return;
+    }
+    const text = final.content.find((b) => b.type === "text");
+    const parsed = text && text.type === "text" ? MenuSchema.safeParse(JSON.parse(text.text)) : null;
+    if (!parsed?.success) {
+      res.status(502).json({ error: "bad_output" });
+      return;
+    }
+    res.json(parsed.data);
+  } catch (err) {
+    sendError(res, err);
+  }
+});
+
 app.post("/api/chat", async (req, res) => {
-  const { profile, messages } = req.body as { profile: Profile; messages: ChatMessage[] };
+  const { profile, messages, log } = req.body as { profile: Profile; messages: ChatMessage[]; log?: string };
   const history: Anthropic.Beta.BetaMessageParam[] = messages
     .slice(-30)
     .map((m) => ({ role: m.role, content: m.content.slice(0, 4000) }));
@@ -210,7 +279,10 @@ app.post("/api/chat", async (req, res) => {
       output_config: { effort: "low" },
       system: [
         { type: "text", text: COACH_SYSTEM, cache_control: { type: "ephemeral" } },
-        { type: "text", text: `Профиль пользователя:\n${describe(profile)}` },
+        {
+          type: "text",
+          text: `Профиль пользователя:\n${describe(profile)}\n${foodProfile(profile)}${log ? `\n\nПоследние тренировки:\n${String(log).slice(0, 3000)}` : ""}`,
+        },
       ],
       messages: history,
     });

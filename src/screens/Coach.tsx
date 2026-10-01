@@ -3,15 +3,15 @@ import { useState } from "react";
 import type { ChatMessage } from "../../shared/types";
 import { chat } from "../api";
 import { Md, haptic, useAutoScroll } from "../components/ui";
-import { updateUser, useUser } from "../store";
+import { trainingLog, updateUser, useUser } from "../store";
 
 const SUGGESTIONS = [
+  "Как прошла моя последняя неделя тренировок?",
   "Что съесть перед тренировкой?",
-  "Как быстрее восстановиться?",
-  "Составь меню на день под мою норму",
+  "Чем заменить приседания, если некомфортно колену?",
+  "Как уложиться в бюджет на продукты?",
+  "Что приготовить из остатков риса и курицы?",
   "Почему вес стоит на месте?",
-  "Чем заменить приседания, если болит колено?",
-  "Сколько нужно спать для роста мышц?",
 ];
 
 export default function Coach() {
@@ -31,10 +31,15 @@ export default function Coach() {
     updateUser((d) => ({ ...d, chat: history }));
     setStreaming("");
     let reply = "";
-    const ai = await chat(u.profile, history, (t) => {
-      reply = t;
-      setStreaming(t);
-    });
+    const ai = await chat(
+      u.profile,
+      history,
+      (t) => {
+        reply = t;
+        setStreaming(t);
+      },
+      trainingLog(u),
+    );
     setOffline(!ai);
     updateUser((d) => ({ ...d, chat: [...history, { role: "assistant", content: reply || "Не удалось получить ответ. Попробуйте ещё раз." }] }));
     setStreaming(null);
@@ -47,7 +52,7 @@ export default function Coach() {
           <span style={{ width: 28, height: 28, borderRadius: "50%", background: "linear-gradient(135deg, var(--purple), var(--blue))", display: "grid", placeItems: "center", color: "#fff" }}>
             <Sparkles size={16} />
           </span>
-          ИИ-тренер
+          ИИ-помощник
           {offline && <span className="caption">· офлайн</span>}
         </span>
         <div className="spacer" />
@@ -65,7 +70,7 @@ export default function Coach() {
             </div>
             <h1 style={{ fontSize: 28, margin: "20px 0 6px", letterSpacing: "-0.03em" }}>Привет{u.profile.name ? `, ${u.profile.name}` : ""}!</h1>
             <p className="muted" style={{ margin: "0 20px 24px", lineHeight: 1.4 }}>
-              Я знаю ваши цели и план. Спросите что угодно о тренировках, питании и восстановлении.
+              Я знаю ваш план тренировок, дневник и меню. Спросите о нагрузке, технике, питании или покупках.
             </p>
             <div className="stack" style={{ gap: 8 }}>
               {SUGGESTIONS.map((s) => (
@@ -102,7 +107,7 @@ export default function Coach() {
         <div className="input glass strong">
           <textarea
             rows={1}
-            placeholder="Спросите тренера…"
+            placeholder="Спросите Parri…"
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={(e) => {

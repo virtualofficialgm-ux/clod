@@ -28,15 +28,29 @@ function splitFor(n: number) {
   return [...SPLITS[4], ...Array.from({ length: Math.min(3, n - 4) }, () => extra)];
 }
 
+// Exercises skipped for each sensitive area the user reports.
+const AVOID: Record<string, RegExp> = {
+  "Колени": /присед|выпад|берпи|прыжк|бег|сплит|жим ногами|скалолаз/i,
+  "Поясница": /становая|приседания со штангой|махи гирей|супермен|тяга .* наклон|гребн/i,
+  "Плечи": /жим гантелей сидя|брусь|жим лёжа|разведения|французский/i,
+  "Запястья": /отжиман|планка|берпи|скалолаз/i,
+  "Шея": /подтягиван|скручиван/i,
+  "Давление / сердце": /берпи|бег интервал|махи гирей|прыжк/i,
+  "Беременность": /скручиван|планка|берпи|прыжк|становая|бег интервал|подъёмы ног/i,
+};
+
 export function localProgram(p: Profile): Program {
   const level = p.experience === "beginner" ? 1 : p.experience === "intermediate" ? 2 : 3;
-  const pool = EXERCISES.filter((e) => e.places.includes(p.place) && e.level <= level);
+  const avoid = (p.limitations ?? []).map((l) => AVOID[l]).filter(Boolean);
+  const pool = EXERCISES.filter((e) => e.places.includes(p.place) && e.level <= level && !avoid.some((re) => re.test(e.name)));
   const used = new Set<string>();
   const reps = p.goal === "gain" ? "8–10" : p.goal === "lose" ? "12–15" : "10–12";
   const sets = level === 1 ? 3 : 4;
 
-  const days: WorkoutDay[] = splitFor(p.workoutsPerWeek).map((d, di) => {
-    const exercises = d.kinds.map((kind, i) => {
+  const perSession = (p.sessionMin ?? 45) <= 25 ? 3 : (p.sessionMin ?? 45) >= 60 ? 6 : 5;
+  const days: WorkoutDay[] = splitFor(p.days?.length || p.workoutsPerWeek).map((d, di) => {
+    const kinds = [...d.kinds, ...d.kinds].slice(0, perSession);
+    const exercises = kinds.map((kind, i) => {
       const options = pool.filter((e) => e.kind === kind);
       const pick = options.find((e) => !used.has(e.name + di)) ?? options[(di + i) % Math.max(1, options.length)] ?? pool[i % pool.length];
       used.add(pick.name + di);
@@ -55,7 +69,7 @@ export function localProgram(p: Profile): Program {
     return {
       title: d.title,
       focus: d.focus,
-      durationMin: 35 + exercises.length * 5,
+      durationMin: p.sessionMin ?? 35 + exercises.length * 5,
       intensity: (level === 1 ? "low" : level === 2 ? "medium" : "high") as WorkoutDay["intensity"],
       warmup: ["5 минут лёгкого кардио", "Вращения в суставах", "Разминочный подход первого упражнения"],
       exercises: exercises.filter((e) => (seen.has(e.name) ? false : (seen.add(e.name), true))),
@@ -73,7 +87,7 @@ export function localProgram(p: Profile): Program {
       `Ешьте около ${plan.protein} г белка в день — это сохранит и нарастит мышцы.`,
       "Спите 7–9 часов: восстановление важнее лишней тренировки.",
       `Пейте около ${(plan.waterMl / 1000).toFixed(1)} л воды в день.`,
-      "Если упражнение вызывает боль (не усталость) — замените его и проконсультируйтесь с врачом.",
+      "Если упражнение вызывает боль (не усталость) — отметьте это после тренировки: мы снизим нагрузку. При повторной боли обратитесь к врачу.",
     ],
   };
 }
@@ -154,5 +168,8 @@ export function localReply(p: Profile, history: ChatMessage[]): string {
   const last = history[history.length - 1]?.content ?? "";
   const topic = TOPICS.find((t) => t.re.test(last));
   if (topic) return topic.answer(p);
+  if (/бюджет|дешев|эконом|остатк|покуп/i.test(last)) {
+    return "Чтобы уложиться в бюджет: готовьте ужин с запасом на обед, покупайте крупы и бобовые как основу, сезонные овощи и замороженные ягоды. Во вкладке **Food** можно указать остатки — меню их использует.";
+  }
   return `Я сейчас работаю в офлайн-режиме, поэтому отвечаю коротко. Спросите меня про **белок**, **калории**, **набор массы**, **кардио** или **восстановление** — или подключите ИИ-сервер (переменная ANTHROPIC_API_KEY), и я смогу ответить на любой вопрос.`;
 }

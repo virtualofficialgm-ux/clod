@@ -153,8 +153,8 @@ export default function AddSheet({ onClose, onScan }: { onClose: () => void; onS
               <b>{result.healthScore}</b>
             </Ring>
             <div>
-              <div className="big-num" style={{ fontSize: 36 }}>{Math.round(result.calories * portion)}</div>
-              <div className="caption">ккал · индекс полезности {result.healthScore}/10</div>
+              <div className="big-num" style={{ fontSize: 36 }}>≈{Math.round(result.calories * portion)}</div>
+              <div className="caption">ккал — приблизительная оценка · полезность {result.healthScore}/10</div>
             </div>
           </div>
           <div className="grid-3" style={{ marginTop: 10 }}>
