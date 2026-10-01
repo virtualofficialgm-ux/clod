@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Parri Travel">
+<meta name="theme-color" content="#f2f2f7" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#000000" media="(prefers-color-scheme: dark)">
+<title>Parri Travel</title>
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<!--PAGE-->
+<div class="stage">
+  <div id="phone">
+    <main id="scroller" class="scroller"></main>
+    <div id="tabbar" class="tabbar-wrap"></div>
+    <div id="sheet-layer" class="sheet-layer"></div>
+    <div id="toast" class="toast" role="status" aria-live="polite"></div>
+  </div>
+  <aside class="aside" aria-label="О прототипе">
+    <span class="eyebrow">Прототип · выпуск 1</span>
+    <h2>Parri Travel</h2>
+    <p>Планировщик поездок с ИИ: маршрут, бюджет, документы и дела в одном месте. Первый выпуск без собственного бронирования.</p>
+    <ul>
+      <li><span class="dot"><svg class="i" viewBox="0 0 24 24"><path d="M12 21s-7-6.2-7-11.5A7 7 0 0 1 19 9.5C19 14.8 12 21 12 21z"/><circle cx="12" cy="9.5" r="2.5"/></svg></span><span><b>Маршрут по интересам</b>Учитывает темп, ходьбу и детей и объясняет, почему место попало в план.</span></li>
+      <li><span class="dot"><svg class="i" viewBox="0 0 24 24"><path d="M4 7h9M17 7h3M4 17h4M12 17h8"/><circle cx="15" cy="7" r="2"/><circle cx="10" cy="17" r="2"/></svg></span><span><b>Три варианта бюджета</b>Эконом, Баланс и Комфорт с расшифровкой каждой статьи.</span></li>
+      <li><span class="dot"><svg class="i" viewBox="0 0 24 24"><path d="M12 3l7 3v5.5c0 4.5-3 8-7 9.5-4-1.5-7-5-7-9.5V6z"/><path d="M9 12l2 2 4-4"/></svg></span><span><b>Оценка отдельно от цены</b>«Оценка», «Цена поставщика» и никакой выдуманной брони.</span></li>
+      <li><span class="dot"><svg class="i" viewBox="0 0 24 24"><rect x="3" y="6" width="18" height="14" rx="3.5"/><path d="M3 10.5h18M16 15h2"/></svg></span><span><b>Pay и Key</b>Контроль трат по поездке и способы оплаты для страны назначения.</span></li>
+    </ul>
+    <p style="font-size:13px">Данные хранятся только в этом браузере. Цены и правила въезда в прототипе — демонстрационные.</p>
+  </aside>
+</div>
+<script src="data.js"></script>
+<script src="app.js"></script>
+<!--/PAGE-->
+</body>
+</html>
