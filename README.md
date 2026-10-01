@@ -1,54 +1,54 @@
 # Parri Travel
 
-AI trip planner: itinerary, budget, documents and to-dos in one place. Release 1 is a route-and-budget planner with **no booking of its own**.
+Планировщик поездок с ИИ: маршрут, бюджет, документы и дела в одном месте. Первый выпуск — маршрут и бюджет **без собственного бронирования**.
 
-The prototype lives in [`app/`](app/). It's a static web app with no build step, styled after iOS 27 (Liquid Glass: floating glass tab bar, large titles, inset lists, bottom sheets, light and dark themes).
+Прототип лежит в [`app/`](app/). Это статическое веб-приложение без сборки в стиле iOS 27 (Liquid Glass): плавающий стеклянный таб-бар, большие заголовки, сгруппированные списки, нижние шторки, светлая и тёмная темы.
 
-## Running it
+## Запуск
 
-Open `app/index.html` in a browser, or serve the folder:
+Откройте `app/index.html` в браузере или поднимите сервер:
 
 ```sh
 cd app && python3 -m http.server 8080
 ```
 
-On an iPhone, open it in Safari and use "Share → Add to Home Screen". It then runs full screen like an app.
+На iPhone откройте страницу в Safari и выберите «Поделиться → На экран „Домой“». Приложение запустится на весь экран.
 
-## What release 1 covers
+## Что входит в первый выпуск
 
-| Section | What it does |
+| Раздел | Что делает |
 | --- | --- |
-| **Trips** | Trip cards with dates, the estimate against the budget, and to-do progress. |
-| **Itinerary** | Built from interests, pace, and constraints (less walking, travelling with kids). Each stop explains why it was picked; places excluded by constraints are listed. Nearby places go on the same day. |
-| **Budget** | Three options (Economy / Balanced / Comfort) with a breakdown of every line ("how it was calculated") and a recommendation that fits the budget. |
-| **Documents** | Passport, entry rules for the passport (visa / visa-free), insurance, tickets, accommodation. Statuses: not started → in progress → done. Warns when there isn't enough time for a visa. |
-| **To-dos** | Deadlines are counted back from the departure date, across all trips: overdue / next two weeks / later. |
-| **Wallet: Pay** | Trip spending against the plan, by category. Imports transactions from Pay (demo). |
-| **Wallet: Key** | Payment methods available in the destination country, with a status for each. |
-| **Parri assistant** | Answers questions about cost, how to make it cheaper, visas, payment, and booking, using the trip's data. |
-| **Profile** | Interests and constraints, passport, departure city, price providers, Free/Plus subscription, and how Parri earns money. |
+| **Поездки** | Карточки поездок: даты, оценка против бюджета, прогресс по делам. |
+| **Маршрут** | Строится по интересам, темпу и ограничениям (меньше ходьбы, с детьми). У каждого места указано, почему оно в плане; места, исключённые ограничениями, перечислены. Соседние места ставятся в один день. |
+| **Бюджет** | Три варианта (Эконом / Баланс / Комфорт) с расшифровкой каждой статьи («как посчитано») и рекомендацией, которая укладывается в бюджет. |
+| **Документы** | Загранпаспорт, правила въезда для паспорта (виза / без визы), страховка, билеты, жильё. Статусы: не начато → в процессе → готово. Предупреждает, если на визу не хватает времени. |
+| **Дела** | Сроки считаются от даты вылета, по всем поездкам: просрочено / ближайшие 2 недели / позже. |
+| **Кошелёк: Pay** | Траты по поездке против плана, по категориям. Загрузка операций из Pay (демо). |
+| **Кошелёк: Key** | Способы оплаты в стране назначения со статусом для каждого. |
+| **Ассистент Parri** | Отвечает про стоимость, как сделать дешевле, визу, оплату и бронь — по данным поездки. |
+| **Профиль** | Интересы и ограничения, паспорт, город вылета, поставщики цен, подписка Free/Plus и раздел «Как Parri зарабатывает». |
 
-## Product principles built into the code
+## Принципы продукта в коде
 
-- **An estimate is not a booking.** Every amount has a status: `Оценка` (Parri's own estimate) or `Цена поставщика` (a connected provider's price, with the time it was checked). There is no "confirmed" status, because release 1 doesn't book anything.
-- **Disclosed partner fees.** Places marked `Партнёр` can earn Parri a commission. Partner status is **not used** in ranking (see `buildItinerary` in `app/app.js`).
-- **Revenue:** a Plus subscription (349 ₽/month or 2,990 ₽/year) plus a disclosed partner commission.
+- **Оценка — не бронь.** У каждой суммы есть статус: «Оценка» (расчёт Parri) или «Цена поставщика» (цена подключённого поставщика со временем проверки). Статуса «подтверждено» нет, потому что первый выпуск ничего не бронирует.
+- **Раскрытое партнёрское вознаграждение.** Места с пометкой «Партнёр» могут принести Parri комиссию. В ранжировании маршрута партнёрский статус **не используется** (см. `buildItinerary` в `app/app.js`).
+- **Доход:** подписка Plus (349 ₽/мес или 2 990 ₽/год) и раскрытое партнёрское вознаграждение.
 
-## Structure
+## Структура
 
 ```
 app/
-  index.html   page shell (phone frame on desktop)
-  styles.css   iOS design tokens and components, light and dark themes
-  data.js      destinations, cost estimates, entry rules, payment methods
-  app.js       itinerary engine, cost calculation, screens, assistant
+  index.html   оболочка страницы (на компьютере — рамка телефона)
+  styles.css   токены и компоненты iOS, светлая и тёмная темы
+  data.js      направления, оценки цен, правила въезда, способы оплаты
+  app.js       движок маршрута, расчёт стоимости, экраны, ассистент
 ```
 
-Data is stored only in the browser (`localStorage`). Prices, entry rules, and payment method statuses are demo data. Before launch they need to come from connected providers and from Pay/Key.
+Данные хранятся только в браузере (`localStorage`). Цены, правила въезда и статусы способов оплаты — демонстрационные. Перед запуском они должны приходить от подключённых поставщиков и из Pay/Key.
 
-## Next steps toward a release
+## Следующие шаги к релизу
 
-1. Connect price providers (flights, hotels) through an API and keep the price check time.
-2. Replace the rule-based assistant with an LLM call over the trip's data, with the same rule: never present an estimate as a booking.
-3. Integrate with Pay (transactions by trip tag) and Key (payment methods by country).
-4. A native SwiftUI client once the scenarios are validated.
+1. Подключить поставщиков цен (перелёты, отели) через API и сохранять время проверки цены.
+2. Заменить ассистента на правилах вызовом LLM по данным поездки с тем же правилом: не выдавать оценку за бронь.
+3. Интеграция с Pay (операции по метке поездки) и Key (способы оплаты по стране).
+4. Нативный клиент на SwiftUI после проверки сценариев.
