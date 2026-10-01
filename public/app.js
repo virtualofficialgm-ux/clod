@@ -35,6 +35,14 @@ const P = {
   bolt: '<path d="M13 2 4 14h7l-1 8 9-12h-7z"/>',
   calendar: '<rect x="3" y="5" width="18" height="16" rx="3"/><path d="M3 10h18M8 3v4M16 3v4"/>',
   lock: '<rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/>',
+  key: '<circle cx="8" cy="15" r="4"/><path d="M10.8 12.2 20 3M16 7l3 3M14 9l2 2"/>',
+  plus: '<path d="M12 5v14M5 12h14"/>',
+  finger: '<path d="M8 7.5A5 5 0 0 1 17 11v1.5"/><path d="M5 10a7 7 0 0 1 1.3-3.6"/><path d="M8.5 13v-2a3.5 3.5 0 0 1 7 0v3"/><path d="M12 11v3a6 6 0 0 1-1 3.5"/><path d="M15.5 17.5c-.3 1-.7 2-1.3 2.8"/><path d="M5.2 14.5c.4 1.6.2 3-.4 4.3"/><path d="M9 20.5c.6-.9 1-2 1.2-3"/>',
+  wallet: '<rect x="3" y="6" width="18" height="14" rx="3"/><path d="M3 10h18M16 15h2"/><path d="M6 6V5a2 2 0 0 1 2-2h9"/>',
+  nfc: '<path d="M6 8.5a5 5 0 0 1 0 7M9.5 6a9 9 0 0 1 0 12M13 3.5a13 13 0 0 1 0 17"/>',
+  left: '<path d="m15 6-6 6 6 6"/>',
+  right: '<path d="m9 6 6 6-6 6"/>',
+  cpu: '<rect x="6" y="6" width="12" height="12" rx="2"/><path d="M9 2v4M15 2v4M9 18v4M15 18v4M2 9h4M2 15h4M18 9h4M18 15h4"/>',
 };
 const icon = (name, size = 22, stroke = 1.9) => `<svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${stroke}" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${P[name] ?? ''}</svg>`;
 const chevron = `<span class="chev">${icon('chevron', 18, 2.2)}</span>`;
@@ -44,10 +52,13 @@ const ORDER_STATUS = {
   awaiting_payment: ['Ожидает оплаты', 'warn'], paid: ['Оплачен', 'ok'], completed: ['Завершён', 'ok'],
   canceled: ['Отменён', ''], refunded: ['Возвращён', ''],
 };
-const OP_STATUS = { succeeded: ['Выполнено', 'ok'], processing: ['В обработке', 'warn'], failed: ['Не прошло', 'bad'] };
+const OP_STATUS = {
+  succeeded: ['Выполнено', 'ok'], processing: ['В обработке', 'warn'], failed: ['Не прошло', 'bad'], canceled: ['Отменено', ''],
+  requires_action: ['Ждёт оплаты', 'warn'], awaiting_confirmation: ['Подтвердите на Key', 'warn'],
+};
 const RESERVATION = { held: ['В резерве', 'warn'], released: ['Резерв снят', 'ok'], returned: ['Резерв возвращён', ''], partially_returned: ['Частичный возврат', 'warn'] };
 const SUB_STATUS = { active: ['Активна', 'ok'], incomplete: ['Ждёт оплаты', 'warn'], past_due: ['Просрочена', 'bad'], canceled: ['Отменена', ''] };
-const DOC_ICON = { receipt: 'doc', refund_receipt: 'back', act: 'check', income_statement: 'chart', payout_statement: 'bank' };
+const DOC_ICON = { topup_receipt: 'plus', receipt: 'doc', refund_receipt: 'back', act: 'check', income_statement: 'chart', payout_statement: 'bank' };
 const pill = (map, key) => (map[key] ? `<span class="pill ${map[key][1]}">${map[key][0]}</span>` : '');
 
 const PRODUCT_ICON = { tasks: 'hammer', food: 'fork', fit: 'heart' };
@@ -55,11 +66,15 @@ function opVisual(o) {
   if (o.kind === 'payout') return { cls: 'payout', icon: 'bank' };
   if (o.kind === 'refund') return { cls: 'refund', icon: 'back' };
   if (o.kind === 'income') return { cls: 'income', icon: 'arrowIn' };
+  if (o.kind === 'topup') return { cls: 'income', icon: 'plus' };
   return { cls: o.product ?? 'tasks', icon: PRODUCT_ICON[o.product] ?? 'send' };
 }
 
 // --- State & API ----------------------------------------------------------------
-const state = { meta: null, me: null, tab: 'home', filter: 'all', pay: { product: 'tasks', currency: null, amount: '15000', description: 'Сборка шкафа', payeeId: null } };
+const state = {
+  meta: null, me: null, tab: 'home', filter: 'all', key: null,
+  pay: { product: 'tasks', currency: null, amount: '15000', description: 'Сборка шкафа', payeeId: null, source: null },
+};
 let userId = storageGet('parri.user') ?? 'u_anna';
 
 function storageGet(k) { try { return localStorage.getItem(k); } catch { return null; } }
@@ -96,7 +111,11 @@ const isBusiness = () => state.me?.isBusiness;
 // --- Sheet ----------------------------------------------------------------------
 function openSheet(html, onMount) {
   const sheet = $('#sheet');
-  $('#sheet-body').innerHTML = html;
+  // A fresh body element drops listeners left by the previous sheet.
+  const old = $('#sheet-body');
+  const body = old.cloneNode(false);
+  old.replaceWith(body);
+  body.innerHTML = html;
   sheet.classList.remove('closing');
   sheet.hidden = false;
   $('#sheet-backdrop').hidden = false;
@@ -132,7 +151,7 @@ function go(tab) {
 window.addEventListener('scroll', () => $('.topbar').classList.toggle('scrolled', window.scrollY > 40), { passive: true });
 
 async function render() {
-  const titles = { home: 'Главная', pay: 'Оплата', history: 'История', more: 'Ещё' };
+  const titles = { home: 'Главная', pay: 'Оплата', key: 'Parri Key', history: 'История', more: 'Ещё' };
   $('#topbar-title').textContent = titles[state.tab];
   await guard(() => SCREENS[state.tab]());
 }
@@ -142,7 +161,9 @@ async function renderHome() {
   const [b, ops, subs] = await Promise.all([
     api('/api/me/balance'), api('/api/me/operations'),
     isBusiness() ? Promise.resolve([]) : api('/api/me/subscriptions'),
+    loadKey(),
   ]);
+  const pending = state.key?.confirmations ?? [];
   const c = b.balances.find((x) => x.currency === cur()) ?? b.balances[0];
   const expected = c.expected.pendingSettlement + c.expected.reservedForMyOrders;
   const restricted = c.restricted.reservedInMyPurchases + c.restricted.payoutsInProgress;
@@ -168,11 +189,15 @@ async function renderHome() {
       </div>
     </section>
 
+    ${pending.map((c) => `<button class="banner glass" data-confirm="${c.id}">
+      <span class="ico">${icon('key', 20, 2.1)}</span>
+      <div class="main" style="flex:1;min-width:0"><div class="title" style="font-weight:600">Подтвердите на Parri Key</div><div class="sub" style="color:var(--muted);font-size:13px">${esc(c.text)}</div></div>${chevron}</button>`).join('')}
+
     <section class="actions">
+      ${isBusiness() ? quickAction('docs', 'doc', 'Документы') : quickAction('topup', 'plus', 'Пополнить')}
       ${quickAction('pay', 'send', 'Оплатить')}
       ${quickAction('payout', 'down', 'Вывести')}
       ${quickAction('subs', 'repeat', 'Подписки')}
-      ${quickAction('docs', 'doc', 'Документы')}
     </section>
 
     ${l ? `<section>
@@ -207,19 +232,21 @@ function opRow(o, i) {
   const sub = o.kind === 'payment' ? (o.status === 'awaiting_payment' ? 'Ожидает оплаты' : RESERVATION[o.reservation]?.[0] ?? ORDER_STATUS[o.status]?.[0])
     : o.kind === 'income' ? (o.settled ? 'Доступно' : o.status === 'completed' ? 'Ждёт расчёта банка' : 'В резерве до завершения')
       : OP_STATUS[o.status]?.[0];
+  const via = o.kind === 'payment' && o.source === 'balance' ? 'с баланса · ' : '';
   const when = new Date(o.at).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
-  const failed = o.status === 'canceled' || o.status === 'failed';
+  const failed = ['canceled', 'failed'].includes(o.status);
   return `<button class="row" data-op="${i}">
     <span class="ico ${v.cls}">${icon(v.icon, 20, 2.1)}</span>
-    <div class="main"><div class="title">${esc(o.description)}</div><div class="sub">${esc(sub ?? '')} · ${when}</div></div>
+    <div class="main"><div class="title">${esc(o.description)}</div><div class="sub">${via}${esc(sub ?? '')} · ${when}</div></div>
     <div class="end"><div class="amount ${o.amount > 0 && o.kind !== 'payment' ? 'in' : ''} ${failed ? 'muted' : ''}">${signed(o.kind === 'payment' ? -Math.abs(o.amount) : o.amount, o.currency)}</div></div>
   </button>`;
 }
 
 function bindOps(ops) {
   $('#screen').onclick = (e) => {
-    const t = e.target.closest('[data-op],[data-sheet],[data-go],[data-filter]');
+    const t = e.target.closest('[data-op],[data-sheet],[data-go],[data-filter],[data-confirm]');
     if (!t) return;
+    if (t.dataset.confirm) return guard(() => sheetConfirm(t.dataset.confirm));
     if (t.dataset.op !== undefined) return sheetOperation(ops[Number(t.dataset.op)]);
     if (t.dataset.go) return go(t.dataset.go);
     if (t.dataset.sheet) return openNamedSheet(t.dataset.sheet);
@@ -229,7 +256,7 @@ function bindOps(ops) {
 
 function openNamedSheet(name) {
   const map = {
-    pay: () => go('pay'), payout: sheetPayout, subs: sheetSubscriptions, docs: sheetDocuments, limits: sheetLimits,
+    pay: () => go('pay'), payout: sheetPayout, topup: sheetTopup, subs: sheetSubscriptions, docs: sheetDocuments, limits: sheetLimits,
     expected: () => sheetBalanceExplain('expected'), restricted: () => sheetBalanceExplain('restricted'), bonus: () => sheetBalanceExplain('bonus'),
     notifications: sheetNotifications, users: sheetUsers, business: sheetBusiness, markets: sheetMarkets, levels: sheetLevels,
   };
@@ -245,6 +272,13 @@ async function renderPay() {
   }
   const p = state.pay;
   const m = market();
+  const [b] = await Promise.all([api('/api/me/balance'), loadKey()]);
+  const available = b.balances[0].available;
+  p.available = available;
+  const key = activeKey();
+  // The source chosen with the Key ring is the default in the app too.
+  if (p.source === null) p.source = key?.selectedSource === 'balance' && available > 0 ? 'balance' : 'card';
+  if (p.source === 'balance') p.currency = m.settlementCurrency;
   p.currency = m.paymentCurrencies.includes(p.currency) ? p.currency : m.settlementCurrency;
   const executors = state.meta.sandbox.users.filter((u) => u.id !== userId && u.market === m.id);
   if (!executors.some((u) => u.id === p.payeeId)) p.payeeId = executors[0]?.id ?? null;
@@ -260,9 +294,15 @@ async function renderPay() {
     <section class="amount-entry glass">
       <label for="pay-amount">Сумма заказа</label>
       <div class="field"><input id="pay-amount" inputmode="decimal" value="${esc(p.amount)}" aria-label="Сумма"><span class="cur">${m.settlementCurrency}</span></div>
-      ${m.paymentCurrencies.length > 1 ? `<div class="seg-wrap"><div class="segmented" role="group" aria-label="Валюта оплаты">
+      ${m.paymentCurrencies.length > 1 && p.source === 'card' ? `<div class="seg-wrap"><div class="segmented" role="group" aria-label="Валюта оплаты">
         ${m.paymentCurrencies.map((c) => `<button data-currency="${c}" aria-pressed="${p.currency === c}">Платить в ${c}</button>`).join('')}</div></div>` : ''}
     </section>
+
+    <div><div class="group-title">Источник оплаты${key ? ' · выбирается и кольцом Parri Key' : ''}</div>
+    <div class="choice" role="group" aria-label="Источник оплаты" style="grid-template-columns:1fr 1fr">
+      <button class="glass" data-source="card" aria-pressed="${p.source === 'card'}">Банковская карта<small>через банк-партнёр</small></button>
+      <button class="glass" data-source="balance" aria-pressed="${p.source === 'balance'}">Баланс Parri<small>${money(available, m.settlementCurrency)}</small></button>
+    </div></div>
 
     <div class="group glass">
       ${p.product === 'tasks' ? `<div class="field-row"><label for="pay-payee">Исполнитель</label>
@@ -278,9 +318,10 @@ async function renderPay() {
     </div>`;
 
   $('#screen').onclick = (e) => {
-    const t = e.target.closest('[data-product],[data-currency],[data-sheet]');
+    const t = e.target.closest('[data-product],[data-currency],[data-sheet],[data-source]');
     if (!t) return;
     if (t.dataset.sheet) return openNamedSheet(t.dataset.sheet);
+    if (t.dataset.source) { p.source = t.dataset.source; renderPay(); return undefined; }
     if (t.dataset.product) { p.product = t.dataset.product; p.description = p.product === 'tasks' ? 'Сборка шкафа' : 'Ужин на двоих'; renderPay(); }
     if (t.dataset.currency) { p.currency = t.dataset.currency; renderPay(); }
   };
@@ -301,7 +342,7 @@ function updateQuote() {
     if (!box) return;
     if (!amount || amount <= 0) { box.innerHTML = ''; $('#pay-go').disabled = true; return; }
     try {
-      const q = await api('/api/quote', { method: 'POST', body: { product: p.product, amount, currency: p.currency } });
+      const q = await api('/api/quote', { method: 'POST', body: { product: p.product, amount, currency: p.currency, source: p.source } });
       const S = q.settlementCurrency;
       const fx = q.payer.currency !== S;
       const rateText = q.payer.rate >= 1 ? `1 ${S} = ${q.payer.rate.toFixed(4)} ${q.payer.currency}` : `1 ${q.payer.currency} = ${(1 / q.payer.rate).toFixed(2)} ${S}`;
@@ -311,10 +352,16 @@ function updateQuote() {
         ${fx ? line(`По курсу ${rateText}`, money(q.payer.converted, q.payer.currency)) + line('Стоимость конвертации', money(q.payer.fxCost, q.payer.currency)) : ''}
         ${line('К списанию', money(q.payer.total, q.payer.currency), 'total')}
         <div class="cap">${p.product === 'tasks' ? 'Исполнитель получит' : 'Сервис получит'}</div>
-        ${line(`Комиссия эквайринга банка · ${q.payee.acquiringFeeBps / 100}%`, `−${money(q.payee.acquiringFee, S)}`)}
+        ${p.source === 'balance' ? line('Комиссия эквайринга', 'нет') : line(`Комиссия эквайринга банка · ${q.payee.acquiringFeeBps / 100}%`, `−${money(q.payee.acquiringFee, S)}`)}
         ${line(`Комиссия Parri · ${q.payee.parriFeeBps / 100}%`, `−${money(q.payee.parriFee, S)}`)}
         ${line('Получателю', money(q.payee.net, S), 'total')}
       </div>`;
+      if (p.source === 'balance' && amount > p.available) {
+        box.insertAdjacentHTML('beforeend', `<p class="hint" style="color:var(--bad);margin-top:10px">На балансе ${money(p.available, S)}. Пополните баланс или выберите карту.</p>`);
+        $('#pay-go-label').textContent = 'Недостаточно средств';
+        $('#pay-go').disabled = true;
+        return;
+      }
       $('#pay-go-label').textContent = `Оплатить ${money(q.payer.total, q.payer.currency)}`;
       $('#pay-go').disabled = false;
     } catch (e) {
@@ -331,8 +378,12 @@ async function submitPayment() {
   btn.disabled = true;
   await guard(async () => {
     const order = await api('/api/sandbox/orders', { method: 'POST', body: { product: p.product, payeeId: p.payeeId, amount: toMinor(p.amount), description: p.description || 'Заказ' } });
-    const payment = await api(`/api/orders/${order.id}/payments`, { method: 'POST', body: { currency: p.currency }, idempotent: `checkout-${order.id}` });
-    await sheetCheckout(payment.confirmationUrl);
+    const payment = await api(`/api/orders/${order.id}/payments`, { method: 'POST', body: { currency: p.currency, source: p.source }, idempotent: `checkout-${order.id}` });
+    if (payment.status === 'succeeded') {
+      toast('Оплачено с баланса Parri');
+      return go('home');
+    }
+    return sheetCheckout(payment.confirmationUrl);
   });
   btn.disabled = false;
 }
@@ -364,7 +415,7 @@ async function sheetCheckout(url) {
       guard(async () => {
         await api(url, { method: 'POST', body: { outcome } });
         closeSheet();
-        if (outcome === 'success') toast('Оплата прошла');
+        if (outcome === 'success') toast(op.description === 'Пополнение баланса Parri' ? 'Баланс пополнен' : 'Оплата прошла');
         else toast(outcome === 'cancel' ? 'Оплата отменена' : 'Банк отклонил платёж. Можно попробовать снова.', outcome !== 'cancel');
         if (state.tab === 'pay' && outcome === 'success') go('home'); else render();
       });
@@ -375,8 +426,9 @@ async function sheetCheckout(url) {
 // --- History -------------------------------------------------------------------------------
 async function renderHistory() {
   const ops = await api('/api/me/operations');
-  const filters = { all: 'Все', payment: 'Оплаты', income: 'Доходы', payout: 'Выплаты' };
-  const list = ops.map((o, i) => ({ o, i })).filter(({ o }) => state.filter === 'all' || o.kind === state.filter || (state.filter === 'payment' && o.kind === 'refund'));
+  const filters = { all: 'Все', payment: 'Оплаты', income: 'Пополнения', payout: 'Выплаты' };
+  const list = ops.map((o, i) => ({ o, i })).filter(({ o }) => state.filter === 'all' || o.kind === state.filter
+    || (state.filter === 'payment' && o.kind === 'refund') || (state.filter === 'income' && o.kind === 'topup'));
   const groups = new Map();
   const today = new Date().toDateString();
   const yesterday = new Date(Date.now() - 86_400_000).toDateString();
@@ -397,7 +449,7 @@ async function renderHistory() {
 // --- Operation detail -----------------------------------------------------------------------
 function sheetOperation(o) {
   const v = opVisual(o);
-  const titles = { payment: 'Оплата', income: 'Поступление', refund: 'Возврат', payout: 'Выплата' };
+  const titles = { payment: 'Оплата', income: 'Поступление', refund: 'Возврат', payout: 'Выплата', topup: 'Пополнение' };
   const statusPills = [];
   if (o.kind === 'payment' || o.kind === 'income') {
     statusPills.push(pill(ORDER_STATUS, o.status));
@@ -412,12 +464,16 @@ function sheetOperation(o) {
   }
   if (o.kind === 'payment' && o.status === 'paid' && o.escrow) actions.push(`<button class="btn primary" data-act="complete">${icon('check', 18, 2.4)} Подтвердить выполнение</button>`);
   if (o.kind === 'income' && ['paid', 'completed'].includes(o.status)) actions.push(`<button class="btn" data-act="refund">${icon('back', 18, 2.2)} Оформить возврат</button>`);
+  if (o.kind === 'payout' && o.confirmationId) actions.push(`<button class="btn primary" data-act="confirm">${icon('key', 18, 2.2)} Подтвердить на Parri Key</button>`);
+  if (o.kind === 'topup' && o.confirmationUrl) actions.push('<button class="btn primary" data-act="topup-pay">Продолжить оплату</button>');
 
   const rows = [
     infoRow('Тип', titles[o.kind]),
     infoRow('Дата', new Date(o.at).toLocaleString('ru-RU', { day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit' })),
   ];
   if (o.orderId) rows.push(infoRow('Заказ', o.orderId));
+  if (o.kind === 'payment') rows.push(infoRow('Источник', o.source === 'balance' ? 'Баланс Parri' : 'Банковская карта'));
+  if (o.kind === 'topup') rows.push(infoRow('Комиссия за пополнение', money(o.fee, o.currency)));
   if (o.refunded) rows.push(infoRow('Возвращено', money(o.refunded, o.orderCurrency)));
   if (o.kind === 'payment' && o.escrow && o.status === 'paid') rows.push(infoRow('Резерв', 'Исполнитель получит деньги после вашего подтверждения'));
 
@@ -442,6 +498,8 @@ function sheetOperation(o) {
           return sheetCheckout(p.confirmationUrl);
         }
         if (d.dataset.act === 'refund') return sheetRefund(o);
+        if (d.dataset.act === 'confirm') return sheetConfirm(o.confirmationId);
+        if (d.dataset.act === 'topup-pay') return sheetCheckout(o.confirmationUrl);
         if (d.dataset.act === 'cancel') { await api(`/api/orders/${o.orderId}/cancel`, { method: 'POST' }); toast('Заказ отменён'); }
         if (d.dataset.act === 'complete') { await api(`/api/orders/${o.orderId}/complete`, { method: 'POST' }); toast('Готово: исполнитель получит выплату после расчёта банка'); }
         closeSheet();
@@ -492,10 +550,11 @@ async function sheetPayout() {
     ${c.available > 0 ? '' : '<p class="hint">Пока выводить нечего. Ожидаемые поступления станут доступны после расчёта банка.</p>'}`, (root) => {
     $('#payout-all', root).addEventListener('click', () => { $('#payout-amount', root).value = (c.available / 100).toFixed(2); });
     $('#payout-go', root).addEventListener('click', () => guard(async () => {
-      await api('/api/payouts', { method: 'POST', body: { amount: toMinor($('#payout-amount', root).value), destination: $('#payout-dest', root).value }, idempotent: true });
+      const payout = await api('/api/payouts', { method: 'POST', body: { amount: toMinor($('#payout-amount', root).value), destination: $('#payout-dest', root).value }, idempotent: true });
+      if (payout.status === 'awaiting_confirmation') return sheetConfirm(payout.confirmation.id);
       closeSheet();
       toast('Выплата отправлена в банк');
-      render();
+      return render();
     }));
   });
 }
@@ -713,11 +772,317 @@ function sheetLevels() {
   </div>`).join('')}`);
 }
 
+// --- Top-up ------------------------------------------------------------------------------
+async function sheetTopup() {
+  if (isBusiness()) { openSheet(`${sheetHead('Пополнение')}<div class="group glass"><div class="empty">Пополнение доступно личным аккаунтам.</div></div>`); return; }
+  const b = await api('/api/me/balance');
+  const l = b.limits;
+  const c = cur();
+  openSheet(`
+    ${sheetHead('Пополнение баланса')}
+    <section class="amount-entry glass">
+      <label for="topup-amount">Сумма пополнения</label>
+      <div class="field"><input id="topup-amount" inputmode="decimal" value="10000" aria-label="Сумма пополнения"><span class="cur">${c}</span></div>
+      <div class="seg-wrap"><div class="pills">${[5000, 10000, 50000].map((v) => `<button class="pill" data-quick="${v}" style="padding:6px 12px">${v.toLocaleString('ru-RU')}</button>`).join('')}</div></div>
+    </section>
+    <div class="group glass"><div class="row"><span class="ico sq" style="background:var(--c-payout)">${icon('bank', 16, 2.2)}</span>
+      <div class="main"><div class="title">Банковская карта</div><div class="sub">Через ${esc(state.meta.partners.find((p) => p.id === market().partner).title)}</div></div></div></div>
+    <div id="topup-quote"></div>
+    <button class="btn primary" id="topup-go">${icon('plus', 18, 2.4)} <span id="topup-label">Пополнить</span></button>
+    <p class="hint">Деньги хранятся на счёте у финансового партнёра. Лимит баланса для уровня «${esc(l.title)}»: можно добавить ещё ${money(l.balanceRemaining, l.currency)}.</p>`, (root) => {
+    const input = $('#topup-amount', root);
+    let timer;
+    const update = () => {
+      clearTimeout(timer);
+      timer = setTimeout(async () => {
+        const amount = toMinor(input.value);
+        if (!amount || amount <= 0) { $('#topup-quote', root).innerHTML = ''; $('#topup-go', root).disabled = true; return; }
+        try {
+          const q = await api('/api/topups/quote', { method: 'POST', body: { amount } });
+          $('#topup-quote', root).innerHTML = `<div class="group glass breakdown">
+            ${line('Зачислим на баланс', money(q.amount, q.currency))}
+            ${line(`Комиссия за пополнение · ${q.feeBps / 100}%`, q.fee ? money(q.fee, q.currency) : 'без комиссии')}
+            ${line('Спишем с карты', money(q.total, q.currency), 'total')}</div>`;
+          $('#topup-label', root).textContent = `Пополнить на ${money(q.amount, q.currency)}`;
+          $('#topup-go', root).disabled = false;
+        } catch (e) { $('#topup-quote', root).innerHTML = `<p class="hint" style="color:var(--bad)">${esc(e.message)}</p>`; }
+      }, 150);
+    };
+    input.addEventListener('input', update);
+    root.addEventListener('click', (e) => { const v = e.target.closest('[data-quick]')?.dataset.quick; if (v) { input.value = v; update(); } });
+    $('#topup-go', root).addEventListener('click', () => guard(async () => {
+      const t = await api('/api/topups', { method: 'POST', body: { amount: toMinor(input.value) }, idempotent: true });
+      await sheetCheckout(t.confirmationUrl);
+    }));
+    update();
+  });
+}
+
+// --- Parri Key ------------------------------------------------------------------------------
+const ui = { ringTurn: 0, einkFlash: false };
+
+async function loadKey() {
+  if (isBusiness()) { state.key = null; return null; }
+  const k = await api('/api/keys');
+  const device = k.devices.find((d) => d.status === 'active') ?? k.devices.find((d) => d.status === 'blocked');
+  k.device = device ?? null;
+  k.display = device?.status === 'active' ? await api(`/api/keys/${device.id}/display`) : null;
+  state.key = k;
+  return k;
+}
+const activeKey = () => (state.key?.device?.status === 'active' ? state.key.device : null);
+const modelInfo = (id) => state.key?.models.find((m) => m.id === id);
+
+// The sandbox stands in for the physical key: it signs only when the owner is "present".
+async function deviceSign(serial, purpose, message) {
+  const res = await api(`/api/sandbox/keys/${serial}/sign`, { method: 'POST', body: { purpose, message, presence: true } });
+  return res.signature;
+}
+
+function keyArt(model, screen, { small = false, sensorActive = false } = {}) {
+  const m = modelInfo(model) ?? { title: model, features: {} };
+  const f = m.features;
+  const time = screen ? new Date(screen.updatedAt).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' }) : '';
+  const eink = screen
+    ? `<div class="acct">${esc(screen.short)}</div><div class="sum">${screen.amount != null ? esc(money(screen.amount, screen.currency)) : esc(`${screen.address.slice(0, 6)}…${screen.address.slice(-4)}`)}</div><div class="upd">обновлено ${time}</div>`
+    : '<div class="acct">PARRI KEY</div><div class="sum">Ключ к миру</div><div class="upd">E-Ink · 0 мВт в покое</div>';
+  return `<div class="pkey-stage"><div class="pkey ${model}${small ? ' small' : ''}" role="img" aria-label="${esc(m.title)}">
+    <div class="brand-mark">PARRI</div>
+    ${f.display ? `<div class="eink${ui.einkFlash ? ' refresh' : ''}">${eink}</div>` : '<div class="chip"></div>'}
+    ${f.ring ? `<div class="ring" style="transform:rotate(${ui.ringTurn}deg)"></div>` : ''}
+    ${f.biometric ? `<div class="sensor${sensorActive ? ' active' : ''}">${icon('finger', small ? 16 : 22, 1.6)}</div>` : `<div class="button-mark"${sensorActive ? ' style="box-shadow:0 0 0 4px var(--ok)"' : ''}></div>`}
+    <div class="model-mark">${esc(m.title)}</div>
+  </div></div>`;
+}
+
+async function renderKey() {
+  if (isBusiness()) {
+    $('#screen').innerHTML = `<h1 class="large-title">Parri Key</h1><div class="group glass"><div class="empty">Parri Key привязывается к личному аккаунту.<br><br><button class="btn" data-sheet="users">Сменить пользователя</button></div></div>`;
+    bindOps([]);
+    return;
+  }
+  const k = await loadKey();
+  const device = k.device;
+  const screen = $('#screen');
+  if (!device) {
+    screen.innerHTML = `
+      <div><div class="eyebrow">Флагман Parri · ключ к миру</div><h1 class="large-title">Parri Key</h1></div>
+      ${keyArt('signature', null)}
+      <p class="hint" style="font-size:15px">Карта-устройство: выбирайте счёт кольцом, смотрите сумму на E-Ink экране и подтверждайте действия отпечатком пальца.</p>
+      <button class="btn primary" data-act="link">${icon('nfc', 20, 2)} Привязать Parri Key</button>
+      <section><div class="group-title">Версии</div><div class="group glass">${k.models.map((m) => `<div class="row">
+        <span class="ico sq" style="background:${m.stage === 'available' ? 'var(--ok)' : 'var(--c-refund)'}">${icon('cpu', 16, 2)}</span>
+        <div class="main"><div class="title">${esc(m.title)}</div><div class="sub" style="white-space:normal">${esc(m.summary)}</div>
+        <div style="margin-top:6px"><span class="pill ${m.stage === 'available' ? 'ok' : 'warn'}" style="white-space:normal">${esc(m.stageText)}</span></div></div></div>`).join('')}</div>
+        <div class="group-foot">Переход между версиями зависит от результатов испытаний и экономики производства.</div></section>
+      ${contoursSection()}`;
+  } else {
+    const disp = k.display;
+    const f = device.features;
+    const pending = k.confirmations;
+    screen.innerHTML = `
+      <div><div class="eyebrow">${esc(device.title)} · ${esc(device.serial)}</div><h1 class="large-title">Parri Key</h1></div>
+      ${pending.map((c) => `<button class="banner glass" data-confirm="${c.id}"><span class="ico">${icon('finger', 20, 2)}</span>
+        <div style="flex:1;min-width:0"><div style="font-weight:600">Подтвердите на ключе</div><div style="color:var(--muted);font-size:13px">${esc(c.text)}</div></div>${chevron}</button>`).join('')}
+      ${keyArt(device.model, disp?.screen)}
+      ${device.status === 'blocked' ? '<div class="group glass"><div class="empty" style="color:var(--bad)">Ключ заблокирован. Подтверждения с него не принимаются. Отвяжите его и привяжите новый.</div></div>' : f.ring
+    ? `<div class="ring-controls">
+          <button class="round glass" data-ring="-1" aria-label="Повернуть кольцо влево">${icon('left', 22, 2.4)}</button>
+          <div class="label">Повернуть кольцо<br><strong style="color:var(--fg)">${esc(disp.screen.title)}</strong></div>
+          <button class="round glass" data-ring="1" aria-label="Повернуть кольцо вправо">${icon('right', 22, 2.4)}</button></div>`
+    : `<p class="hint">В ${esc(device.title)} нет кольца и дисплея: выберите счёт ниже и подтвердите ${esc(device.presence)}.</p>`}
+
+      ${disp ? `<section><div class="group-title">Счета на ключе</div><div class="group glass">${disp.sources.map((src) => `<button class="row" data-src="${src.id}">
+        <span class="ico" style="background:${src.kind === 'fiat' ? 'var(--brand)' : 'var(--c-payout)'}">${icon(src.kind === 'fiat' ? 'bank' : 'wallet', 19, 2)}</span>
+        <div class="main"><div class="title">${esc(src.title)}</div><div class="sub">${esc(src.custody)}</div></div>
+        <div class="end">${src.amount != null ? `<div class="amount">${money(src.amount, src.currency)}</div>` : `<div class="mono" style="color:var(--muted)">${esc(src.address.slice(0, 6))}…${esc(src.address.slice(-4))}</div>`}
+        ${src.id === disp.screen.sourceId ? `<span class="pill ok">${icon('check', 12, 3)} на экране</span>` : ''}</div></button>`).join('')}</div>
+        <div class="group-foot">Фиатный счёт обслуживает банк-партнёр. Цифровыми активами управляете вы: ключ кошелька не покидает Secure Element.</div></section>` : ''}
+
+      <section><div class="group-title">Возможности</div><div class="group glass">
+        ${featureRow('finger', 'Подтверждение действий', f.biometric ? 'Отпечаток на сенсоре ключа' : 'Кнопка на ключе', true)}
+        ${featureRow('nfc', 'Оплата касанием', modelInfo(device.model).contactlessPayments.available ? 'Доступна' : modelInfo(device.model).contactlessPayments.reason, modelInfo(device.model).contactlessPayments.available)}
+        ${featureRow('cpu', 'Статус версии', device.stageText, device.stageText === 'Доступна')}
+      </div></section>
+
+      <section><div class="group-title">Безопасность</div><div class="group glass">
+        ${infoRow('Платёжный ключ · отпечаток', device.fingerprint)}
+        ${infoRow('Ключ кошелька · отпечаток', device.assetsFingerprint)}
+      </div><div class="group-foot">Приватные ключи созданы в Secure Element и не передаются Parri. Parri хранит только открытые ключи и проверяет подписи.</div></section>
+      ${contoursSection()}
+      <div class="btn-stack">
+        ${device.status === 'active' ? `<button class="btn danger" data-act="block">${icon('lock', 18, 2.2)} Заблокировать ключ</button>` : ''}
+        <button class="btn" data-act="unlink">Отвязать ключ</button>
+      </div>`;
+  }
+  ui.einkFlash = false;
+  screen.onclick = (e) => {
+    const t = e.target.closest('[data-act],[data-ring],[data-src],[data-confirm],[data-sheet]');
+    if (!t) return;
+    if (t.dataset.sheet) { openNamedSheet(t.dataset.sheet); return; }
+    guard(async () => {
+      if (t.dataset.confirm) return sheetConfirm(t.dataset.confirm);
+      if (t.dataset.act === 'link') return sheetLink();
+      if (t.dataset.ring) return turnRing(Number(t.dataset.ring));
+      if (t.dataset.src) {
+        if (t.dataset.src === 'assets' && k.display.screen.sourceId === 'assets') return sheetWallet(device);
+        if (t.dataset.src === k.display.screen.sourceId) return sheetWallet(device, true);
+        return selectSource(t.dataset.src);
+      }
+      if (t.dataset.act === 'block') { await api(`/api/keys/${device.id}/block`, { method: 'POST' }); toast('Ключ заблокирован'); }
+      if (t.dataset.act === 'unlink') { await api(`/api/keys/${device.id}/unlink`, { method: 'POST' }); toast('Ключ отвязан'); }
+      return renderKey();
+    });
+  };
+}
+
+const featureRow = (ic, title, sub, ok) => `<div class="row"><span class="ico sq" style="background:${ok ? 'var(--ok)' : 'var(--c-refund)'}">${icon(ic, 16, 2.1)}</span>
+  <div class="main"><div class="title">${esc(title)}</div><div class="sub" style="white-space:normal">${esc(sub)}</div></div></div>`;
+
+function contoursSection() {
+  return `<section><div class="group-title">Два контура</div><div class="group glass">
+    <div class="row"><span class="ico sq" style="background:var(--brand)">${icon('bank', 16, 2.1)}</span><div class="main"><div class="title">Деньги</div>
+      <div class="sub" style="white-space:normal">Счёт у финансового партнёра. Страхование зависит от банка, страны, вида счёта и условий программы.</div></div></div>
+    <div class="row"><span class="ico sq" style="background:var(--c-payout)">${icon('wallet', 16, 2.1)}</span><div class="main"><div class="title">Цифровые активы</div>
+      <div class="sub" style="white-space:normal">Самостоятельное хранение: доступ только с вашего ключа. Страхование фиатных средств на них не распространяется.</div></div></div>
+  </div><div class="group-foot">Некастодиальным является только кошелёк и механизм подписи. Банковский счёт остаётся счётом у банка, а при обмене и оплате участвуют посредники.</div></section>`;
+}
+
+async function turnRing(direction) {
+  const k = state.key;
+  const sources = k.display.sources;
+  const i = sources.findIndex((x) => x.id === k.display.screen.sourceId);
+  const next = sources[(i + direction + sources.length) % sources.length];
+  ui.ringTurn += direction * 36;
+  await selectSource(next.id);
+}
+
+async function selectSource(sourceId) {
+  const k = state.key;
+  const src = k.display.sources.find((x) => x.id === sourceId);
+  const signature = await deviceSign(k.device.serial, 'payment', src.selectMessage);
+  k.display = await api(`/api/keys/${k.device.id}/source`, { method: 'POST', body: { sourceId, counter: src.counter, signature } });
+  state.pay.source = sourceId === 'balance' ? 'balance' : 'card';
+  ui.einkFlash = true;
+  await renderKey();
+}
+
+function sheetLink() {
+  let model = 'signature';
+  let session = null;
+  const draw = () => {
+    const m = modelInfo(model);
+    const step = session?.done ? 3 : session ? 2 : 1;
+    openSheet(`
+      ${sheetHead('Привязка Parri Key')}
+      ${keyArt(model, null, { small: true, sensorActive: step === 2 })}
+      ${step === 1 ? `<div class="choice" role="group" aria-label="Версия ключа">${state.key.models.map((x) => `<button class="glass" data-model="${x.id}" aria-pressed="${x.id === model}">${esc(x.title.replace('Key ', ''))}<small>${x.stage === 'available' ? 'серийная' : x.stage === 'prototype' ? 'образец' : 'без эмитента'}</small></button>`).join('')}</div>` : ''}
+      <div class="steps glass" style="padding:16px;border-radius:var(--radius-l)">
+        ${stepRow(1, step, 'Поднесите ключ к телефону', session ? `Подлинность подтверждена · ${esc(session.device.serial)}` : 'Телефон прочитает открытые ключи и подпись производителя по NFC')}
+        ${stepRow(2, step, `Подтвердите: ${esc(m.presence)}`, session ? `Отпечаток ключа ${esc(session.device.fingerprint)}` : 'Защищённый чип подпишет одноразовый запрос')}
+        ${stepRow(3, step, 'Готово', 'Приватные ключи остаются в ключе')}
+      </div>
+      ${step === 1 ? `<button class="btn primary" data-step="tap">${icon('nfc', 20, 2)} Поднести к телефону</button>` : ''}
+      ${step === 2 ? `<button class="btn primary" data-step="presence">${icon(m.features.biometric ? 'finger' : 'key', 20, 2)} ${m.features.biometric ? 'Приложить палец к сенсору' : 'Нажать кнопку на ключе'}</button>` : ''}
+      ${step === 3 ? `<button class="btn primary" data-close>Готово</button>` : ''}
+      <p class="hint">Песочница: кнопки изображают действия с устройством в руке.</p>`, (root) => {
+      root.addEventListener('click', (e) => {
+        const t = e.target.closest('[data-model],[data-step]');
+        if (!t) return;
+        if (t.dataset.model) { model = t.dataset.model; draw(); return; }
+        guard(async () => {
+          t.disabled = true;
+          if (t.dataset.step === 'tap') {
+            const held = await api('/api/sandbox/keys');
+            const linked = new Set(state.key.devices.map((d) => d.serial));
+            let serial = held.find((h) => h.model === model && !linked.has(h.serial))?.serial;
+            if (!serial) serial = (await api('/api/sandbox/keys', { method: 'POST', body: { model } })).serial;
+            const identity = await api(`/api/sandbox/keys/${serial}/nfc`);
+            session = { ...(await api('/api/keys', { method: 'POST', body: { identity } })), serial };
+          } else {
+            const signature = await deviceSign(session.serial, 'payment', session.challenge.message);
+            await api(`/api/keys/${session.device.id}/activate`, { method: 'POST', body: { signature } });
+            session.done = true;
+            toast(`${modelInfo(model).title} привязан`);
+            if (state.tab === 'key') renderKey();
+          }
+          draw();
+        });
+      });
+    });
+  };
+  draw();
+}
+const stepRow = (n, current, title, sub) => `<div class="step ${n < current ? 'done' : n === current ? 'now' : ''}"><span class="n">${n < current ? icon('check', 14, 3) : n}</span>
+  <div><div style="font-weight:600">${title}</div><div class="hint" style="text-align:left;padding:0">${sub}</div></div></div>`;
+
+async function sheetConfirm(confirmationId) {
+  await loadKey();
+  const conf = state.key?.confirmations.find((c) => c.id === confirmationId);
+  if (!conf) { toast('Запрос уже обработан'); return render(); }
+  const device = state.key.devices.find((d) => d.id === conf.deviceId);
+  const bio = device.features.biometric;
+  openSheet(`
+    ${sheetHead('Подтверждение на ключе')}
+    ${keyArt(device.model, state.key.display?.screen, { small: true, sensorActive: true })}
+    <div class="detail-top"><div class="what" style="font-size:20px">${esc(conf.text)}</div>
+      <div class="hint">Действие выполнится только после подписи защищённого чипа ключа. Запрос действует до ${new Date(conf.expiresAt).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })}.</div></div>
+    <div class="btn-stack">
+      <button class="btn primary" data-c="ok">${icon(bio ? 'finger' : 'key', 20, 2)} ${bio ? 'Приложить палец к сенсору' : 'Нажать кнопку на ключе'}</button>
+      <button class="btn danger" data-c="no">Отклонить</button>
+    </div>`, (root) => {
+    root.addEventListener('click', (e) => {
+      const c = e.target.closest('[data-c]')?.dataset.c;
+      if (!c) return;
+      guard(async () => {
+        if (c === 'ok') {
+          const signature = await deviceSign(device.serial, 'payment', conf.message);
+          await api(`/api/keys/confirmations/${conf.id}`, { method: 'POST', body: { signature } });
+          toast('Подтверждено ключом. Выплата отправлена в банк');
+        } else {
+          await api(`/api/keys/confirmations/${conf.id}`, { method: 'POST', body: { decline: true } });
+          toast('Действие отклонено, деньги остались на балансе');
+        }
+        closeSheet();
+        await render();
+      });
+    });
+  });
+  return undefined;
+}
+
+function sheetWallet(device, fiat = false) {
+  if (fiat) {
+    openSheet(`${sheetHead('Баланс Parri')}<div class="group glass">${infoRow('Где хранятся деньги', 'Счёт у финансового партнёра на вашем рынке')}${infoRow('Защита', 'Страхование зависит от банка, страны, вида счёта и условий программы')}</div>
+      <div class="btn-stack"><button class="btn primary" data-sheet-go="topup">${icon('plus', 18, 2.4)} Пополнить</button></div>`, (root) => {
+      root.querySelector('[data-sheet-go]').addEventListener('click', () => guard(sheetTopup));
+    });
+    return;
+  }
+  openSheet(`
+    ${sheetHead('Цифровой кошелёк')}
+    <div class="group glass">${infoRow('Адрес', device.walletAddress)}${infoRow('Хранение', 'Самостоятельное: ключ только в Secure Element вашего Parri Key')}${infoRow('Отпечаток ключа кошелька', device.assetsFingerprint)}</div>
+    <div id="own-result"></div>
+    <button class="btn primary" id="own-go">${icon('shield', 18, 2.2)} Проверить владение</button>
+    <p class="hint">Ключ подпишет одноразовое сообщение ключом кошелька, а Parri сверит подпись с открытым ключом. Сам ключ кошелька Parri не получает. Баланс активов читается из сети, в песочнице сеть не подключена.</p>`, (root) => {
+    $('#own-go', root).addEventListener('click', () => guard(async () => {
+      const ch = await api(`/api/keys/${device.id}/ownership`, { method: 'POST' });
+      const signature = await deviceSign(device.serial, 'assets', ch.message);
+      const res = await api(`/api/keys/${device.id}/ownership/verify`, { method: 'POST', body: { signature } });
+      $('#own-result', root).innerHTML = `<div class="group glass"><div class="row"><span class="ico sq" style="background:${res.valid ? 'var(--ok)' : 'var(--bad)'}">${icon(res.valid ? 'check' : 'close', 16, 2.6)}</span>
+        <div class="main"><div class="title">${res.valid ? 'Вы владеете этим кошельком' : 'Подпись не совпала'}</div><div class="sub">Подписано ключом ${esc(res.keyFingerprint)}</div></div></div></div>`;
+    }));
+  });
+}
+
+
 // --- Boot ----------------------------------------------------------------------------------------
-const SCREENS = { home: renderHome, pay: renderPay, history: renderHistory, more: renderMore };
+const SCREENS = { home: renderHome, pay: renderPay, key: renderKey, history: renderHistory, more: renderMore };
 
 async function selectUser(id) {
   userId = id;
+  state.pay.source = null;
+  state.key = null;
   storageSet('parri.user', id);
   state.me = await api('/api/me');
   $('#who').textContent = initials(state.me.name);
@@ -732,7 +1097,7 @@ async function boot() {
   if (outcome) { history.replaceState(null, '', location.pathname); toast(outcome === 'success' ? 'Оплата прошла' : 'Оплата не завершена', outcome !== 'success'); }
   // Statuses arrive asynchronously from banks; keep read-only screens fresh.
   setInterval(() => {
-    if (!document.hidden && !sheetOpen() && (state.tab === 'home' || state.tab === 'history')) render();
+    if (!document.hidden && !sheetOpen() && ['home', 'history', 'key'].includes(state.tab)) render();
   }, 4000);
 }
 

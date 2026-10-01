@@ -1,11 +1,11 @@
 import {
-  MARKETS, PRODUCTS, LEVELS, CAPABILITIES, IMPLEMENTED_LEVELS, SEED_USERS, SEED_MERCHANTS, capabilityEnabled,
+  MARKETS, PRODUCTS, PARTNERS, LEVELS, CAPABILITIES, IMPLEMENTED_LEVELS, SEED_USERS, SEED_MERCHANTS, capabilityEnabled,
 } from '../config.js';
 import { Store } from '../store.js';
 import { Ledger } from '../ledger.js';
 import { Idempotency } from '../idempotency.js';
-import { quote } from '../fees.js';
-import { PayError, bps, assertAmount } from '../money.js';
+import { quote, topupQuote } from '../fees.js';
+import { PayError, bps, assertAmount, format } from '../money.js';
 import { evaluatePayment } from './antifraud.js';
 import { reconcile } from './reconciliation.js';
 
@@ -175,7 +175,7 @@ export class PayService {
 
   // --- Payments ---------------------------------------------------------------
 
-  async startPayment(orderId, { actorId, currency, savePaymentMethod = false, paymentMethodToken = null } = {}) {
+  async startPayment(orderId, { actorId, currency, savePaymentMethod = false, paymentMethodToken = null, source = 'card' } = {}) {
     this.require('payments');
     const order = this.getOrder(orderId);
     if (actorId) this.#assertOrderActor(order, actorId, ['payer', 'service']);
@@ -199,8 +199,16 @@ export class PayService {
       if (risk.decision === 'block') throw new PayError('antifraud_block', `Платёж отклонён антифродом: ${risk.reasons.join('; ')}`, 422, risk);
     }
 
-    const q = quote({ market: order.market, product: order.product, amount: order.amount, payerCurrency: currency });
+    if (!['card', 'balance'].includes(source)) throw new PayError('invalid_source', 'Неизвестный источник оплаты');
+    const q = quote({ market: order.market, product: order.product, amount: order.amount, payerCurrency: currency, source });
+    if (source === 'balance') {
+      const available = this.ledger.balance(this.acct(payer.id, 'available'), order.currency);
+      if (available < order.amount) {
+        throw new PayError('insufficient_funds', 'На балансе Parri недостаточно средств. Пополните баланс или оплатите картой.', 409);
+      }
+    }
     const payment = {
+      source,
       id: Store.id('pay'),
       orderId: order.id,
       payerId: payer.id,
@@ -220,6 +228,13 @@ export class PayService {
     this.store.payments.set(payment.id, payment);
     order.paymentIds.push(payment.id);
     order.activePaymentId = payment.id;
+
+    if (source === 'balance') {
+      // Internal transfer inside the partner-held account: confirmed immediately.
+      this.#transition(payment, 'processing');
+      await this.#onPaymentSucceeded(payment, { amount: q.payer.total });
+      return payment;
+    }
 
     try {
       // The payment id is the idempotency key at the partner: a retried call cannot charge twice.
@@ -271,9 +286,14 @@ export class PayService {
 
   async #dispatch(partnerId, { type, data }) {
     switch (type) {
-      case 'payment.succeeded': return this.#onPaymentSucceeded(this.#paymentByPartnerId(partnerId, data.partnerPaymentId), data);
+      case 'payment.succeeded':
       case 'payment.failed':
-      case 'payment.canceled': return this.#onPaymentFailed(this.#paymentByPartnerId(partnerId, data.partnerPaymentId), type, data);
+      case 'payment.canceled': {
+        const topup = this.#findByPartnerId('topups', partnerId, data.partnerPaymentId);
+        if (topup) return this.#onTopupResult(topup, type, data);
+        const payment = this.#paymentByPartnerId(partnerId, data.partnerPaymentId);
+        return type === 'payment.succeeded' ? this.#onPaymentSucceeded(payment, data) : this.#onPaymentFailed(payment, type, data);
+      }
       case 'refund.succeeded': return this.#onRefundResult(this.#byPartnerId('refunds', partnerId, data.partnerRefundId), true);
       case 'refund.failed': return this.#onRefundResult(this.#byPartnerId('refunds', partnerId, data.partnerRefundId), false);
       case 'payout.succeeded': return this.#onPayoutResult(this.#byPartnerId('payouts', partnerId, data.partnerPayoutId), true);
@@ -338,6 +358,16 @@ export class PayService {
   #postCapture(order, payment) {
     const q = payment.quote;
     const ext = `external:${payment.partner}`;
+    if (payment.source === 'balance') {
+      this.ledger.post({
+        operationId: `capture:${payment.id}`,
+        description: `Оплата заказа ${order.id} с баланса`,
+        currency: order.currency,
+        transfers: [{ from: this.acct(payment.payerId, 'available'), to: `escrow:${order.id}`, amount: order.amount }],
+        meta: { orderId: order.id, paymentId: payment.id },
+      });
+      return;
+    }
     this.ledger.post({
       operationId: `capture:${payment.id}`,
       description: `Оплата заказа ${order.id}`,
@@ -480,6 +510,12 @@ export class PayService {
     this.store.refunds.set(refund.id, refund);
     if (!excess) order.pendingRefundAmount += amount;
 
+    if (payment.source === 'balance') {
+      // Paid from the Parri balance: the money goes straight back to it.
+      refund.toBalance = true;
+      this.#onRefundResult(refund, true);
+      return refund;
+    }
     try {
       const res = await this.#partner(refund.partner).createRefund({
         idempotencyKey: refund.id,
@@ -504,7 +540,7 @@ export class PayService {
         operationId: `refund_done:${refund.id}`,
         description: `Возврат ${refund.id}`,
         currency: refund.currency,
-        transfers: [{ from: `refund:${refund.id}`, to: `external:${refund.partner}`, amount: refund.amount }],
+        transfers: [{ from: `refund:${refund.id}`, to: refund.toBalance ? this.acct(order.payerId, 'available') : `external:${refund.partner}`, amount: refund.amount }],
         meta: { orderId: order.id, refundId: refund.id },
       });
       refund.status = 'succeeded';
@@ -585,13 +621,41 @@ export class PayService {
       meta: { payoutId: payout.id },
     });
     this.store.payouts.set(payout.id, payout);
+
+    // With a linked Parri Key the owner confirms the payout physically on the device.
+    const key = this.keys?.activeKeyFor(partyId);
+    if (key) {
+      payout.status = 'awaiting_confirmation';
+      payout.destinationToken = destination;
+      payout.confirmation = this.keys.requestConfirmation(partyId, key, {
+        type: 'payout', ref: payout.id, text: `Вывод ${format(amount, currency)} на ${payout.destination}`,
+      });
+      this.#notify(partyId, 'Подтвердите выплату на Parri Key', payout.id);
+      return payout;
+    }
+    await this.#sendPayout(payout, destination);
+    return payout;
+  }
+
+  async #sendPayout(payout, destination) {
+    payout.status = 'processing';
     try {
-      const res = await this.#partner(partner).createPayout({ idempotencyKey: payout.id, amount, currency, destination });
+      const res = await this.#partner(payout.partner).createPayout({ idempotencyKey: payout.id, amount: payout.amount, currency: payout.currency, destination });
       payout.partnerPayoutId = res.partnerPayoutId;
     } catch {
       this.#onPayoutResult(payout, false, 'partner_unavailable');
       throw new PayError('partner_error', 'Партнёр не принял выплату, средства возвращены на баланс', 502);
     }
+  }
+
+  // Called by the Key service once the owner confirmed (or declined) on the device.
+  async resolvePayoutConfirmation(payoutId, confirmed) {
+    const payout = this.store.payouts.get(payoutId);
+    if (!payout || payout.status !== 'awaiting_confirmation') return payout;
+    const destination = payout.destinationToken;
+    delete payout.destinationToken;
+    if (confirmed) await this.#sendPayout(payout, destination);
+    else this.#onPayoutResult(payout, false, 'not_confirmed');
     return payout;
   }
 
@@ -612,7 +676,7 @@ export class PayService {
   }
 
   #onPayoutResult(payout, ok, reason) {
-    if (payout.status !== 'processing') return 'ignored_terminal';
+    if (payout.status !== 'processing' && !(payout.status === 'awaiting_confirmation' && !ok)) return 'ignored_terminal';
     if (ok) {
       this.ledger.post({ operationId: `payout_done:${payout.id}`, description: `Выплата ${payout.id}`, currency: payout.currency, transfers: [{ from: `payout:${payout.id}`, to: `external:${payout.partner}`, amount: payout.amount }] });
       payout.status = 'succeeded';
@@ -622,9 +686,70 @@ export class PayService {
       this.ledger.post({ operationId: `payout_unlock:${payout.id}`, description: `Отмена выплаты ${payout.id}`, currency: payout.currency, transfers: [{ from: `payout:${payout.id}`, to: this.acct(payout.partyId, 'available'), amount: payout.amount }] });
       payout.status = 'failed';
       payout.failureReason = reason ?? 'rejected';
-      this.#notify(payout.partyId, 'Выплата не прошла, средства вернулись на баланс', payout.id);
+      this.#notify(payout.partyId, reason === 'not_confirmed' ? 'Выплата отменена: не подтверждена на Parri Key' : 'Выплата не прошла, средства вернулись на баланс', payout.id);
     }
     return ok ? 'paid_out' : 'payout_failed';
+  }
+
+  // --- Top-ups ----------------------------------------------------------------
+
+  // The balance is an account held by the financial partner; Parri mirrors it in its ledger.
+  async requestTopup(userId, { amount }) {
+    this.require('payments');
+    const user = this.store.users.get(userId);
+    if (!user) throw new PayError('forbidden', 'Пополнение доступно пользователям', 403);
+    assertAmount(amount);
+    const q = topupQuote({ market: user.market, amount });
+    const limits = this.kycLimits(user);
+    const holding = this.ledger.balance(this.acct(userId, 'available'), q.currency) + this.ledger.balance(this.acct(userId, 'pending'), q.currency);
+    if (holding + amount > limits.maxBalance) {
+      throw new PayError('kyc_limit', `Пополнение превысит лимит баланса для уровня «${limits.title}»: можно добавить ещё ${format(Math.max(0, limits.maxBalance - holding), q.currency)}`, 422);
+    }
+    const topup = {
+      id: Store.id('top'), userId, amount, fee: q.fee, feeBps: q.feeBps, total: q.total, currency: q.currency, partner: q.partner,
+      status: 'created', partnerPaymentId: null, confirmationUrl: null, createdAt: this.now().toISOString(),
+    };
+    this.store.topups.set(topup.id, topup);
+    try {
+      const res = await this.#partner(topup.partner).createPayment({ idempotencyKey: topup.id, amount: topup.total, currency: topup.currency, description: 'Пополнение баланса Parri' });
+      topup.partnerPaymentId = res.partnerPaymentId;
+      topup.confirmationUrl = res.confirmationUrl;
+      topup.status = res.status;
+    } catch {
+      topup.status = 'failed';
+      throw new PayError('partner_error', 'Банк-партнёр временно недоступен, попробуйте ещё раз', 502);
+    }
+    return topup;
+  }
+
+  #onTopupResult(topup, type, data) {
+    if (!['requires_action', 'processing', 'created'].includes(topup.status)) return 'ignored_terminal';
+    if (type !== 'payment.succeeded') {
+      topup.status = type === 'payment.canceled' ? 'canceled' : 'failed';
+      this.#notify(topup.userId, 'Пополнение не прошло', topup.id);
+      return 'topup_failed';
+    }
+    if (Number(data.amount) !== topup.total) {
+      throw new PayError('amount_mismatch', 'Сумма в уведомлении партнёра не совпадает с пополнением', 409);
+    }
+    const ext = `external:${topup.partner}`;
+    const acquiring = bps(topup.total, PARTNERS[topup.partner].acquiringFeeBps);
+    this.ledger.post({
+      operationId: `topup:${topup.id}`,
+      description: `Пополнение ${topup.id}`,
+      currency: topup.currency,
+      transfers: [
+        { from: ext, to: this.acct(topup.userId, 'available'), amount: topup.amount },
+        { from: ext, to: 'revenue:topup_fee', amount: topup.fee },
+        // Card acquiring on top-ups is Parri's cost.
+        { from: 'expense:acquiring', to: ext, amount: acquiring },
+      ].filter((t) => t.amount > 0),
+      meta: { topupId: topup.id },
+    });
+    topup.status = 'succeeded';
+    topup.documentId = this.#issueDocument('topup_receipt', null, null, { topup }).id;
+    this.#notify(topup.userId, `Баланс пополнен на ${format(topup.amount, topup.currency)}`, topup.id);
+    return 'topped_up';
   }
 
   // --- Subscriptions ----------------------------------------------------------
@@ -729,7 +854,7 @@ export class PayService {
         if (o.payerId === partyId && o.status === 'paid') reservedByMe += held;
       }
       let payoutsInProgress = 0;
-      for (const p of this.store.payouts.values()) if (p.partyId === partyId && p.status === 'processing' && p.currency === currency) payoutsInProgress += p.amount;
+      for (const p of this.store.payouts.values()) if (p.partyId === partyId && ['processing', 'awaiting_confirmation'].includes(p.status) && p.currency === currency) payoutsInProgress += p.amount;
       return {
         currency,
         // Real money that can be paid out right now.
@@ -750,7 +875,12 @@ export class PayService {
     const limits = merchant ? null : (() => {
       const l = this.kycLimits(party);
       const used = this.#payoutsThisMonth(partyId);
-      return { kycLevel: party.kycLevel, title: l.title, procedure: l.procedure, maxPayment: l.maxPayment, monthlyPayout: l.monthlyPayout, payoutUsedThisMonth: used, payoutRemaining: Math.max(0, l.monthlyPayout - used), currency: currencies[0] };
+      const holding = this.ledger.balance(this.acct(partyId, 'available'), currencies[0]) + this.ledger.balance(this.acct(partyId, 'pending'), currencies[0]);
+      return {
+        kycLevel: party.kycLevel, title: l.title, procedure: l.procedure, maxPayment: l.maxPayment, monthlyPayout: l.monthlyPayout,
+        payoutUsedThisMonth: used, payoutRemaining: Math.max(0, l.monthlyPayout - used),
+        maxBalance: l.maxBalance, balanceRemaining: Math.max(0, l.maxBalance - holding), currency: currencies[0],
+      };
     })();
     return {
       partyId,
@@ -774,7 +904,7 @@ export class PayService {
           amount: -(payment?.quote.payer.total ?? o.amount), currency: payment?.quote.payer.currency ?? o.currency,
           status: o.status, paymentStatus: payment?.status ?? 'none', reservation: o.reservation, refunded: o.refundedAmount,
           confirmationUrl: payment?.status === 'requires_action' ? payment.confirmationUrl : null, documents: this.#docRefs(o.documentIds, partyId),
-          escrow: o.escrow, orderCurrency: o.currency,
+          escrow: o.escrow, orderCurrency: o.currency, source: payment?.source ?? 'card',
         });
       }
       if (o.payeeId === partyId && o.status !== 'awaiting_payment' && o.status !== 'canceled') {
@@ -790,8 +920,13 @@ export class PayService {
       const o = this.store.orders.get(r.orderId);
       if (o.payerId === partyId) out.push({ kind: 'refund', at: r.createdAt, orderId: o.id, description: o.description, amount: r.payerAmount, currency: r.payerCurrency, status: r.status });
     }
+    for (const t of this.store.topups.values()) {
+      if (t.userId === partyId && t.status !== 'created') {
+        out.push({ kind: 'topup', at: t.createdAt, topupId: t.id, description: 'Пополнение баланса', amount: t.amount, currency: t.currency, status: t.status, fee: t.fee, confirmationUrl: t.status === 'requires_action' ? t.confirmationUrl : null, documents: this.#docRefs(t.documentId ? [t.documentId] : [], partyId) });
+      }
+    }
     for (const p of this.store.payouts.values()) {
-      if (p.partyId === partyId) out.push({ kind: 'payout', at: p.createdAt, payoutId: p.id, description: `Выплата на ${p.destination}`, amount: -p.amount, currency: p.currency, status: p.status, documents: this.#docRefs(p.documentId ? [p.documentId] : [], partyId) });
+      if (p.partyId === partyId) out.push({ kind: 'payout', confirmationId: p.status === 'awaiting_confirmation' ? p.confirmation?.id : null, at: p.createdAt, payoutId: p.id, description: `Выплата на ${p.destination}`, amount: -p.amount, currency: p.currency, status: p.status, documents: this.#docRefs(p.documentId ? [p.documentId] : [], partyId) });
     }
     return out.sort((a, b) => b.at.localeCompare(a.at));
   }
@@ -856,11 +991,17 @@ export class PayService {
     return this.#byPartnerId('payments', partnerId, partnerPaymentId);
   }
 
-  #byPartnerId(collection, partnerId, partnerOpId) {
-    const field = { payments: 'partnerPaymentId', refunds: 'partnerRefundId', payouts: 'partnerPayoutId' }[collection];
+  #findByPartnerId(collection, partnerId, partnerOpId) {
+    const field = { payments: 'partnerPaymentId', topups: 'partnerPaymentId', refunds: 'partnerRefundId', payouts: 'partnerPayoutId' }[collection];
     for (const item of this.store[collection].values()) {
       if (item.partner === partnerId && item[field] === partnerOpId) return item;
     }
+    return null;
+  }
+
+  #byPartnerId(collection, partnerId, partnerOpId) {
+    const found = this.#findByPartnerId(collection, partnerId, partnerOpId);
+    if (found) return found;
     // Our record may not be linked yet (notification arrived before the partner's API reply): retry later.
     throw new PayError('unknown_operation', `Операция ${partnerOpId} не найдена`, 404);
   }
@@ -882,6 +1023,10 @@ export class PayService {
 
   #orderEvent(order, event, text) {
     order.history.push({ at: this.now().toISOString(), event, text });
+  }
+
+  notify(partyId, text, ref) {
+    this.#notify(partyId, text, ref);
   }
 
   #notify(partyId, text, ref) {
@@ -911,6 +1056,7 @@ export class PayService {
       income_statement: 'Отчёт о поступлении',
       refund_receipt: 'Чек возврата',
       payout_statement: 'Подтверждение выплаты',
+      topup_receipt: 'Чек пополнения',
     };
     const doc = { id: Store.id('doc'), type, title: titles[type], issuedAt: this.now().toISOString(), orderId: order?.id ?? null, lines: [], notes: [] };
     const q = payment?.quote;
@@ -940,6 +1086,15 @@ export class PayService {
       doc.lines = [{ label: `Возврат по заказу «${order.description}»`, amount: refund.payerAmount, currency: refund.payerCurrency, total: true }];
       if (q.payer.fxCost) doc.notes.push('Стоимость конвертации не возвращается.');
       if (refund.reason) doc.notes.push(`Причина: ${refund.reason}`);
+    } else if (type === 'topup_receipt') {
+      const { topup } = extra;
+      doc.partyIds = [topup.userId];
+      doc.lines = [
+        { label: 'Зачислено на баланс Parri', amount: topup.amount, currency: topup.currency },
+        { label: `Комиссия за пополнение (${topup.feeBps / 100}%)`, amount: topup.fee, currency: topup.currency },
+        { label: 'Списано с карты', amount: topup.total, currency: topup.currency, total: true },
+      ];
+      doc.notes.push(`Средства хранятся на счёте у финансового партнёра ${topup.partner}.`);
     } else if (type === 'payout_statement') {
       const { payout } = extra;
       doc.partyIds = [payout.partyId];

@@ -3,6 +3,7 @@ import { randomUUID } from 'node:crypto';
 const COLLECTIONS = [
   'users', 'merchants', 'orders', 'payments', 'refunds', 'payouts', 'subscriptions',
   'documents', 'notifications', 'ledgerTx', 'balances', 'processedEvents', 'idempotency',
+  'topups', 'devices', 'keyChallenges', 'confirmations',
 ];
 
 // In-memory storage. The interface is intentionally small (named Maps) so that it

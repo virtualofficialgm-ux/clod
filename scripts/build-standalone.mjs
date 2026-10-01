@@ -14,8 +14,9 @@ const out = process.argv[2] ?? join(root, 'dist/parri-pay.html');
 // Dependency order.
 const MODULES = [
   'src/config.js', 'src/money.js', 'src/store.js', 'src/ledger.js', 'src/fees.js', 'src/idempotency.js',
-  'src/services/antifraud.js', 'src/services/reconciliation.js', 'src/services/pay.js',
-  'src/partners/sandbox.js', 'src/app.js', 'src/http/pages.js', 'src/http/routes.js',
+  'src/crypto.js', 'src/devices/protocol.js',
+  'src/services/antifraud.js', 'src/services/reconciliation.js', 'src/services/pay.js', 'src/services/keys.js',
+  'src/partners/sandbox.js', 'src/devices/sandbox-key.js', 'src/app.js', 'src/http/pages.js', 'src/http/routes.js',
 ];
 
 const stripModule = (src) => src

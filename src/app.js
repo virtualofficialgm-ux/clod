@@ -3,6 +3,8 @@ import { Store } from './store.js';
 import { PayService } from './services/pay.js';
 import { SandboxPartner, verifySignature } from './partners/sandbox.js';
 import { PayError } from './money.js';
+import { KeyService } from './services/keys.js';
+import { SandboxKeyFactory } from './devices/sandbox-key.js';
 
 // Builds the Pay service together with sandbox partners.
 // The sandbox clock can be shifted to demonstrate settlement delays and renewals.
@@ -33,5 +35,9 @@ export function createApp({ level = 'connect', baseUrl = '', duplicateWebhooks =
     });
   }
 
-  return { service, partners, receiveWebhook, clock };
+  // Parri Key: the sandbox factory plays the manufacturer; the service trusts its attestation key.
+  const keyFactory = new SandboxKeyFactory();
+  const keys = new KeyService({ pay: service, trustAnchor: keyFactory.ready.then(() => keyFactory.trustAnchor) });
+
+  return { service, partners, receiveWebhook, clock, keys, keyFactory };
 }

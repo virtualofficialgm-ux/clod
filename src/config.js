@@ -51,9 +51,10 @@ export const MARKETS = {
     paymentCurrencies: ['AMD', 'USD'],
     partner: 'sandbox-am',
     settlementDelayDays: 1,
+    topupFeeBps: 0,
     kyc: {
-      basic: { title: 'Базовая', procedure: 'Телефон и e-mail', maxPayment: 20_000_000, monthlyPayout: 50_000_000 },
-      verified: { title: 'Полная', procedure: 'Паспорт и видеоидентификация', maxPayment: 200_000_000, monthlyPayout: 1_000_000_000 },
+      basic: { title: 'Базовая', procedure: 'Телефон и e-mail', maxPayment: 20_000_000, monthlyPayout: 50_000_000, maxBalance: 30_000_000 },
+      verified: { title: 'Полная', procedure: 'Паспорт и видеоидентификация', maxPayment: 200_000_000, monthlyPayout: 1_000_000_000, maxBalance: 2_000_000_000 },
     },
     // Regulated products are only added through a permitted model (own licence or licensed partner).
     regulated: { lending: false, deposits: false, cardIssuing: false },
@@ -64,9 +65,10 @@ export const MARKETS = {
     paymentCurrencies: ['KZT'],
     partner: 'sandbox-kz',
     settlementDelayDays: 2,
+    topupFeeBps: 0,
     kyc: {
-      basic: { title: 'Базовая', procedure: 'Телефон и ИИН', maxPayment: 25_000_000, monthlyPayout: 50_000_000 },
-      verified: { title: 'Полная', procedure: 'Удостоверение личности и биометрия', maxPayment: 500_000_000, monthlyPayout: 2_000_000_000 },
+      basic: { title: 'Базовая', procedure: 'Телефон и ИИН', maxPayment: 25_000_000, monthlyPayout: 50_000_000, maxBalance: 50_000_000 },
+      verified: { title: 'Полная', procedure: 'Удостоверение личности и биометрия', maxPayment: 500_000_000, monthlyPayout: 2_000_000_000, maxBalance: 5_000_000_000 },
     },
     regulated: { lending: false, deposits: false, cardIssuing: false },
   },
@@ -76,9 +78,10 @@ export const MARKETS = {
     paymentCurrencies: ['EUR', 'USD'],
     partner: 'sandbox-eu',
     settlementDelayDays: 1,
+    topupFeeBps: 100,
     kyc: {
-      basic: { title: 'Базовая', procedure: 'E-mail и телефон, лимит по PSD2', maxPayment: 15_000, monthlyPayout: 100_000 },
-      verified: { title: 'Полная', procedure: 'Документ и проверка адреса', maxPayment: 1_000_000, monthlyPayout: 5_000_000 },
+      basic: { title: 'Базовая', procedure: 'E-mail и телефон, лимит по PSD2', maxPayment: 15_000, monthlyPayout: 100_000, maxBalance: 15_000 },
+      verified: { title: 'Полная', procedure: 'Документ и проверка адреса', maxPayment: 1_000_000, monthlyPayout: 5_000_000, maxBalance: 10_000_000 },
     },
     regulated: { lending: false, deposits: false, cardIssuing: false },
   },
@@ -124,6 +127,38 @@ export const SERVICE_API_KEYS = {
   sk_sandbox_tasks: 'tasks',
   sk_sandbox_fit: 'fit',
   sk_sandbox_food: 'food',
+};
+
+// Parri Key versions. The move between versions depends on test results and
+// production economics, so availability is configuration, not code.
+export const KEY_MODELS = {
+  core: {
+    title: 'Key Core',
+    summary: 'Аппаратный ключ и кошелёк цифровых активов с приложением',
+    stage: 'available',
+    features: { display: false, ring: false, biometric: false, contactless: false },
+    presence: 'кнопку на ключе',
+  },
+  pay: {
+    title: 'Key Pay',
+    summary: 'Платёжная версия с партнёром-эмитентом',
+    stage: 'issuer_required',
+    features: { display: false, ring: false, biometric: true, contactless: true },
+    presence: 'палец к сенсору',
+  },
+  signature: {
+    title: 'Key Signature',
+    summary: 'Премиальное исполнение: E-Ink дисплей, тактильное кольцо, биометрия, титан и сапфировое стекло',
+    stage: 'prototype',
+    features: { display: true, ring: true, biometric: true, contactless: true },
+    presence: 'палец к сенсору',
+  },
+};
+
+export const KEY_STAGES = {
+  available: 'Доступна',
+  issuer_required: 'Платёжная функция — после договора с партнёром-эмитентом',
+  prototype: 'Инженерный образец: выпуск после проверки дисплея, кольца и биометрии',
 };
 
 export const SEED_USERS = [

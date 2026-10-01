@@ -1,12 +1,12 @@
 import { randomUUID } from 'node:crypto';
 import { MARKETS, PRODUCTS, PARTNERS, SERVICE_API_KEYS, SEED_USERS, SEED_MERCHANTS } from '../config.js';
 import { PayError, format } from '../money.js';
-import { quote } from '../fees.js';
+import { quote, topupQuote } from '../fees.js';
 import { renderDocument, renderCheckout } from './pages.js';
 
 // Transport-independent API router. The Node server and the in-browser
 // standalone build both dispatch requests through it.
-export function createRouter({ service, partners, receiveWebhook, clock }) {
+export function createRouter({ service, partners, receiveWebhook, clock, keys, keyFactory }) {
   const routes = [];
   const route = (method, pattern, handler) => {
     const keys = [];
@@ -52,8 +52,34 @@ export function createRouter({ service, partners, receiveWebhook, clock }) {
 
   route('POST', '/api/quote', ({ req, body }) => {
     const me = service.party(user(req));
-    return quote({ market: me.market, product: body.product, amount: Number(body.amount), payerCurrency: body.currency });
+    return quote({ market: me.market, product: body.product, amount: Number(body.amount), payerCurrency: body.currency, source: body.source ?? 'card' });
   });
+
+  // --- Top-ups --------------------------------------------------------------
+  route('POST', '/api/topups/quote', ({ req, body }) => {
+    const me = service.party(user(req));
+    if (!me.market) throw new PayError('forbidden', 'Пополнение доступно пользователям', 403);
+    return topupQuote({ market: me.market, amount: Number(body.amount) });
+  });
+  route('POST', '/api/topups', ({ req, body }) => {
+    const id = user(req);
+    return service.idempotency.run(`topup:${id}`, idemKey(req), body, () => service.requestTopup(id, { amount: Number(body.amount) }));
+  });
+
+  // --- Parri Key ------------------------------------------------------------
+  route('GET', '/api/keys', ({ req }) => {
+    const id = user(req);
+    return { models: keys.models(id), devices: keys.devicesOf(id), confirmations: keys.pendingConfirmations(id) };
+  });
+  route('POST', '/api/keys', ({ req, body }) => keys.beginLink(user(req), body.identity));
+  route('POST', '/api/keys/:id/activate', ({ req, params, body }) => keys.activate(user(req), params.id, body.signature));
+  route('GET', '/api/keys/:id/display', ({ req, params }) => keys.display(user(req), params.id));
+  route('POST', '/api/keys/:id/source', ({ req, params, body }) => keys.selectSource(user(req), params.id, { sourceId: body.sourceId, counter: Number(body.counter), signature: body.signature }));
+  route('POST', '/api/keys/:id/block', ({ req, params }) => keys.block(user(req), params.id));
+  route('POST', '/api/keys/:id/unlink', ({ req, params }) => keys.unlink(user(req), params.id));
+  route('POST', '/api/keys/:id/ownership', ({ req, params }) => keys.beginOwnershipCheck(user(req), params.id));
+  route('POST', '/api/keys/:id/ownership/verify', ({ req, params, body }) => keys.verifyOwnership(user(req), params.id, body.signature));
+  route('POST', '/api/keys/confirmations/:id', ({ req, params, body }) => keys.confirm(user(req), params.id, { signature: body.signature, decline: Boolean(body.decline) }));
 
   route('GET', '/api/orders/:id', ({ req, params }) => {
     const id = user(req);
@@ -64,7 +90,7 @@ export function createRouter({ service, partners, receiveWebhook, clock }) {
   route('POST', '/api/orders/:id/payments', ({ req, params, body }) => {
     const id = user(req);
     return service.idempotency.run(`pay:${id}`, idemKey(req), { params, body }, () => service.startPayment(params.id, {
-      actorId: id, currency: body.currency, savePaymentMethod: Boolean(body.savePaymentMethod),
+      actorId: id, currency: body.currency, savePaymentMethod: Boolean(body.savePaymentMethod), source: body.source ?? 'card',
     }));
   });
   route('POST', '/api/orders/:id/complete', ({ req, params }) => service.completeOrder(params.id, user(req)));
@@ -128,6 +154,34 @@ export function createRouter({ service, partners, receiveWebhook, clock }) {
     const payerId = user(req);
     return service.createOrder({ product: body.product, externalRef: `demo-${randomUUID()}`, payerId, payeeId: body.payeeId, amount: Number(body.amount), description: body.description });
   });
+  // Sandbox device "in the hand": stands in for the physical Parri Key. It only exposes
+  // what the hardware does: NFC identity read and signing after physical presence.
+  const held = new Map(); // serial -> userId
+  const heldDevice = (req, serial) => {
+    const device = keyFactory.get(serial);
+    if (!device || held.get(serial) !== user(req)) throw new PayError('not_found', 'Устройство не найдено', 404);
+    return device;
+  };
+  route('POST', '/api/sandbox/keys', async ({ req, body }) => {
+    const device = await keyFactory.manufacture(body.model ?? 'signature');
+    held.set(device.identity.serial, user(req));
+    return { serial: device.identity.serial, model: device.identity.model };
+  });
+  route('GET', '/api/sandbox/keys', ({ req }) => {
+    const id = user(req);
+    return [...held].filter(([, u]) => u === id).map(([serial]) => ({ serial, model: keyFactory.get(serial).identity.model }));
+  });
+  route('GET', '/api/sandbox/keys/:serial/nfc', ({ req, params }) => heldDevice(req, params.serial).readIdentity());
+  route('POST', '/api/sandbox/keys/:serial/sign', async ({ req, params, body }) => {
+    const device = heldDevice(req, params.serial);
+    if (!['payment', 'assets'].includes(body.purpose)) throw new PayError('unknown_key', 'Неизвестный ключ');
+    try {
+      return { signature: await device.sign(body.purpose, String(body.message ?? ''), { presence: Boolean(body.presence) }) };
+    } catch (err) {
+      throw new PayError(err.code ?? 'device_error', err.message, 409);
+    }
+  });
+
   route('POST', '/api/sandbox/process', async () => {
     for (const p of Object.values(partners)) await p.processPending();
     return { ok: true };
