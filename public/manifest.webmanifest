@@ -1,6 +1,6 @@
 {
-  "name": "Pulse — ИИ-тренер",
-  "short_name": "Pulse",
+  "name": "Parri Fit — ИИ-тренер",
+  "short_name": "Parri Fit",
   "description": "Персональные тренировки, питание и подсчёт калорий по фото с ИИ",
   "start_url": "/",
   "display": "standalone",

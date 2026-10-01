@@ -173,7 +173,7 @@ export default function Onboarding() {
       ),
     },
     longterm: {
-      title: "Pulse даёт долгосрочный результат",
+      title: "Parri Fit даёт долгосрочный результат",
       ok: true,
       center: true,
       body: <LongTermChart />,
@@ -245,7 +245,7 @@ export default function Onboarding() {
             {p.goal === "lose" ? "Сбросить" : "Набрать"}{" "}
             <span style={{ color: "var(--orange)" }}>{fmtW(diffKg, p.units)}</span> — реалистичная цель. Это вполне по силам!
           </h1>
-          <p className="sub">90% пользователей отмечают заметный результат уже через месяц с Pulse — и легко его удерживают.</p>
+          <p className="sub">90% пользователей отмечают заметный результат уже через месяц с Parri Fit — и легко его удерживают.</p>
         </div>
       ),
     },
@@ -256,7 +256,7 @@ export default function Onboarding() {
       body: <SpeedPicker p={p} set={set} />,
     },
     twice: {
-      title: `${p.goal === "lose" ? "Худейте" : "Растите"} в 2 раза эффективнее с Pulse`,
+      title: `${p.goal === "lose" ? "Худейте" : "Растите"} в 2 раза эффективнее с Parri Fit`,
       ok: true,
       center: true,
       body: <TwiceChart goal={p.goal} />,
@@ -600,8 +600,8 @@ function LongTermChart() {
         <text x="236" y="150" fontSize="12" fill="var(--label-2)">Месяц 6</text>
       </svg>
       <div className="row" style={{ gap: 8, marginTop: 8 }}>
-        <span className="badge" style={{ background: "var(--ink)", color: "var(--on-ink)" }}>Pulse</span>
-        <span className="caption">80% пользователей Pulse сохраняют результат даже через 6 месяцев</span>
+        <span className="badge" style={{ background: "var(--ink)", color: "var(--on-ink)" }}>Parri Fit</span>
+        <span className="caption">80% пользователей Parri Fit сохраняют результат даже через 6 месяцев</span>
       </div>
     </div>
   );
@@ -612,8 +612,8 @@ function TwiceChart({ goal }: { goal: Profile["goal"] }) {
     <div className="glass card fade-in">
       <div className="grid-2" style={{ alignItems: "end", height: 220, padding: "0 10px" }}>
         {[
-          { label: "Без Pulse", h: 30, v: "20%", ink: false },
-          { label: "С Pulse", h: 70, v: "2X", ink: true },
+          { label: "Без Parri Fit", h: 30, v: "20%", ink: false },
+          { label: "С Parri Fit", h: 70, v: "2X", ink: true },
         ].map((b) => (
           <div key={b.label} style={{ textAlign: "center", height: "100%", display: "flex", flexDirection: "column", justifyContent: "flex-end" }}>
             <div style={{ fontWeight: 600, marginBottom: 10 }}>{b.label}</div>
@@ -637,7 +637,7 @@ function TwiceChart({ goal }: { goal: Profile["goal"] }) {
         ))}
       </div>
       <p className="caption" style={{ textAlign: "center", marginTop: 16, fontSize: 15 }}>
-        Pulse помогает {goal === "lose" ? "худеть" : "прогрессировать"} легче и держит вас в тонусе.
+        Parri Fit помогает {goal === "lose" ? "худеть" : "прогрессировать"} легче и держит вас в тонусе.
       </p>
     </div>
   );
@@ -681,7 +681,7 @@ function NotifyMock() {
       <div className="glass strong" style={{ width: 280, borderRadius: 28, overflow: "hidden", textAlign: "center" }}>
         <div style={{ padding: "22px 18px 16px" }}>
           <Bell size={28} style={{ marginBottom: 8 }} />
-          <div style={{ fontWeight: 600, fontSize: 17 }}>Pulse хочет отправлять вам уведомления</div>
+          <div style={{ fontWeight: 600, fontSize: 17 }}>Parri Fit хочет отправлять вам уведомления</div>
           <div className="caption" style={{ marginTop: 6 }}>Напоминания о тренировках, воде и приёмах пищи</div>
         </div>
         <div className="grid-2" style={{ gap: 0, borderTop: "0.5px solid var(--separator)" }}>

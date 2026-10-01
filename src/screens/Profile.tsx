@@ -113,7 +113,7 @@ export default function Profile({ onBack }: { onBack: () => void }) {
         />
       </div>
       <p className="caption" style={{ textAlign: "center", margin: "20px 0 40px" }}>
-        Pulse не заменяет консультацию врача. Данные хранятся на этом устройстве.
+        Parri Fit не заменяет консультацию врача. Данные хранятся на этом устройстве.
       </p>
 
       {edit === "weight" && <WeightSheet onClose={() => setEdit(null)} />}

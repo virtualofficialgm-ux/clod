@@ -1,5 +1,5 @@
 // Network-first for the app shell, so the PWA opens offline after the first visit.
-const CACHE = "pulse-v1";
+const CACHE = "parri-fit-v1";
 self.addEventListener("install", () => self.skipWaiting());
 self.addEventListener("activate", (e) => e.waitUntil(self.clients.claim()));
 self.addEventListener("fetch", (e) => {
