@@ -76,7 +76,7 @@ export default function Workouts() {
   const adapt = async () => {
     setAdapting(true);
     const { data, ai } = await generateProgram(u.profile, "", trainingLog(u));
-    updateUser((d) => ({ ...d, program: data }));
+    updateUser((d) => ({ ...d, program: data, programAuto: false }));
     setAdapting(false);
     toast(ai ? "План скорректирован по вашим тренировкам ✨" : "План обновлён (офлайн-режим)");
   };
@@ -619,7 +619,7 @@ function RegenSheet({ onClose }: { onClose: () => void }) {
     setBusy(true);
     const profile = { ...u.profile, days, workoutsPerWeek: days.length, place };
     const { data, ai } = await generateProgram(profile, wish, trainingLog(u));
-    updateUser((d) => ({ ...d, profile, program: data }));
+    updateUser((d) => ({ ...d, profile, program: data, programAuto: false }));
     setBusy(false);
     toast(ai ? "Новая программа от ИИ готова ✨" : "Программа обновлена (офлайн-режим)");
     onClose();

@@ -4,8 +4,7 @@ import {
 } from "lucide-react";
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { computePlan } from "../../shared/nutrition";
-import type { Menu, Profile, Program } from "../../shared/types";
-import { generateMenu, generateProgram } from "../api";
+import type { Profile } from "../../shared/types";
 import { Wheel, Ruler } from "../components/pickers";
 import { Ambient, Ring, Segmented, Sheet, haptic, toast } from "../components/ui";
 import { getState, hash, setState, today, type Account, type UserData } from "../store";
@@ -57,8 +56,6 @@ const DEFAULT: Profile = {
   linkFitFood: true,
 };
 
-let pendingProgram: Promise<{ data: Program; ai: boolean }> | null = null;
-let pendingMenu: Promise<{ data: Menu; ai: boolean }> | null = null;
 
 export default function Onboarding() {
   const [p, setP] = useState<Profile>(DEFAULT);
@@ -561,10 +558,6 @@ export default function Onboarding() {
             if (step === "reminders" && p.reminders !== false && "Notification" in window && Notification.permission === "default") {
               Notification.requestPermission().catch(() => undefined);
             }
-            if (step === "thanks") {
-              pendingProgram = generateProgram(p);
-              pendingMenu = generateMenu(p, p.linkFitFood ? (p.days ?? []) : []);
-            }
             next();
           }}
         >
@@ -981,15 +974,6 @@ function AuthForm({ mode, profile }: { mode: "signin" | "signup"; profile?: Prof
         createdAt: new Date().toISOString(),
       };
       setState((st) => ({ ...st, session: account.email, accounts: { ...st.accounts, [account.email]: account }, data: { ...st.data, [account.email]: data } }));
-      const email = account.email;
-      pendingProgram?.then(({ data: program }) =>
-        setState((st) => (st.data[email] ? { ...st, data: { ...st.data, [email]: { ...st.data[email], program } } } : st)),
-      );
-      pendingMenu?.then(({ data: menu }) =>
-        setState((st) =>
-          st.data[email] ? { ...st, data: { ...st.data, [email]: { ...st.data[email], menu, menuAt: new Date().toISOString(), shopChecked: {} } } } : st,
-        ),
-      );
       toast("Аккаунт создан 🎉");
     } else {
       if (!s.data[account.email]) {

@@ -7,13 +7,19 @@ export interface Result<T> {
   ai: boolean; // false when produced by the on-device fallback
 }
 
-async function post(url: string, body: unknown): Promise<Response> {
-  return fetch(url, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+async function post(url: string, body: unknown, timeoutMs = 60_000): Promise<Response> {
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), timeoutMs);
+  try {
+    return await fetch(url, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body), signal: ctrl.signal });
+  } finally {
+    clearTimeout(timer);
+  }
 }
 
 export async function generateProgram(profile: Profile, wish = "", log = ""): Promise<Result<Program>> {
   try {
-    const res = await post("/api/program", { profile, wish, log });
+    const res = await post("/api/program", { profile, wish, log }, 120_000);
     if (res.ok) return { data: (await res.json()) as Program, ai: true };
   } catch {
     /* offline */
@@ -54,7 +60,7 @@ export async function scanEquipment(input: {
 
 export async function generateMenu(profile: Profile, schedule: number[], wish = ""): Promise<Result<Menu>> {
   try {
-    const res = await post("/api/menu", { profile, schedule, wish });
+    const res = await post("/api/menu", { profile, schedule, wish }, 180_000);
     if (res.ok) return { data: (await res.json()) as Menu, ai: true };
   } catch {
     /* offline */
@@ -69,7 +75,7 @@ export async function chat(
   log = "",
 ): Promise<boolean> {
   try {
-    const res = await post("/api/chat", { profile, messages, log });
+    const res = await post("/api/chat", { profile, messages, log }, 120_000);
     if (res.ok && res.body) {
       const reader = res.body.getReader();
       const decoder = new TextDecoder();

@@ -58,6 +58,9 @@ export interface UserData {
   videoWaitlist?: boolean;
   menu?: Menu | null;
   menuAt?: string;
+  menuAi?: boolean;
+  /** true while the program is the automatic offline one that the AI version may replace */
+  programAuto?: boolean;
   shopChecked?: Record<string, boolean>;
   /** Composite products whose composition the user has checked against their allergies. */
   confirmedIngredients?: string[];

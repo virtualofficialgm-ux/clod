@@ -8,6 +8,7 @@ import EquipmentScanner from "./screens/EquipmentScanner";
 import Home from "./screens/Home";
 import Food from "./screens/Food";
 import Workouts from "./screens/Workouts";
+import { ensurePlans } from "./ensure";
 import { today, updateUser, useStore, useUser } from "./store";
 
 export type Tab = "home" | "workouts" | "food" | "coach";
@@ -22,6 +23,12 @@ const TABS: { id: Tab; label: string; icon: typeof House }[] = [
 export default function App() {
   const theme = useStore((s) => s.theme);
   const user = useUser();
+  const session = useStore((s) => s.session);
+  const missing = !!user && (!user.menu || !user.program);
+
+  useEffect(() => {
+    if (session && missing) ensurePlans(session);
+  }, [session, missing]);
   const [tab, setTab] = useState<Tab>("home");
   const [add, setAdd] = useState(false);
   const [scanner, setScanner] = useState(false);
