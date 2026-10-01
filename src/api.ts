@@ -1,5 +1,5 @@
-import type { ChatMessage, EquipmentAnalysis, MealAnalysis, Menu, Profile, Program } from "../shared/types";
-import { localMenu } from "./data/recipes";
+import type { ChatMessage, EquipmentAnalysis, MealAnalysis, Menu, PantryResult, Profile, Program } from "../shared/types";
+import { localMenu, localPantry } from "./data/recipes";
 import { localMeal, localProgram, localReply } from "./data/localCoach";
 
 export interface Result<T> {
@@ -17,7 +17,8 @@ async function post(url: string, body: unknown, timeoutMs = 60_000): Promise<Res
   }
 }
 
-export async function generateProgram(profile: Profile, wish = "", log = ""): Promise<Result<Program>> {
+export async function generateProgram(profile: Profile, wish = "", log = "", useAi = true): Promise<Result<Program>> {
+  if (!useAi) return { data: localProgram(profile), ai: false };
   try {
     const res = await post("/api/program", { profile, wish, log }, 120_000);
     if (res.ok) return { data: (await res.json()) as Program, ai: true };
@@ -58,7 +59,8 @@ export async function scanEquipment(input: {
   return null;
 }
 
-export async function generateMenu(profile: Profile, schedule: number[], wish = ""): Promise<Result<Menu>> {
+export async function generateMenu(profile: Profile, schedule: number[], wish = "", useAi = true): Promise<Result<Menu>> {
+  if (!useAi) return { data: localMenu(profile, schedule), ai: false };
   try {
     const res = await post("/api/menu", { profile, schedule, wish }, 180_000);
     if (res.ok) return { data: (await res.json()) as Menu, ai: true };
@@ -66,6 +68,24 @@ export async function generateMenu(profile: Profile, schedule: number[], wish = 
     /* offline */
   }
   return { data: localMenu(profile, schedule), ai: false };
+}
+
+/** Photo(s) or a typed list of products → recipes. null result = AI unavailable for photos. */
+export async function scanPantry(input: {
+  images: string[];
+  text: string;
+  profile: Profile;
+  trainingToday?: boolean;
+}): Promise<Result<PantryResult> | null> {
+  try {
+    const res = await post("/api/pantry", input, 120_000);
+    if (res.ok) return { data: (await res.json()) as PantryResult, ai: true };
+  } catch {
+    /* offline */
+  }
+  if (input.images.length && !input.text.trim()) return null;
+  const products = input.text.split(/[,;\n]/).map((s) => s.trim()).filter(Boolean);
+  return { data: localPantry(products, input.profile, input.trainingToday), ai: false };
 }
 
 export async function chat(

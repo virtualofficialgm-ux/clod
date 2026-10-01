@@ -5,6 +5,7 @@ import { prepareImage, scanEquipment } from "../api";
 import { Page, haptic, toast } from "../components/ui";
 import { MACHINES, localEquipment } from "../data/machines";
 import { today, uid, updateUser, useUser } from "../store";
+import { allow, consume } from "../subscription";
 
 type Mode = "intro" | "analyzing" | "manual" | "result";
 
@@ -33,12 +34,16 @@ export default function EquipmentScanner({ onBack }: { onBack: () => void }) {
 
   const onFile = async (file?: File) => {
     if (!file) return;
+    if (!allow("scans")) return;
     setMode("analyzing");
     try {
       const { base64, thumb } = await prepareImage(file);
       setPhoto(thumb);
       const r = await scanEquipment({ image: base64, question, profile: u.profile, program: u.program });
-      if (r) show(r, true, thumb);
+      if (r) {
+        consume("scans");
+        show(r, true, thumb);
+      }
       else setMode("manual");
     } catch {
       toast("Не удалось обработать фото");
@@ -77,8 +82,8 @@ export default function EquipmentScanner({ onBack }: { onBack: () => void }) {
 
   return (
     <Page title="Сканер тренажёров" onBack={onBack}>
-      <input ref={camera} type="file" accept="image/*" capture="environment" hidden onChange={(e) => onFile(e.target.files?.[0])} />
-      <input ref={gallery} type="file" accept="image/*" hidden onChange={(e) => onFile(e.target.files?.[0])} />
+      <input ref={camera} type="file" accept="image/*" capture="environment" hidden onChange={(e) => (onFile(e.target.files?.[0]), (e.target.value = ""))} />
+      <input ref={gallery} type="file" accept="image/*" hidden onChange={(e) => (onFile(e.target.files?.[0]), (e.target.value = ""))} />
 
       {mode === "intro" && (
         <div className="stagger">

@@ -5,7 +5,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { computePlan, ageFrom } from "../shared/nutrition";
-import { EquipmentSchema, MealSchema, MenuSchema, ProgramSchema, type ChatMessage, type Profile, type Program } from "../shared/types";
+import { EquipmentSchema, MealSchema, MenuSchema, PantrySchema, ProgramSchema, type ChatMessage, type Profile, type Program } from "../shared/types";
 
 const MODEL = process.env.CLAUDE_MODEL ?? "claude-opus-5-5";
 // Re-runs a request declined by safety classifiers on Anthropic's recommended fallback model.
@@ -259,6 +259,52 @@ ${wish ? `Пожелание: «${String(wish).slice(0, 500)}»` : ""}
       return;
     }
     res.json(parsed.data);
+  } catch (err) {
+    sendError(res, err);
+  }
+});
+
+app.post("/api/pantry", async (req, res) => {
+  const { images, text, profile, trainingToday } = req.body as {
+    images?: string[];
+    text?: string;
+    profile: Profile;
+    trainingToday?: boolean;
+  };
+  const plan = computePlan(profile);
+  const content: Anthropic.Beta.BetaContentBlockParam[] = (images ?? [])
+    .slice(0, 3)
+    .map((data) => ({ type: "image" as const, source: { type: "base64" as const, media_type: "image/jpeg" as const, data } }));
+  content.push({
+    type: "text",
+    text: `${content.length ? "На фото — продукты пользователя (холодильник, полка или стол)." : "Список продуктов пользователя:"}${text ? ` ${String(text).slice(0, 600)}` : ""}
+
+Определи продукты и предложи 4–6 блюд, которые можно приготовить в основном из них.
+
+${foodProfile(profile)}
+Цель: ${GOALS[profile.goal]}. Ориентир: ${plan.calories} ккал, белок ${plan.protein} г в день.
+${trainingToday === undefined ? "" : trainingToday ? "Сегодня день тренировки: нужны блюда до тренировки (углеводы, немного белка, мало жира) и после (белок + углеводы)." : "Сегодня день отдыха: больше белка и овощей, умеренно углеводов."}
+
+Правила:
+- У каждого блюда укажи purpose (pre_workout, post_workout, rest_day или any) и почему оно подходит.
+- Строго исключи аллергены и нелюбимые продукты; сомнительные по составу — в clarify.
+- missing — только если не хватает 1–3 простых продуктов.
+- Калорийность приблизительная, на порцию; количество ингредиентов — на ${profile.household ?? 1} чел.`,
+  });
+  try {
+    const response = await client.beta.messages.parse({
+      model: MODEL,
+      max_tokens: 16000,
+      ...FALLBACK,
+      output_config: { effort: "low", format: betaZodOutputFormat(PantrySchema) },
+      system: COACH_SYSTEM,
+      messages: [{ role: "user", content }],
+    });
+    if (response.stop_reason === "refusal" || !response.parsed_output) {
+      res.status(422).json({ error: "refused" });
+      return;
+    }
+    res.json(response.parsed_output);
   } catch (err) {
     sendError(res, err);
   }

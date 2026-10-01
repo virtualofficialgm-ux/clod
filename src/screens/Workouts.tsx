@@ -13,6 +13,7 @@ import EquipmentScanner from "./EquipmentScanner";
 import { ScanBanner } from "./Home";
 import Library from "./Library";
 import Trainers from "./Trainers";
+import { isPlus, openPaywall } from "../subscription";
 
 const INTENSITY = { low: "Лёгкая", medium: "Средняя", high: "Высокая" };
 const WEEK = ["Пн", "Вт", "Ср", "Чт", "Пт", "Сб", "Вс"];
@@ -75,6 +76,11 @@ export default function Workouts() {
 
   const adapt = async () => {
     setAdapting(true);
+    if (!isPlus(u)) {
+      setAdapting(false);
+      openPaywall("ai_plan");
+      return;
+    }
     const { data, ai } = await generateProgram(u.profile, "", trainingLog(u));
     updateUser((d) => ({ ...d, program: data, programAuto: false }));
     setAdapting(false);
@@ -618,10 +624,10 @@ function RegenSheet({ onClose }: { onClose: () => void }) {
   const run = async () => {
     setBusy(true);
     const profile = { ...u.profile, days, workoutsPerWeek: days.length, place };
-    const { data, ai } = await generateProgram(profile, wish, trainingLog(u));
+    const { data, ai } = await generateProgram(profile, wish, trainingLog(u), isPlus(u));
     updateUser((d) => ({ ...d, profile, program: data, programAuto: false }));
     setBusy(false);
-    toast(ai ? "Новая программа от ИИ готова ✨" : "Программа обновлена (офлайн-режим)");
+    toast(ai ? "Новая программа от ИИ готова ✨" : isPlus(u) ? "Программа обновлена (офлайн-режим)" : "Программа обновлена. ИИ-версия — в Parri Plus");
     onClose();
   };
 

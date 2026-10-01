@@ -168,3 +168,19 @@ export type Ingredient = z.infer<typeof IngredientSchema>;
 export type Recipe = z.infer<typeof RecipeSchema>;
 export type MenuDay = z.infer<typeof MenuDaySchema>;
 export type Menu = z.infer<typeof MenuSchema>;
+
+export const PantryRecipeSchema = RecipeSchema.extend({
+  purpose: z.enum(["pre_workout", "post_workout", "rest_day", "any"]).describe("Для какого дня/момента рациона блюдо подходит лучше всего"),
+  why: z.string().describe("Одно предложение: почему это блюдо подходит под цель и тренировки пользователя"),
+  missing: z.array(z.string()).describe("Чего не хватает из продуктов (не больше 2–3 простых позиций), или пусто"),
+});
+
+export const PantrySchema = z.object({
+  products: z.array(z.object({ name: z.string(), amount: z.string().describe("Примерное количество, например «≈300 г» или «6 шт»") })),
+  recipes: z.array(PantryRecipeSchema).describe("4–6 блюд, в основном из найденных продуктов"),
+  advice: z.string().describe("Совет по рациону на сегодня с учётом тренировки"),
+  clarify: z.array(z.string()).describe("Продукты, состав которых нужно уточнить из-за аллергий"),
+});
+
+export type PantryRecipe = z.infer<typeof PantryRecipeSchema>;
+export type PantryResult = z.infer<typeof PantrySchema>;

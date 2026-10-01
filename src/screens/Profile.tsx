@@ -4,6 +4,8 @@ import { computePlan, ageFrom } from "../../shared/nutrition";
 import { Page, Row, Segmented, Sheet, Toggle, toast } from "../components/ui";
 import { fmtW } from "../onboarding/Onboarding";
 import { setState, today, updateUser, useStore, useUser } from "../store";
+import { Crown } from "lucide-react";
+import { FREE_LIMITS, PLANS, accessUntil, cancel, isPlus, openPaywall, usage } from "../subscription";
 
 const WEEK = ["Пн", "Вт", "Ср", "Чт", "Пт", "Сб", "Вс"];
 const ALLERGY_LIST = ["Глютен", "Молочное", "Яйца", "Орехи", "Арахис", "Рыба", "Морепродукты", "Соя", "Кунжут"];
@@ -57,6 +59,9 @@ export default function Profile({ onBack }: { onBack: () => void }) {
           ))}
         </svg>
       </div>
+
+      <div className="list-header">Подписка</div>
+      <PlusCard />
 
       <div className="list-header">Мой план</div>
       <div className="list glass">
@@ -312,5 +317,57 @@ function GoalSheet({ onClose }: { onClose: () => void }) {
       )}
       <button className="btn btn-primary" style={{ marginTop: 20 }} onClick={save}>Сохранить</button>
     </Sheet>
+  );
+}
+
+function PlusCard() {
+  const u = useUser()!;
+  const sub = u.subscription;
+  const plus = isPlus(u);
+  const fmt = (iso: string) => new Date(iso).toLocaleDateString("ru-RU", { day: "numeric", month: "long", year: "numeric" });
+  if (!plus || !sub) {
+    const used = usage(u);
+    return (
+      <button className="glass card" style={{ width: "100%", textAlign: "left", display: "block" }} onClick={() => openPaywall("profile")}>
+        <div className="row">
+          <span className="icon-tile" style={{ background: "linear-gradient(135deg, #ffd60a, #ff375f)" }}>
+            <Crown size={18} />
+          </span>
+          <span style={{ flex: 1 }}>
+            <b>Parri Plus</b>
+            <div className="caption">от ${PLANS.yearly.perMonth} в месяц · 7 дней бесплатно</div>
+          </span>
+          <span className="badge" style={{ background: "var(--ink)", color: "var(--on-ink)" }}>Подробнее</span>
+        </div>
+        <div className="caption" style={{ marginTop: 10 }}>
+          На этой неделе: ИИ-сканы {used.scans}/{FREE_LIMITS.scans}, сообщения ИИ {used.chat}/{FREE_LIMITS.chat}
+        </div>
+      </button>
+    );
+  }
+  const inTrial = sub.trialEndsAt && new Date(sub.trialEndsAt).getTime() > Date.now();
+  return (
+    <div className="glass card">
+      <div className="row">
+        <span className="icon-tile" style={{ background: "linear-gradient(135deg, #ffd60a, #ff375f)" }}>
+          <Crown size={18} />
+        </span>
+        <span style={{ flex: 1 }}>
+          <b>Parri Plus · {sub.plan === "yearly" ? `год, $${PLANS.yearly.price}` : `месяц, $${PLANS.monthly.price}`}</b>
+          <div className="caption">
+            {sub.canceled
+              ? `Отменена. Доступ до ${fmt(accessUntil(sub))}`
+              : inTrial
+                ? `Пробный период до ${fmt(sub.trialEndsAt!)}, затем списание`
+                : `Продлится ${fmt(sub.renewsAt)}`}
+          </div>
+        </span>
+      </div>
+      {!sub.canceled && (
+        <button className="btn btn-sm btn-tinted" style={{ marginTop: 12, color: "var(--red)" }} onClick={() => (cancel(), toast("Подписка отменена"))}>
+          Отменить подписку
+        </button>
+      )}
+    </div>
   );
 }

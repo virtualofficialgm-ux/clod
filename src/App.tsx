@@ -7,6 +7,9 @@ import Coach from "./screens/Coach";
 import EquipmentScanner from "./screens/EquipmentScanner";
 import Home from "./screens/Home";
 import Food from "./screens/Food";
+import FridgeScanner from "./screens/FridgeScanner";
+import { PaywallHost } from "./screens/Paywall";
+import { isPlus, openPaywall } from "./subscription";
 import Workouts from "./screens/Workouts";
 import { ensurePlans } from "./ensure";
 import { today, updateUser, useStore, useUser } from "./store";
@@ -32,6 +35,15 @@ export default function App() {
   const [tab, setTab] = useState<Tab>("home");
   const [add, setAdd] = useState(false);
   const [scanner, setScanner] = useState(false);
+  const [fridge, setFridge] = useState(false);
+
+  // Offer Plus once, right after the plan is ready (Cal AI-style), never again automatically.
+  const offerPlus = !!user && !user.paywallSeen && !isPlus(user);
+  useEffect(() => {
+    if (!offerPlus) return;
+    const id = setTimeout(() => openPaywall("welcome"), 1200);
+    return () => clearTimeout(id);
+  }, [offerPlus]);
 
   // Training-day reminder: fires once per day after the chosen time while the app is open or installed.
   useEffect(() => {
@@ -93,8 +105,10 @@ export default function App() {
               <Plus size={30} strokeWidth={2.4} />
             </button>
           </nav>
-          {add && <AddSheet onClose={() => setAdd(false)} onScan={() => setScanner(true)} />}
+          {add && <AddSheet onClose={() => setAdd(false)} onScan={() => setScanner(true)} onFridge={() => setFridge(true)} />}
           {scanner && <EquipmentScanner onBack={() => setScanner(false)} />}
+          {fridge && <FridgeScanner onBack={() => setFridge(false)} />}
+          <PaywallHost />
         </>
       )}
       <ToastHost />

@@ -4,6 +4,7 @@ import type { ChatMessage } from "../../shared/types";
 import { chat } from "../api";
 import { Md, haptic, useAutoScroll } from "../components/ui";
 import { trainingLog, updateUser, useUser } from "../store";
+import { allow, consume } from "../subscription";
 
 const SUGGESTIONS = [
   "Как прошла моя последняя неделя тренировок?",
@@ -25,6 +26,7 @@ export default function Coach() {
   const send = async (text: string) => {
     const content = text.trim();
     if (!content || streaming !== null) return;
+    if (!allow("chat")) return;
     haptic();
     setInput("");
     const history: ChatMessage[] = [...messages, { role: "user", content }];
@@ -41,6 +43,7 @@ export default function Coach() {
       trainingLog(u),
     );
     setOffline(!ai);
+    if (ai) consume("chat");
     updateUser((d) => ({ ...d, chat: [...history, { role: "assistant", content: reply || "Не удалось получить ответ. Попробуйте ещё раз." }] }));
     setStreaming(null);
   };

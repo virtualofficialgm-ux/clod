@@ -466,3 +466,27 @@ input[type="range"].slider::-moz-range-thumb { width: 30px; height: 30px; border
 .check.on { background: var(--green); border-color: var(--green); color: #fff; }
 .day .dot { width: 5px; height: 5px; border-radius: 50%; background: transparent; }
 .day .dot.on { background: var(--orange); }
+
+/* ---------- Paywall ---------- */
+.paywall { animation: sheet-in .5s var(--ease); }
+.paywall.leaving-down { animation: sheet-out .3s var(--ease) forwards; }
+@keyframes sheet-out { to { transform: translateY(100%); } }
+.plus-badge { width: 84px; height: 84px; margin: 0 auto; border-radius: 26px; display: grid; place-items: center; color: #fff; background: linear-gradient(135deg, #ffd60a, #ff9f0a 45%, #ff375f); box-shadow: 0 18px 40px -14px #ff9f0a; }
+.compare-row { display: grid; grid-template-columns: 1fr 74px 82px; align-items: center; gap: 6px; padding: 10px 16px; font-size: 14px; }
+.compare-row + .compare-row { border-top: 0.5px solid var(--separator); }
+.compare-row > span:not(:first-child) { text-align: center; display: grid; place-items: center; font-size: 13px; }
+.compare-row.head { font-weight: 700; font-size: 13px; }
+.compare-row .plus { font-weight: 700; color: var(--green); }
+.timeline { display: flex; flex-direction: column; gap: 14px; position: relative; }
+.timeline > div { display: flex; gap: 12px; align-items: flex-start; position: relative; }
+.timeline > div:not(:last-child)::after { content: ""; position: absolute; left: 13px; top: 30px; bottom: -14px; width: 2px; background: var(--fill-2); }
+.tl-dot { width: 28px; height: 28px; border-radius: 50%; display: grid; place-items: center; color: #fff; flex: none; }
+.paywall-foot { position: absolute; left: 0; right: 0; bottom: 0; padding: 14px 16px calc(var(--safe-bottom) + 14px); border-radius: 30px 30px 0 0; z-index: 2; }
+.plan { position: relative; display: flex; flex-direction: column; align-items: flex-start; gap: 2px; padding: 16px 14px 12px; border-radius: 20px; text-align: left; background: var(--fill); border: 2px solid transparent; transition: border-color .2s, background .2s; }
+.plan.on { border-color: var(--ink); background: var(--bg-elevated); }
+.plan-tag { position: absolute; top: -10px; left: 10px; right: 10px; text-align: center; font-size: 11px; font-weight: 700; padding: 3px 6px; border-radius: 10px; background: var(--ink); color: var(--on-ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.photo-strip { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+.photo-thumb { position: relative; aspect-ratio: 1; max-width: 100%; border-radius: 20px; background: center / cover no-repeat var(--fill); }
+.photo-thumb button { position: absolute; top: 6px; right: 6px; width: 26px; height: 26px; border-radius: 50%; display: grid; place-items: center; background: rgba(0,0,0,.55); color: #fff; }
+.photo-add { aspect-ratio: 1; max-width: 100%; border-radius: 20px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; font-size: 13px; font-weight: 600; text-align: center; padding: 6px; }
+.fridge-banner { background: linear-gradient(135deg, #0e4a2a, #30d158 70%, #ffd60a); box-shadow: 0 14px 36px -14px rgba(48,209,88,.7); }

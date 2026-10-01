@@ -1,7 +1,7 @@
 // Offline recipe base and weekly menu builder, used when the AI server is unavailable.
 import { checkIngredients } from "../../shared/allergens";
 import { computePlan } from "../../shared/nutrition";
-import type { Diet, Menu, MenuDay, Profile, Recipe } from "../../shared/types";
+import type { Diet, Menu, MenuDay, PantryRecipe, PantryResult, Profile, Recipe } from "../../shared/types";
 
 type Slot = "breakfast" | "lunch" | "dinner" | "snack";
 
@@ -182,4 +182,45 @@ export function localMenu(p: Profile, schedule: number[] = []): Menu {
 export function alternativesFor(slot: Slot, p: Profile, exclude: string): Recipe[] {
   const people = Math.max(1, p.household ?? 1);
   return RECIPES.filter((r) => r.slots.includes(slot) && r.title !== exclude && allowed(r, p)).map((r) => toRecipe(r, people));
+}
+
+const stem = (s: string) => s.toLowerCase().replace(/ё/g, "е").slice(0, 5);
+
+/** Offline "what can I cook": ranks recipes by how many of their ingredients the user already has. */
+export function localPantry(products: string[], p: Profile, trainingToday?: boolean): PantryResult {
+  const have = products.map(stem).filter(Boolean);
+  const has = (name: string) => have.some((h) => stem(name).includes(h) || name.toLowerCase().includes(h));
+  const people = Math.max(1, p.household ?? 1);
+  const purposeOf = (b: Base): PantryRecipe["purpose"] =>
+    b.tags.includes("Перед тренировкой") ? "pre_workout" : b.tags.includes("После тренировки") || b.tags.includes("Белок") ? "post_workout" : b.tags.includes("Бюджетно") ? "rest_day" : "any";
+  const why: Record<PantryRecipe["purpose"], string> = {
+    pre_workout: "Углеводы и немного белка — энергия на тренировку без тяжести.",
+    post_workout: "Много белка для восстановления мышц после нагрузки.",
+    rest_day: "Сытно и умеренно по калориям — подходит для дня отдыха.",
+    any: "Сбалансированное блюдо на любой день.",
+  };
+  const ranked = RECIPES.filter((r) => allowed(r, p))
+    .map((r) => {
+      const missing = r.ingredients.map((i) => i[0]).filter((n) => !has(n));
+      return { r, missing, score: r.ingredients.length - missing.length };
+    })
+    .filter((x) => x.score > 0 && x.missing.length <= 3)
+    .sort((a, b) => b.score - a.score || a.missing.length - b.missing.length);
+  const prefer = trainingToday === undefined ? null : trainingToday ? ["pre_workout", "post_workout"] : ["rest_day", "any"];
+  const sorted = prefer ? [...ranked].sort((a, b) => Number(prefer.includes(purposeOf(b.r))) - Number(prefer.includes(purposeOf(a.r)))) : ranked;
+  const recipes: PantryRecipe[] = sorted.slice(0, 6).map(({ r, missing }) => ({
+    ...toRecipe(r, people),
+    usesLeftovers: true,
+    purpose: purposeOf(r),
+    why: why[purposeOf(r)],
+    missing,
+  }));
+  return {
+    products: products.map((name) => ({ name, amount: "" })),
+    recipes,
+    advice: trainingToday
+      ? "Сегодня тренировка: за 1–2 часа до неё — углеводы и немного белка, после — 25–40 г белка."
+      : "День отдыха: делайте упор на белок и овощи, углеводы — умеренно.",
+    clarify: [],
+  };
 }

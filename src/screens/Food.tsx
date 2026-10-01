@@ -8,6 +8,9 @@ import { alternativesFor } from "../data/recipes";
 import { sharedSchedule, today, uid, updateUser, useUser } from "../store";
 import { MealList } from "./Home";
 import Library from "./Library";
+import { isPlus } from "../subscription";
+import FridgeScanner from "./FridgeScanner";
+import { ChevronRight, Refrigerator } from "lucide-react";
 
 export const SLOT = { breakfast: "Завтрак", lunch: "Обед", dinner: "Ужин", snack: "Перекус" } as const;
 const SLOT_EMOJI = { breakfast: "🥣", lunch: "🍲", dinner: "🍽️", snack: "🍎" } as const;
@@ -30,6 +33,7 @@ export default function Food() {
   const [recipe, setRecipe] = useState<{ d: number; m: number } | null>(null);
   const [regen, setRegen] = useState(false);
   const [library, setLibrary] = useState(false);
+  const [fridge, setFridge] = useState(false);
   const menu = u.menu;
   const p = u.profile;
   const schedule = sharedSchedule(u);
@@ -60,6 +64,16 @@ export default function Food() {
           </div>
         ) : (
           <div className="stagger">
+            <button className="scan-banner fridge-banner" style={{ marginBottom: 12 }} onClick={() => (haptic(12), setFridge(true))}>
+              <span className="scan-icon">
+                <Refrigerator size={28} />
+              </span>
+              <span style={{ flex: 1, minWidth: 0 }}>
+                <b style={{ fontSize: 17 }}>Что приготовить из продуктов</b>
+                <div style={{ fontSize: 13, opacity: 0.9, lineHeight: 1.3, marginTop: 2 }}>Сфотографируйте холодильник — ИИ предложит блюда под ваши тренировки</div>
+              </span>
+              <ChevronRight size={22} style={{ opacity: 0.7 }} />
+            </button>
             <BudgetCard menu={menu} />
             <Warnings menu={menu} />
             {p.linkFitFood ? (
@@ -129,6 +143,7 @@ export default function Food() {
       {recipe && menu && <RecipePage dayIndex={recipe.d} mealIndex={recipe.m} onBack={() => setRecipe(null)} />}
       {regen && <MenuSheet onClose={() => setRegen(false)} />}
       {library && <Library asPage initial="Питание" onBack={() => setLibrary(false)} />}
+      {fridge && <FridgeScanner onBack={() => setFridge(false)} />}
     </>
   );
 }
@@ -457,10 +472,10 @@ function MenuSheet({ onClose }: { onClose: () => void }) {
     setBusy(true);
     const extra = leftovers.split(/[,;\n]/).map((s) => s.trim()).filter(Boolean);
     const profile = { ...u.profile, budgetWeek: budget, household: people, cookTimeMin: time, pantry: [...new Set([...(u.profile.pantry ?? []), ...extra])] };
-    const { data, ai } = await generateMenu(profile, sharedSchedule({ ...u, profile }), wish);
+    const { data, ai } = await generateMenu(profile, sharedSchedule({ ...u, profile }), wish, isPlus(u));
     updateUser((d) => ({ ...d, profile, menu: data, menuAt: new Date().toISOString(), shopChecked: {} }));
     setBusy(false);
-    toast(ai ? "Новое меню от ИИ готово ✨" : "Меню обновлено (офлайн-режим)");
+    toast(ai ? "Новое меню от ИИ готово ✨" : isPlus(u) ? "Меню обновлено (офлайн-режим)" : "Меню обновлено. ИИ-меню — в Parri Plus");
     onClose();
   };
 

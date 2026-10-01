@@ -1,6 +1,6 @@
 import { useSyncExternalStore } from "react";
 import type { ExerciseEntry, Feedback, SetLog } from "../shared/progression";
-import type { ChatMessage, EquipmentAnalysis, MealAnalysis, Menu, NutritionPlan, Profile, Program } from "../shared/types";
+import type { ChatMessage, EquipmentAnalysis, MealAnalysis, Menu, NutritionPlan, PantryResult, Profile, Program } from "../shared/types";
 
 export interface Account {
   email: string;
@@ -26,6 +26,14 @@ export interface WorkoutLog {
   dayIndex?: number;
   feedback?: Feedback;
   entries?: { name: string; sets: SetLog[] }[];
+}
+
+export interface Subscription {
+  plan: "monthly" | "yearly";
+  startedAt: string;
+  trialEndsAt?: string;
+  renewsAt: string;
+  canceled?: boolean;
 }
 
 export interface Booking {
@@ -65,6 +73,10 @@ export interface UserData {
   /** Composite products whose composition the user has checked against their allergies. */
   confirmedIngredients?: string[];
   lastReminder?: string;
+  subscription?: Subscription;
+  usage?: { week: string; scans: number; chat: number };
+  paywallSeen?: boolean;
+  pantryScans?: { id: string; date: string; photo?: string; result: PantryResult }[];
   createdAt: string;
 }
 

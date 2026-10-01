@@ -5,10 +5,12 @@ import { analyzeMeal, prepareImage } from "../api";
 import { Ring, Sheet, haptic, toast } from "../components/ui";
 import { today, uid, updateUser, useUser } from "../store";
 import { computePlan } from "../../shared/nutrition";
+import { allow, consume } from "../subscription";
+import { Refrigerator } from "lucide-react";
 
 type Mode = "menu" | "describe" | "analyzing" | "result" | "weight";
 
-export default function AddSheet({ onClose, onScan }: { onClose: () => void; onScan: () => void }) {
+export default function AddSheet({ onClose, onScan, onFridge }: { onClose: () => void; onScan: () => void; onFridge: () => void }) {
   const u = useUser()!;
   const [mode, setMode] = useState<Mode>("menu");
   const [text, setText] = useState("");
@@ -22,11 +24,13 @@ export default function AddSheet({ onClose, onScan }: { onClose: () => void; onS
 
   const onFile = async (file?: File) => {
     if (!file) return;
+    if (!allow("scans")) return;
     setMode("analyzing");
     try {
       const { base64, thumb } = await prepareImage(file);
       setPhoto(thumb);
       const r = await analyzeMeal({ image: base64, mediaType: "image/jpeg", text, profile: u.profile });
+      if (r.ai) consume("scans");
       setResult(r.data);
       setAi(r.ai);
       setMode("result");
@@ -92,8 +96,8 @@ export default function AddSheet({ onClose, onScan }: { onClose: () => void; onS
 
   return (
     <Sheet title={titles[mode]} onClose={onClose}>
-      <input ref={camera} type="file" accept="image/*" capture="environment" hidden onChange={(e) => onFile(e.target.files?.[0])} />
-      <input ref={gallery} type="file" accept="image/*" hidden onChange={(e) => onFile(e.target.files?.[0])} />
+      <input ref={camera} type="file" accept="image/*" capture="environment" hidden onChange={(e) => (onFile(e.target.files?.[0]), (e.target.value = ""))} />
+      <input ref={gallery} type="file" accept="image/*" hidden onChange={(e) => (onFile(e.target.files?.[0]), (e.target.value = ""))} />
 
       {mode === "menu" && (
         <div className="grid-2 stagger">
@@ -112,6 +116,7 @@ export default function AddSheet({ onClose, onScan }: { onClose: () => void; onS
             }}
           />
           <Tile icon={<Scale size={26} />} color="linear-gradient(135deg, var(--green), var(--teal))" label="Записать вес" sub="Обновит план" onClick={() => setMode("weight")} />
+          <Tile icon={<Refrigerator size={26} />} color="linear-gradient(135deg, var(--green), var(--yellow))" label="Что приготовить" sub="Фото продуктов" onClick={() => (onClose(), onFridge())} />
           <Tile icon={<ScanLine size={26} />} color="linear-gradient(135deg, var(--indigo), var(--teal))" label="Сканер тренажёров" sub="Что и как делать" onClick={() => (onClose(), onScan())} />
         </div>
       )}
