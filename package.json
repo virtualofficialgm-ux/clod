@@ -10,6 +10,7 @@
   "scripts": {
     "start": "node src/http/server.js",
     "start:platform": "PARRI_PAY_LEVEL=platform node src/http/server.js",
-    "test": "node --test"
+    "test": "node --test",
+    "build:standalone": "node scripts/build-standalone.mjs"
   }
 }

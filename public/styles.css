@@ -15,11 +15,13 @@
   :root:not([data-theme="light"]) {
     --bg: #16181d; --card: #20232a; --fg: #eceef2; --muted: #9aa0ab; --line: #343843;
     --accent: #7ea2ff; --accent-fg: #0d1426; --ok: #5cc98f; --warn: #e2b05a; --bad: #ff8a80; --soft: #2a2e37;
+    color-scheme: dark;
   }
 }
 :root[data-theme="dark"] {
   --bg: #16181d; --card: #20232a; --fg: #eceef2; --muted: #9aa0ab; --line: #343843;
   --accent: #7ea2ff; --accent-fg: #0d1426; --ok: #5cc98f; --warn: #e2b05a; --bad: #ff8a80; --soft: #2a2e37;
+  color-scheme: dark;
 }
 
 * { box-sizing: border-box; }
@@ -93,6 +95,11 @@ table.quote td { padding: 4px 8px; }
 .sandbox p { flex-basis: 100%; }
 
 dialog { border: 1px solid var(--line); border-radius: 12px; background: var(--card); color: var(--fg); max-width: min(560px, calc(100vw - 32px)); width: 100%; }
+.checkout { display: grid; gap: 10px; }
+.checkout .badge { font-size: 12px; color: var(--muted); text-transform: uppercase; letter-spacing: .06em; }
+.checkout .value { font-size: 28px; font-weight: 700; font-variant-numeric: tabular-nums; }
+.checkout label { display: grid; gap: 4px; font-size: 13px; color: var(--muted); }
+.checkout-actions { display: grid; gap: 8px; }
 dialog::backdrop { background: rgb(0 0 0 / .4); }
 .doc header { display: flex; justify-content: space-between; border-bottom: 1px solid var(--line); padding-bottom: 8px; margin-bottom: 8px; }
 .doc dl { display: grid; grid-template-columns: auto 1fr; gap: 2px 12px; font-size: 12px; color: var(--muted); }

@@ -136,7 +136,7 @@ payForm.addEventListener('submit', (e) => {
         product: payForm.product.value, payeeId: payForm.payeeId.value, amount: toMinor(payForm.amount.value), description: payForm.description.value,
       } });
       const payment = await api(`/api/orders/${order.id}/payments`, { method: 'POST', body: { currency: payForm.currency.value }, idempotent: `checkout-${order.id}` });
-      location.href = payment.confirmationUrl;
+      goToCheckout(payment.confirmationUrl);
     } finally {
       button.disabled = false;
     }
@@ -169,28 +169,91 @@ async function renderHistory() {
 
 $('#operations').addEventListener('click', (e) => guard(async () => {
   const d = e.target.dataset;
-  if (d.go) location.href = d.go;
+  if (d.go) return goToCheckout(d.go);
   if (d.doc) return showDocument(d.doc);
   if (d.retry) {
     const p = await api(`/api/orders/${d.retry}/payments`, { method: 'POST', body: {}, idempotent: true });
-    if (p.confirmationUrl) location.href = p.confirmationUrl;
+    if (p.confirmationUrl) return goToCheckout(p.confirmationUrl);
   }
   if (d.cancel) { await api(`/api/orders/${d.cancel}/cancel`, { method: 'POST' }); flash('Заказ отменён'); }
   if (d.complete) { await api(`/api/orders/${d.complete}/complete`, { method: 'POST' }); flash('Заказ завершён: резерв снят, исполнитель получит выплату после расчёта партнёра'); }
-  if (d.refund) {
-    const value = prompt('Сумма возврата (пусто — полный возврат)');
-    if (value === null) return;
-    await api(`/api/orders/${d.refund}/refunds`, { method: 'POST', body: { amount: value ? toMinor(value) : undefined, reason: 'Возврат по запросу' }, idempotent: true });
-    flash('Возврат отправлен партнёру');
-  }
+  if (d.refund) return askRefund(d.refund);
   refresh();
 }));
 $('#refresh').addEventListener('click', () => refresh());
 
-async function showDocument(id) {
-  const { html } = await api(`/api/documents/${id}?view=html`);
+function openModal(html) {
   $('#modal-body').innerHTML = html;
   $('#modal').showModal();
+}
+
+// Refund form inside the page (system prompt dialogs are not used).
+function askRefund(orderId) {
+  openModal(`<form id="refund-form" class="form">
+    <p class="big">Возврат по заказу</p>
+    <label>Сумма возврата
+      <input id="refund-amount" name="amount" type="number" min="0.01" step="0.01" placeholder="Пусто — вернуть всё">
+    </label>
+    <label>Причина
+      <input id="refund-reason" name="reason" value="Возврат по запросу" maxlength="120">
+    </label>
+    <button class="primary" type="submit">Оформить возврат</button>
+  </form>`);
+  $('#refund-form').addEventListener('submit', (e) => {
+    e.preventDefault();
+    guard(async () => {
+      const f = e.target;
+      await api(`/api/orders/${orderId}/refunds`, { method: 'POST', body: { amount: f.amount.value ? toMinor(f.amount.value) : undefined, reason: f.reason.value }, idempotent: true });
+      $('#modal').close();
+      flash('Возврат отправлен партнёру');
+      refresh();
+    });
+  });
+}
+
+// The payer confirms the payment on the partner's page. In the standalone build
+// the partner page is shown as a dialog instead of a separate page.
+function goToCheckout(url) {
+  if (!window.PARRI_EMBEDDED) {
+    location.href = url;
+    return;
+  }
+  guard(async () => {
+    const op = await api(`${url}?format=json`);
+    openModal(`<div class="checkout">
+      <div class="badge">${esc(op.partner)} · страница банка (песочница)</div>
+      <div class="value">${money(op.amount, op.currency)}</div>
+      <div>${esc(op.description ?? '')}</div>
+      <label>Номер карты (тестовый)<input id="card" value="4242 4242 4242 4242" readonly></label>
+      ${op.savePaymentMethod ? '<p class="hint">Карта будет сохранена у банка для автопродления подписки.</p>' : ''}
+      <div class="checkout-actions">
+        <button class="primary" data-outcome="success">Оплатить</button>
+        <button data-outcome="decline">Смоделировать отказ банка</button>
+        <button data-outcome="cancel">Отменить</button>
+      </div>
+      <p class="hint">Данные карты остаются у банка. Parri получает только подписанное уведомление со статусом.</p>
+    </div>`);
+    $('#modal-body .checkout-actions').addEventListener('click', (e) => {
+      const outcome = e.target.dataset.outcome;
+      if (!outcome) return;
+      guard(async () => {
+        await api(url, { method: 'POST', body: { outcome } });
+        $('#modal').close();
+        showCheckoutOutcome(outcome);
+        refresh();
+      });
+    });
+  });
+}
+
+function showCheckoutOutcome(outcome) {
+  if (outcome === 'success') flash('Банк подтвердил оплату');
+  else flash(outcome === 'cancel' ? 'Оплата отменена' : 'Банк отклонил платёж — можно попробовать снова', outcome !== 'cancel');
+}
+
+async function showDocument(id) {
+  const { html } = await api(`/api/documents/${id}?view=html`);
+  openModal(html);
 }
 
 // --- Subscriptions ------------------------------------------------------------
@@ -210,7 +273,7 @@ async function renderSubs() {
 $('#tab-subs').addEventListener('click', (e) => guard(async () => {
   if (e.target.dataset.plan) {
     const { payment } = await api('/api/subscriptions', { method: 'POST', body: { planId: e.target.dataset.plan }, idempotent: true });
-    location.href = payment.confirmationUrl;
+    goToCheckout(payment.confirmationUrl);
   }
   if (e.target.dataset.unsub) {
     await api(`/api/subscriptions/${e.target.dataset.unsub}/cancel`, { method: 'POST' });
@@ -331,8 +394,7 @@ async function boot() {
   const outcome = new URLSearchParams(location.search).get('checkout');
   if (outcome) {
     history.replaceState(null, '', '/');
-    if (outcome === 'success') flash('Партнёр подтвердил оплату');
-    else flash(outcome === 'cancel' ? 'Оплата отменена' : 'Банк отклонил платёж — можно попробовать снова', outcome !== 'cancel');
+    showCheckoutOutcome(outcome);
   }
   // Statuses arrive asynchronously from partners; keep the active view fresh.
   setInterval(() => { if (!document.hidden && !$('#modal').open) refresh(); }, 5000);

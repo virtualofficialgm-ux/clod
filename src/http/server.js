@@ -2,12 +2,9 @@ import { createServer } from 'node:http';
 import { readFile } from 'node:fs/promises';
 import { extname, join, normalize } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { randomUUID } from 'node:crypto';
 import { createApp } from '../app.js';
-import { MARKETS, PRODUCTS, PARTNERS, SERVICE_API_KEYS, SEED_USERS, SEED_MERCHANTS } from '../config.js';
-import { PayError, format } from '../money.js';
-import { quote } from '../fees.js';
-import { renderDocument, renderCheckout } from './pages.js';
+import { PayError } from '../money.js';
+import { createRouter } from './routes.js';
 
 const PUBLIC_DIR = fileURLToPath(new URL('../../public/', import.meta.url));
 const MIME = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8', '.svg': 'image/svg+xml' };
@@ -15,157 +12,7 @@ const MAX_BODY = 64 * 1024;
 
 export function createHttpServer({ level = process.env.PARRI_PAY_LEVEL ?? 'connect', baseUrl = '' } = {}) {
   const app = createApp({ level, baseUrl, autoProcessMs: 1500 });
-  const { service, partners, receiveWebhook, clock } = app;
-  const routes = [];
-  const route = (method, pattern, handler) => {
-    const keys = [];
-    const re = new RegExp(`^${pattern.replace(/:(\w+)/g, (_, k) => { keys.push(k); return '([^/]+)'; })}$`);
-    routes.push({ method, re, keys, handler });
-  };
-
-  // --- Auth (sandbox) -------------------------------------------------------
-  // Users are identified by X-User-Id in the sandbox. In production this is the
-  // brand's session / OAuth token; brand services use API keys.
-  const user = (req) => {
-    const id = req.headers['x-user-id'];
-    if (!id || !(service.store.users.has(id) || service.store.merchants.has(id))) throw new PayError('unauthorized', 'Требуется вход', 401);
-    return id;
-  };
-  const serviceProduct = (req) => {
-    const product = SERVICE_API_KEYS[req.headers['x-api-key']];
-    if (!product) throw new PayError('unauthorized', 'Неверный API-ключ сервиса', 401);
-    return product;
-  };
-  const idemKey = (req) => req.headers['idempotency-key'];
-
-  // --- Meta -----------------------------------------------------------------
-  route('GET', '/api/meta', () => ({
-    ...service.capabilities(),
-    markets: Object.keys(MARKETS).map((m) => service.marketInfo(m)),
-    products: Object.entries(PRODUCTS).map(([id, p]) => ({ id, title: p.title, escrow: p.escrow, parriFeeBps: p.parriFeeBps, bonusBps: p.bonusBps, plans: p.plans ?? null })),
-    partners: Object.entries(PARTNERS).map(([id, p]) => ({ id, title: p.title, acquiringFeeBps: p.acquiringFeeBps })),
-    sandbox: { users: SEED_USERS, merchants: SEED_MERCHANTS, serviceKeys: SERVICE_API_KEYS, clockOffsetDays: clock.offsetMs / 86_400_000 },
-  }));
-
-  // --- User API -------------------------------------------------------------
-  route('GET', '/api/me', ({ req }) => {
-    const id = user(req);
-    const party = service.party(id);
-    return { ...party, isBusiness: service.isMerchant(id), market: party.market ? service.marketInfo(party.market) : null };
-  });
-  route('GET', '/api/me/balance', ({ req }) => service.balance(user(req)));
-  route('GET', '/api/me/operations', ({ req }) => service.operations(user(req)));
-  route('GET', '/api/me/documents', ({ req }) => service.documentsOf(user(req)));
-  route('GET', '/api/me/notifications', ({ req }) => service.notificationsOf(user(req)));
-  route('GET', '/api/me/subscriptions', ({ req }) => service.subscriptionsOf(user(req)));
-
-  route('POST', '/api/quote', ({ req, body }) => {
-    const me = service.party(user(req));
-    return quote({ market: me.market, product: body.product, amount: Number(body.amount), payerCurrency: body.currency });
-  });
-
-  route('GET', '/api/orders/:id', ({ req, params }) => {
-    const id = user(req);
-    const order = service.getOrder(params.id);
-    if (![order.payerId, order.payeeId].includes(id)) throw new PayError('order_not_found', 'Заказ не найден', 404);
-    return { ...order, payments: order.paymentIds.map((p) => service.getPayment(p)) };
-  });
-  route('POST', '/api/orders/:id/payments', ({ req, params, body }) => {
-    const id = user(req);
-    return service.idempotency.run(`pay:${id}`, idemKey(req), { params, body }, () => service.startPayment(params.id, {
-      actorId: id, currency: body.currency, savePaymentMethod: Boolean(body.savePaymentMethod),
-    }));
-  });
-  route('POST', '/api/orders/:id/complete', ({ req, params }) => service.completeOrder(params.id, user(req)));
-  route('POST', '/api/orders/:id/cancel', ({ req, params }) => service.cancelOrder(params.id, user(req)));
-  route('POST', '/api/orders/:id/refunds', ({ req, params, body }) => {
-    const id = user(req);
-    return service.idempotency.run(`refund:${id}`, idemKey(req), { params, body }, () => service.requestRefund(params.id, {
-      amount: body.amount == null ? undefined : Number(body.amount), reason: body.reason, actorId: id,
-    }));
-  });
-  route('POST', '/api/payouts', ({ req, body }) => {
-    const id = user(req);
-    return service.idempotency.run(`payout:${id}`, idemKey(req), body, () => service.requestPayout(id, { amount: Number(body.amount), destination: body.destination }));
-  });
-  route('POST', '/api/subscriptions', ({ req, body }) => {
-    const id = user(req);
-    return service.idempotency.run(`sub:${id}`, idemKey(req), body, () => service.subscribe(id, body.planId, { currency: body.currency }));
-  });
-  route('POST', '/api/subscriptions/:id/cancel', ({ req, params }) => service.cancelSubscription(user(req), params.id));
-
-  // --- Brand service API (Tasks, Fit, Food) ---------------------------------
-  route('POST', '/api/service/orders', ({ req, body }) => {
-    const product = serviceProduct(req);
-    return service.createOrder({ product, externalRef: body.externalRef, payerId: body.payerId, payeeId: body.payeeId, amount: Number(body.amount), description: body.description });
-  });
-  route('GET', '/api/service/orders/:id', ({ req, params }) => {
-    const product = serviceProduct(req);
-    const order = service.getOrder(params.id);
-    if (order.product !== product) throw new PayError('order_not_found', 'Заказ не найден', 404);
-    return order;
-  });
-  route('POST', '/api/service/orders/:id/complete', ({ req, params }) => service.completeOrder(params.id, `service:${serviceProduct(req)}`));
-  route('POST', '/api/service/orders/:id/refunds', ({ req, params, body }) => {
-    const product = serviceProduct(req);
-    return service.idempotency.run(`svc-refund:${product}`, idemKey(req), { params, body }, () => service.requestRefund(params.id, {
-      amount: body.amount == null ? undefined : Number(body.amount), reason: body.reason, actorId: `service:${product}`,
-    }));
-  });
-
-  // --- Pay Platform: business cabinet & reconciliation ------------------------
-  route('GET', '/api/business/summary', ({ req }) => {
-    const product = serviceProduct(req);
-    const merchant = PRODUCTS[product].merchant;
-    if (!merchant) throw new PayError('not_a_business', 'У продукта нет бизнес-счёта', 404);
-    return service.businessSummary(merchant);
-  });
-  route('GET', '/api/business/reconciliation/:partnerId', ({ req, params }) => {
-    serviceProduct(req);
-    return service.reconciliation(params.partnerId);
-  });
-  route('GET', '/api/network', () => {
-    service.require('ownSettlement');
-  });
-
-  // --- Partner webhooks -----------------------------------------------------
-  route('POST', '/api/webhooks/partners/:partnerId', ({ req, params, raw }) => receiveWebhook(params.partnerId, raw, req.headers['x-partner-signature']));
-
-  // --- Sandbox --------------------------------------------------------------
-  route('POST', '/api/sandbox/orders', ({ req, body }) => {
-    // Acts as a brand service creating an order for the signed-in payer.
-    const payerId = user(req);
-    return service.createOrder({ product: body.product, externalRef: `demo-${randomUUID()}`, payerId, payeeId: body.payeeId, amount: Number(body.amount), description: body.description });
-  });
-  route('POST', '/api/sandbox/process', async () => {
-    for (const p of Object.values(partners)) await p.processPending();
-    return { ok: true };
-  });
-  route('POST', '/api/sandbox/settle', () => ({ settled: service.settle({ force: true }) }));
-  route('POST', '/api/sandbox/advance', async ({ body }) => {
-    clock.offsetMs += Number(body.days ?? 1) * 86_400_000;
-    const billed = await service.billSubscriptions();
-    const settled = service.settle();
-    return { clockOffsetDays: clock.offsetMs / 86_400_000, billed, settled };
-  });
-
-  route('GET', '/api/documents/:id', ({ req, params, url }) => {
-    const doc = service.getDocument(params.id, user(req));
-    // Rendered fragment is returned inside JSON; the client shows it in a dialog.
-    return url.searchParams.get('view') === 'html' ? { document: doc, html: renderDocument(doc, format) } : doc;
-  });
-
-  route('GET', '/sandbox-partner/:partnerId/checkout/:opId', ({ params }) => {
-    const op = partners[params.partnerId]?.getOperation(params.opId);
-    if (!op) throw new PayError('not_found', 'Платёж не найден', 404);
-    return { page: renderCheckout(params.partnerId, PARTNERS[params.partnerId].title, op, format) };
-  });
-  route('POST', '/sandbox-partner/:partnerId/checkout/:opId', async ({ params, body }) => {
-    const partner = partners[params.partnerId];
-    if (!partner?.getOperation(params.opId)) throw new PayError('not_found', 'Платёж не найден', 404);
-    await partner.completeCheckout(params.opId, body.outcome);
-    return { redirect: `/?checkout=${body.outcome}` };
-  });
+  const dispatch = createRouter(app);
 
   const server = createServer(async (req, res) => {
     const url = new URL(req.url, 'http://localhost');
@@ -173,13 +20,8 @@ export function createHttpServer({ level = process.env.PARRI_PAY_LEVEL ?? 'conne
       if (req.method === 'GET' && !url.pathname.startsWith('/api/') && !url.pathname.startsWith('/sandbox-partner/')) {
         return await serveStatic(url.pathname, res);
       }
-      const match = routes.find((r) => r.method === req.method && r.re.test(url.pathname));
-      if (!match) throw new PayError('not_found', 'Не найдено', 404);
-      const values = match.re.exec(url.pathname).slice(1).map(decodeURIComponent);
-      const params = Object.fromEntries(match.keys.map((k, i) => [k, values[i]]));
       const raw = req.method === 'POST' ? await readBody(req) : '';
-      const body = parseBody(raw, req.headers['content-type']);
-      const result = await match.handler({ req, url, params, body, raw });
+      const result = await dispatch({ method: req.method, url, headers: req.headers, raw });
       if (result?.redirect) {
         res.writeHead(303, { location: result.redirect });
         return res.end();
@@ -218,12 +60,6 @@ function readBody(req) {
     req.on('end', () => resolve(Buffer.concat(chunks).toString('utf8')));
     req.on('error', reject);
   });
-}
-
-function parseBody(raw, type = '') {
-  if (!raw) return {};
-  if (type.includes('application/x-www-form-urlencoded')) return Object.fromEntries(new URLSearchParams(raw));
-  return JSON.parse(raw);
 }
 
 async function serveStatic(pathname, res) {
