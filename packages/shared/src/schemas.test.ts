@@ -1,9 +1,13 @@
 import { describe, expect, it } from 'vitest';
+import { passwordStrength } from './catalog';
 import {
   ageOn,
   fieldErrors,
-  profileStepSchema,
+  bioSchema,
+  personalStepSchema,
+  phoneSchema,
   responseFormSchema,
+  usernameSchema,
   reviewSchema,
   submissionSchema,
   taskDraftSchema,
@@ -11,23 +15,36 @@ import {
 
 const iso = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 
-describe('возраст 14+', () => {
-  it('ровно 14 лет сегодня — можно, на день младше — нельзя', () => {
+describe('возраст 16+', () => {
+  it('ровно 16 лет сегодня — можно, на день младше — нельзя', () => {
     const today = new Date();
-    const exactly = new Date(today.getFullYear() - 14, today.getMonth(), today.getDate());
+    const exactly = new Date(today.getFullYear() - 16, today.getMonth(), today.getDate());
     const younger = new Date(exactly.getFullYear(), exactly.getMonth(), exactly.getDate() + 1);
-    expect(ageOn(exactly, today)).toBe(14);
-    const base = { firstName: 'Аня', lastName: 'Ли', phone: '+7 999 000-11-22' };
-    expect(profileStepSchema.safeParse({ ...base, birthDate: iso(exactly) }).success).toBe(true);
-    const bad = profileStepSchema.safeParse({ ...base, birthDate: iso(younger) });
+    expect(ageOn(exactly, today)).toBe(16);
+    const base = { firstName: 'Аня', lastName: 'Ли', displayName: 'Аня Л.' };
+    expect(personalStepSchema.safeParse({ ...base, birthDate: iso(exactly) }).success).toBe(true);
+    const bad = personalStepSchema.safeParse({ ...base, birthDate: iso(younger) });
     expect(bad.success).toBe(false);
-    expect(fieldErrors(bad.error!).birthDate).toBe('errors.age_under_14');
+    expect(fieldErrors(bad.error!).birthDate).toBe('errors.age_under_16');
   });
 
   it('нормализует телефон и отклоняет мусор', () => {
-    const ok = profileStepSchema.parse({ firstName: 'А', lastName: 'Б', birthDate: '2004-01-01', phone: '+7 (999) 000-11-22' });
-    expect(ok.phone).toBe('+79990001122');
-    expect(profileStepSchema.safeParse({ firstName: 'А', lastName: 'Б', birthDate: '2004-01-01', phone: '8999' }).success).toBe(false);
+    expect(phoneSchema.parse('+7 (999) 000-11-22')).toBe('+79990001122');
+    expect(phoneSchema.safeParse('8999').success).toBe(false);
+  });
+
+  it('имя пользователя и «о себе»', () => {
+    expect(usernameSchema.parse('Neo_One')).toBe('neo_one');
+    expect(usernameSchema.safeParse('ab').success).toBe(false);
+    expect(bioSchema.safeParse('').success).toBe(true);
+    expect(bioSchema.safeParse('коротко').success).toBe(false);
+    expect(bioSchema.safeParse('x'.repeat(40)).success).toBe(true);
+  });
+
+  it('надёжность пароля', () => {
+    expect(passwordStrength('12345678')).toBe(0);
+    expect(passwordStrength('parridemo123')).toBe(1);
+    expect(passwordStrength('Parri-Demo-2026!')).toBe(2);
   });
 });
 

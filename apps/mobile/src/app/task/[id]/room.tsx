@@ -1,5 +1,7 @@
 import { displayStatus, formatDateTime, formatTimeLeft, room, t, type Message, type TranslationKey } from '@parri/shared';
-import { keys, useApiMutation, useMe, useRoomMessages, useTaskDetail } from '@parri/shared/react';
+import { chats } from '@parri/shared';
+import { keys, useApiMutation, useMe, useRoomMessages, useSupabase, useTaskDetail } from '@parri/shared/react';
+import { useQueryClient } from '@tanstack/react-query';
 import { useLocalSearchParams } from 'expo-router';
 import { ArrowUp, Paperclip, X } from '@/components/icons';
 import { useEffect, useRef, useState } from 'react';
@@ -64,6 +66,18 @@ export default function Room() {
   const me = useMe();
   const detail = useTaskDetail(id);
   const messages = useRoomMessages(id);
+  const sb = useSupabase();
+  const qc = useQueryClient();
+  const participant = detail.data?.viewer_role === 'customer' || detail.data?.viewer_role === 'executor';
+  const count = messages.data?.length ?? 0;
+  // Открытый чат = прочитанный: обновляем отметку при каждом новом сообщении
+  useEffect(() => {
+    if (!participant || !detail.data?.task.executor_id) return;
+    chats
+      .markRead(sb, id)
+      .then(() => qc.invalidateQueries({ queryKey: keys.chats }))
+      .catch(() => {});
+  }, [participant, detail.data?.task.executor_id, count, sb, id, qc]);
   const [text, setText] = useState('');
   const [pending, setPending] = useState<PickedFile[]>([]);
   const [sheet, setSheet] = useState<null | 'submit' | 'review'>(null);

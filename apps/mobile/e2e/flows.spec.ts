@@ -23,6 +23,9 @@ async function login(page: Page, email: string) {
   await page.getByLabel('Email').fill(email);
   await page.getByLabel('Пароль', { exact: true }).fill('parri-demo-123');
   await page.getByRole('button', { name: 'Войти', exact: true }).click();
+  // После входа — главная; большинство сценариев начинается с ленты
+  await expect(page.getByTestId('balance-card')).toBeVisible();
+  await page.goto('/feed');
   await expect(page.getByTestId('tabbar')).toBeVisible();
 }
 
@@ -35,33 +38,45 @@ async function asUser(browser: Browser, email: string, colorScheme: 'light' | 'd
 
 test('приветствие для гостя', async ({ page }) => {
   await page.goto('/');
-  await expect(page.getByText('Работа, задачи и люди рядом.')).toBeVisible();
-  await expect(page.getByRole('button', { name: 'Начать бесплатно' })).toBeVisible();
+  await expect(page.getByText('Задачи лентой, как посты')).toBeVisible();
+  await expect(page.getByTestId('start-email')).toBeVisible();
   await shot(page, 'welcome');
 });
 
-test('регистрация с кодом и проверкой 14+', async ({ page }) => {
+test('регистрация по шагам: email, код, пароль, профиль, навыки, соглашения', async ({ page }) => {
   const email = `m-${Date.now()}@parri.test`;
   await page.goto('/register');
+  await page.getByTestId('start-email').click();
   await page.getByLabel('Email').fill(email);
-  await page.getByLabel('Пароль').fill('password123');
-  await page.getByRole('button', { name: 'Далее' }).click();
+  await page.getByTestId('next').click();
+  await expect(page.getByText('Примите условия использования')).toBeVisible();
+  // Галочка (не ссылки внутри подписи)
+  await page.getByTestId('terms').click({ position: { x: 12, y: 12 } });
+  await page.getByTestId('next').click();
   await page.getByRole('textbox', { name: 'Код из письма' }).fill(await otp(email));
-  await page.getByRole('button', { name: 'Подтвердить' }).click();
-  await page.getByLabel('Имя').fill('Моб');
+  await page.getByTestId('next').click();
+  await page.getByLabel('Пароль', { exact: true }).fill('Parri-Demo-2026!');
+  await page.getByLabel('Повторите пароль').fill('Parri-Demo-2026!');
+  await page.getByTestId('next').click();
+  await page.getByLabel('Имя', { exact: true }).fill('Моб');
   await page.getByLabel('Фамилия').fill('Тестов');
-  await page.getByLabel('Дата рождения').fill('2015-01-01');
-  await page.getByLabel('Телефон').fill('+79991112233');
-  await page.getByRole('button', { name: 'Далее' }).click();
-  await expect(page.getByText('Регистрация доступна с 14 лет')).toBeVisible();
-  await page.getByLabel('Дата рождения').fill('2007-03-01');
-  await page.getByRole('button', { name: 'Далее' }).click();
-  await page.getByRole('button', { name: 'Слайды' }).click();
+  await page.getByTestId('next').click();
+  await expect(page.getByText('Где вы находитесь?')).toBeVisible();
+  await page.getByTestId('next').click();
+  await page.getByRole('radio', { name: 'Переводчик' }).click();
+  await page.getByTestId('next').click();
+  for (const n of ['Английский', 'Другие языки', 'Корректура', 'Редактура', 'Figma']) await page.getByRole('checkbox', { name: n, exact: true }).first().click();
   await shot(page, 'register-skills');
-  await page.getByRole('button', { name: 'Далее' }).click();
-  await expect(page.getByText('Готово!')).toBeVisible();
-  await page.getByRole('button', { name: 'Перейти к ленте' }).click();
-  await expect(page.getByTestId('feed-list')).toBeVisible();
+  await page.getByTestId('next').click();
+  await expect(page.getByText('Расскажите о себе')).toBeVisible();
+  await page.getByTestId('next').click();
+  await page.getByTestId('skip').click();
+  await page.getByTestId('agree-terms').click();
+  await page.getByTestId('agree-privacy').click();
+  await page.getByTestId('next').click();
+  await expect(page.getByText('Всё готово!')).toBeVisible();
+  await page.getByTestId('to-tasks').click();
+  await expect(page.getByTestId('tabbar')).toBeVisible();
 });
 
 for (const scheme of ['light', 'dark'] as const) {

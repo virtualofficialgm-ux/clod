@@ -29,7 +29,7 @@ export const birthDateSchema = z
   .string()
   .regex(/^\d{4}-\d{2}-\d{2}$/, 'errors.date_invalid')
   .refine((s) => !Number.isNaN(new Date(s + 'T00:00:00').getTime()), 'errors.date_invalid')
-  .refine((s) => ageOn(new Date(s + 'T00:00:00')) >= LIMITS.minAge, 'errors.age_under_14')
+  .refine((s) => ageOn(new Date(s + 'T00:00:00')) >= LIMITS.minAge, 'errors.age_under_16')
   .refine((s) => ageOn(new Date(s + 'T00:00:00')) <= 120, 'errors.date_invalid');
 
 export const phoneSchema = z
@@ -38,19 +38,30 @@ export const phoneSchema = z
   .transform((s) => s.replace(/[\s()-]/g, ''))
   .pipe(z.string().regex(/^\+[1-9]\d{6,14}$/, 'errors.phone_invalid'));
 
-export const profileStepSchema = z.object({
+/** Шаг «Личные данные» */
+export const personalStepSchema = z.object({
   firstName: z.string().trim().min(1, 'errors.required').max(50, 'errors.too_long'),
   lastName: z.string().trim().min(1, 'errors.required').max(50, 'errors.too_long'),
+  displayName: z.string().trim().min(1, 'errors.required').max(60, 'errors.too_long'),
   birthDate: birthDateSchema,
-  phone: phoneSchema,
-  locale: z.enum(['ru']).default('ru'),
 });
-export type ProfileStepInput = z.input<typeof profileStepSchema>;
+export type PersonalStepInput = z.input<typeof personalStepSchema>;
 
-export const skillsStepSchema = z.object({
-  skills: z.array(z.string()).max(20, 'errors.too_many'),
-  universityId: z.number().int().positive().nullable(),
-});
+export const usernameSchema = z
+  .string()
+  .trim()
+  .toLowerCase()
+  .regex(/^[a-z0-9_.]{3,30}$/, 'errors.invalid_username');
+
+/** Шаг «О себе»: текст необязателен, но если есть — от 40 символов */
+export const bioSchema = z
+  .string()
+  .trim()
+  .max(1000, 'errors.too_long')
+  .refine((s) => s.length === 0 || s.length >= 40, 'errors.bio_short');
+
+export const SKILLS_MIN = 5;
+export const SKILLS_MAX = 30;
 
 const urlSchema = z
   .string()

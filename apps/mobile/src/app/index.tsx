@@ -3,7 +3,7 @@ import { Redirect } from 'expo-router';
 import { View } from 'react-native';
 import { Center } from '@/components/ui/bits';
 
-/** Развилка при запуске: гость → приветствие, незаконченная регистрация → регистрация, иначе лента */
+/** Развилка при запуске: гость → приветствие, незаконченная регистрация → регистрация, иначе главная */
 export default function Index() {
   const { session, loading } = useSession();
   const me = useMe(!!session);
@@ -14,7 +14,7 @@ export default function Index() {
       </View>
     );
   }
-  if (!session) return <Redirect href="/welcome" />;
+  if (!session) return <Redirect href="/register" />;
   if (me.data?.profile.onboarding !== 'done') return <Redirect href="/register" />;
-  return <Redirect href="/feed" />;
+  return <Redirect href="/home" />;
 }

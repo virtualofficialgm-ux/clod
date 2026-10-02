@@ -29,7 +29,11 @@ export async function login(page: Page, email: string, password = PASSWORD) {
   await page.getByLabel('Email').fill(email);
   await page.getByLabel('Пароль', { exact: true }).fill(password);
   await page.getByRole('button', { name: 'Войти', exact: true }).click();
-  await page.waitForURL('**/feed');
+  await page.waitForURL('**/dashboard');
+  await expect(page.getByRole('heading', { level: 1 })).toContainText('Привет');
+  // Большинство сценариев начинается с ленты
+  await page.goto('/feed');
+  await hydrated(page);
   await expect(page.getByRole('heading', { level: 1 })).toContainText('Лента');
 }
 

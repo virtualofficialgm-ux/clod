@@ -8,7 +8,9 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { useState } from 'react';
 import { Button } from '@/components/glass/Button';
 import { Segmented } from '@/components/glass/Segmented';
-import { FormError, Input } from '@/components/ui/Field';
+import { Checkbox, FormError, Input } from '@/components/ui/Field';
+import { AppleIcon, GoogleIcon } from '@/components/ui/BrandIcons';
+import { setRemember } from '@/lib/remember';
 import { OtpInput } from '@/components/ui/OtpInput';
 import { PageTitle } from '@/components/ui/bits';
 import { useCooldown } from '../useCooldown';
@@ -28,11 +30,22 @@ export function LoginForm() {
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [formError, setFormError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [remember, setRememberState] = useState(true);
   const cooldown = useCooldown();
 
+  const oauth = (provider: 'google' | 'apple') =>
+    run(async () => {
+      try {
+        await auth.signInWithProvider(sb, provider, `${location.origin}/dashboard`);
+      } catch {
+        throw new Error(t('errors.oauth_unavailable', { provider: provider === 'google' ? 'Google' : 'Apple' }));
+      }
+    });
+
   const done = async () => {
+    setRemember(remember);
     await qc.invalidateQueries();
-    router.replace(next && next.startsWith('/') ? next : '/feed');
+    router.replace(next && next.startsWith('/') ? next : '/dashboard');
     router.refresh();
   };
 
@@ -95,7 +108,22 @@ export function LoginForm() {
           { value: 'code', label: t('auth.withCode') },
         ]}
       />
-      <div className="card flex flex-col gap-5 p-6">
+      <div className="flex flex-col gap-3">
+        <Button variant="glass" size="lg" block onClick={() => oauth('google')} disabled={busy}>
+          <GoogleIcon />
+          {t('onb.google')}
+        </Button>
+        <Button variant="glass" size="lg" block onClick={() => oauth('apple')} disabled={busy}>
+          <AppleIcon />
+          {t('onb.apple')}
+        </Button>
+      </div>
+      <div className="flex items-center gap-3 text-callout text-text-2" aria-hidden>
+        <span className="h-px flex-1 bg-separator" />
+        {t('common.or')}
+        <span className="h-px flex-1 bg-separator" />
+      </div>
+      <div className="flex flex-col gap-5">
         {mode === 'password' ? (
           <form onSubmit={submitPassword} className="flex flex-col gap-5" noValidate>
             <Input label={t('auth.email')} type="email" autoComplete="email" value={email} onChange={(e) => setEmail(e.target.value)} error={errors.email} />
@@ -107,6 +135,9 @@ export function LoginForm() {
               onChange={(e) => setPassword(e.target.value)}
               error={errors.password}
             />
+            <Checkbox checked={remember} onChange={setRememberState}>
+              {t('auth.remember')}
+            </Checkbox>
             <FormError error={formError} />
             <Button type="submit" size="lg" block disabled={busy}>
               {t('auth.submit')}

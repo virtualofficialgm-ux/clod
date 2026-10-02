@@ -37,3 +37,8 @@ export function createT(locale: Locale = DEFAULT_LOCALE) {
 
 export const t = createT();
 export { ru };
+
+/** Есть ли текст ошибки errors.<code> (для кодов из RPC) */
+export function hasErrorText(code: string): boolean {
+  return lookup(dictionaries[DEFAULT_LOCALE], `errors.${code}`) !== undefined;
+}

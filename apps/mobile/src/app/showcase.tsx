@@ -52,7 +52,7 @@ export default function ShowcaseScreen() {
   const [categories, setCategories] = useState<Category[]>(['design']);
   const [sheetOpen, setSheetOpen] = useState(false);
   const [sort, setSort] = useState<FeedSort>('recommended');
-  const [tab, setTab] = useState<TabKey>('feed');
+  const [tab, setTab] = useState<TabKey>('home');
 
   const toggle = (c: Category) =>
     setCategories((prev) => (prev.includes(c) ? prev.filter((x) => x !== c) : [...prev, c]));
@@ -186,7 +186,7 @@ export default function ShowcaseScreen() {
         leading={<Button variant="glass" size="icon" accessibilityLabel={t('showcase.back')} icon={icon(ChevronLeft)} />}
         actions={<Button variant="glass" size="icon" accessibilityLabel={t('showcase.notifications')} icon={icon(Bell)} />}
       />
-      <TabBar active={tab} onChange={(k) => (k === 'create' ? setSheetOpen(true) : setTab(k))} />
+      <TabBar active={tab} onChange={setTab} onCreate={() => setSheetOpen(true)} />
 
       <BottomSheet
         open={sheetOpen}

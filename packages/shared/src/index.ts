@@ -5,4 +5,7 @@ export * from './types';
 export * from './schemas';
 export * from './api';
 export * from './showcase';
+export * from './dashboard';
+export * from './chats';
+export * from './catalog';
 export { t, createT, type TranslationKey, type Locale } from './i18n';

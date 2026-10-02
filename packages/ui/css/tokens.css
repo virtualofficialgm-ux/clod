@@ -2,7 +2,7 @@
 :root {
   --p-font-sans: 'Manrope Variable', 'Manrope', -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Segoe UI', Roboto, sans-serif;
   --p-radius-sm: 12px;
-  --p-radius-md: 16px;
+  --p-radius-md: 18px;
   --p-radius-lg: 24px;
   --p-radius-xl: 28px;
   --p-radius-xxl: 32px;
@@ -36,6 +36,10 @@
   --p-leading-price: 40px;
   --p-weight-price: 800;
   --p-tracking-price: -0.02em;
+  --p-text-number: 56px;
+  --p-leading-number: 58px;
+  --p-weight-number: 800;
+  --p-tracking-number: -0.035em;
   --p-text-body: 17px;
   --p-leading-body: 26px;
   --p-weight-body: 400;
@@ -56,7 +60,7 @@
   --p-leading-button: 24px;
   --p-weight-button: 700;
   --p-tracking-button: -0.01em;
-  --p-background: #F4F1EC;
+  --p-background: #F6F6F8;
   --p-text: #0B0B0F;
   --p-text-secondary: #5B5B66;
   --p-text-tertiary: #6B6B76;
@@ -64,9 +68,9 @@
   --p-accent-pressed: #E8441A;
   --p-on-accent: #FFFFFF;
   --p-accent-text: #C93A14;
-  --p-card: rgba(255,255,255,0.92);
+  --p-card: rgba(255,255,255,0.96);
   --p-card-solid: #FFFFFF;
-  --p-card-border: rgba(11,11,15,0.06);
+  --p-card-border: rgba(11,11,15,0.05);
   --p-separator: rgba(11,11,15,0.08);
   --p-success: #1E7D45;
   --p-warning: #9A5B00;
@@ -77,16 +81,26 @@
   --p-glass-border-bottom: rgba(255,255,255,0.1);
   --p-glass-highlight: rgba(255,255,255,0.3);
   --p-glass-shadow: rgba(0,0,0,0.12);
-  --p-blob-1: #FF7A45;
-  --p-blob-2: #FFC4A3;
-  --p-blob-3: #9CC8FF;
-  --p-blob-opacity: 0.75;
+  --p-fill: #EEEEF1;
+  --p-fill-strong: #E2E2E7;
+  --p-ink: #111114;
+  --p-on-ink: #FFFFFF;
+  --p-accent-soft: rgba(255,84,40,0.12);
+  --p-card-shadow: rgba(17,17,20,0.06);
+  --p-chart-1: #FF5428;
+  --p-chart-2: #FFA24C;
+  --p-chart-3: #6E8BFF;
+  --p-chart-4: #38B27A;
+  --p-blob-1: #FFB08F;
+  --p-blob-2: #FFE1D2;
+  --p-blob-3: #D9E6FF;
+  --p-blob-opacity: 0.55;
   color-scheme: light;
 }
 
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme='light']) {
-    --p-background: #09090B;
+    --p-background: #000000;
     --p-text: #F5F5F7;
     --p-text-secondary: #A1A1AA;
     --p-text-tertiary: #8E8E98;
@@ -94,8 +108,8 @@
     --p-accent-pressed: #E8441A;
     --p-on-accent: #FFFFFF;
     --p-accent-text: #FF6A40;
-    --p-card: rgba(28,28,32,0.92);
-    --p-card-solid: #1C1C20;
+    --p-card: rgba(22,22,25,0.96);
+    --p-card-solid: #161619;
     --p-card-border: rgba(255,255,255,0.08);
     --p-separator: rgba(255,255,255,0.1);
     --p-success: #4ADE80;
@@ -107,16 +121,26 @@
     --p-glass-border-bottom: rgba(255,255,255,0.06);
     --p-glass-highlight: rgba(255,255,255,0.12);
     --p-glass-shadow: rgba(0,0,0,0.45);
+    --p-fill: #1F1F23;
+    --p-fill-strong: #2C2C31;
+    --p-ink: #F5F5F7;
+    --p-on-ink: #0B0B0F;
+    --p-accent-soft: rgba(255,84,40,0.18);
+    --p-card-shadow: rgba(0,0,0,0);
+    --p-chart-1: #FF5428;
+    --p-chart-2: #FFB067;
+    --p-chart-3: #8EA4FF;
+    --p-chart-4: #4ADE80;
     --p-blob-1: #FF5428;
-    --p-blob-2: #B85A3C;
-    --p-blob-3: #2F5D9E;
-    --p-blob-opacity: 0.45;
+    --p-blob-2: #7A3320;
+    --p-blob-3: #1E3A66;
+    --p-blob-opacity: 0.16;
     color-scheme: dark;
   }
 }
 
 :root[data-theme='dark'] {
-  --p-background: #09090B;
+  --p-background: #000000;
   --p-text: #F5F5F7;
   --p-text-secondary: #A1A1AA;
   --p-text-tertiary: #8E8E98;
@@ -124,8 +148,8 @@
   --p-accent-pressed: #E8441A;
   --p-on-accent: #FFFFFF;
   --p-accent-text: #FF6A40;
-  --p-card: rgba(28,28,32,0.92);
-  --p-card-solid: #1C1C20;
+  --p-card: rgba(22,22,25,0.96);
+  --p-card-solid: #161619;
   --p-card-border: rgba(255,255,255,0.08);
   --p-separator: rgba(255,255,255,0.1);
   --p-success: #4ADE80;
@@ -137,9 +161,19 @@
   --p-glass-border-bottom: rgba(255,255,255,0.06);
   --p-glass-highlight: rgba(255,255,255,0.12);
   --p-glass-shadow: rgba(0,0,0,0.45);
+  --p-fill: #1F1F23;
+  --p-fill-strong: #2C2C31;
+  --p-ink: #F5F5F7;
+  --p-on-ink: #0B0B0F;
+  --p-accent-soft: rgba(255,84,40,0.18);
+  --p-card-shadow: rgba(0,0,0,0);
+  --p-chart-1: #FF5428;
+  --p-chart-2: #FFB067;
+  --p-chart-3: #8EA4FF;
+  --p-chart-4: #4ADE80;
   --p-blob-1: #FF5428;
-  --p-blob-2: #B85A3C;
-  --p-blob-3: #2F5D9E;
-  --p-blob-opacity: 0.45;
+  --p-blob-2: #7A3320;
+  --p-blob-3: #1E3A66;
+  --p-blob-opacity: 0.16;
   color-scheme: dark;
 }

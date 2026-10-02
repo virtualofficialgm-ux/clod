@@ -17,7 +17,7 @@ interface Props extends TextInputProps {
 
 /** Поле ввода: подпись, счётчик символов, ошибка (ключ локализации) или подсказка */
 export const TextField = forwardRef<TextInput, Props>(function TextField({ label, error, hint, counterMax, style, multiline, ...rest }, ref) {
-  const { colors, reduceTransparency } = useTheme();
+  const { colors } = useTheme();
   const [focused, setFocused] = useState(false);
   const err = errorText(error);
   const len = typeof rest.value === 'string' ? rest.value.length : 0;
@@ -51,10 +51,11 @@ export const TextField = forwardRef<TextInput, Props>(function TextField({ label
           styles.input,
           {
             color: colors.text,
-            backgroundColor: reduceTransparency ? colors.cardSolid : colors.card,
-            borderColor: err ? colors.danger : focused ? colors.accent : colors.cardBorder,
-            fontFamily: familyByWeight['400'],
-            minHeight: multiline ? 112 : 52,
+            // Как в Cal AI: серая заливка без рамки, при фокусе — «чернильная» обводка
+            backgroundColor: focused ? colors.cardSolid : colors.fill,
+            borderColor: err ? colors.danger : focused ? colors.ink : 'transparent',
+            fontFamily: familyByWeight['500'],
+            minHeight: multiline ? 112 : 56,
             textAlignVertical: multiline ? 'top' : 'center',
           },
           style,
@@ -90,6 +91,6 @@ export function FormError({ error }: { error?: string | null }) {
 const styles = StyleSheet.create({
   wrap: { gap: 6 },
   labelRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'baseline' },
-  input: { borderWidth: 1, borderRadius: radii.md, paddingHorizontal: 16, paddingVertical: 12, fontSize: 17 },
+  input: { borderWidth: 2, borderRadius: radii.md, paddingHorizontal: 16, paddingVertical: 12, fontSize: 17 },
   formError: { borderRadius: radii.md, paddingHorizontal: 16, paddingVertical: 12 },
 });

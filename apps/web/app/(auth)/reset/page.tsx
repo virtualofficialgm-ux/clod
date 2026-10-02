@@ -107,7 +107,7 @@ export default function ResetPage() {
                 void run(async () => {
                   await auth.updatePassword(sb, parsed.data);
                   toast(t('auth.passwordChanged'));
-                  router.replace('/feed');
+                  router.replace('/dashboard');
                   router.refresh();
                 });
               }}

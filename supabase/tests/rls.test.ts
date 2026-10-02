@@ -17,30 +17,72 @@ describe('онбординг и профиль', () => {
     expect(r.rows[0]).toEqual({ onboarding: 'profile', locale: 'ru', available_cents: '0' });
   });
 
-  it('возраст: младше 14 — отказ, ровно 14 — можно', async () => {
+  it('возраст: младше 16 — отказ, ровно 16 — можно', async () => {
     const u = await createUser(db, { onboarded: false });
+    await db.sys(`update public.profile_private set birth_date = null where id = $1`, [u.id]);
+    await db.sys(`update public.profiles set first_name = null, last_name = null where id = $1`, [u.id]);
     const today = new Date();
     const fmt = (d: Date) => d.toISOString().slice(0, 10);
-    const exactly14 = new Date(Date.UTC(today.getUTCFullYear() - 14, today.getUTCMonth(), today.getUTCDate()));
-    const almost14 = new Date(exactly14.getTime() + 86_400_000);
-    await db.fails(
-      db.as(u.id, `select public.save_profile('Аня', 'Ли', $1::date, '+79990001122')`, [fmt(almost14)]),
-      'age_under_14',
-    );
-    await db.as(u.id, `select public.save_profile('Аня', 'Ли', $1::date, '+79990001122')`, [fmt(exactly14)]);
+    const exactly16 = new Date(Date.UTC(today.getUTCFullYear() - 16, today.getUTCMonth(), today.getUTCDate()));
+    const almost16 = new Date(exactly16.getTime() + 86_400_000);
+    const save = (birth: string) =>
+      db.as(u.id, `select public.save_profile_data(jsonb_build_object('first_name', 'Аня', 'last_name', 'Ли', 'birth_date', $1::text))`, [birth]);
+    await db.fails(save(fmt(almost16)), 'age_under_16');
+    await save(fmt(exactly16));
     const p = await db.sys(`select onboarding from public.profiles where id = $1`, [u.id]);
     expect(p.rows[0].onboarding).toBe('skills');
   });
 
-  it('шаг навыков завершает онбординг', async () => {
+  it('завершение регистрации: нужны соглашения и минимум 5 навыков', async () => {
     const u = await createUser(db, { onboarded: false });
-    await db.fails(db.as(u.id, `select public.save_skills(array['figma'])`), 'profile_step_required');
-    await db.as(u.id, `select public.save_profile('Аня', 'Ли', '2005-01-01', null)`);
-    await db.as(u.id, `select public.save_skills(array['figma', 'slides'])`);
-    const p = await db.sys(`select onboarding from public.profiles where id = $1`, [u.id]);
-    expect(p.rows[0].onboarding).toBe('done');
-    const s = await db.as(u.id, `select skill_slug from public.profile_skills where profile_id = $1 order by 1`, [u.id]);
-    expect(s.rows.map((r) => r.skill_slug)).toEqual(['figma', 'slides']);
+    await db.fails(db.as(u.id, `select public.complete_onboarding(true, false)`), 'terms_required');
+    await db.as(u.id, `select public.save_profile_data('{"skills":["figma","slides"]}')`);
+    await db.fails(db.as(u.id, `select public.complete_onboarding(true, true)`), 'skills_min');
+    await db.fails(
+      db.as(u.id, `select public.save_profile_data(jsonb_build_object('skills', (select jsonb_agg(slug) from public.skills)))`),
+      'too_many_skills',
+    );
+    await db.as(u.id, `select public.save_profile_data('{"skills":["figma","slides","logo","ui_ux"],"custom_skills":["Canva"]}')`);
+    await db.as(u.id, `select public.complete_onboarding(true, true, false, true)`);
+    const p = await db.sys(`select onboarding, username, onboarded_at is not null as ts from public.profiles where id = $1`, [u.id]);
+    expect(p.rows[0]).toMatchObject({ onboarding: 'done', ts: true });
+    expect(p.rows[0].username).toMatch(/^user[0-9a-f]{8}\d*$/);
+    const s = await db.as(u.id, `select skill_slug from public.profile_skills where profile_id = $1 order by sort`, [u.id]);
+    expect(s.rows.map((r) => r.skill_slug)).toEqual(['figma', 'slides', 'logo', 'ui_ux']);
+    const priv = await db.as(u.id, `select terms_accepted_at is not null as t, notifications_enabled from public.profile_private`);
+    expect(priv.rows[0]).toEqual({ t: true, notifications_enabled: true });
+  });
+
+  it('профиль: имя пользователя уникально, ссылки и «о себе» проверяются', async () => {
+    const a = await createUser(db);
+    const b = await createUser(db);
+    await db.as(a.id, `select public.save_profile_data('{"username":"neo_one"}')`);
+    await db.fails(db.as(b.id, `select public.save_profile_data('{"username":"NEO_one"}')`), 'username_taken');
+    await db.fails(db.as(b.id, `select public.save_profile_data('{"username":"x"}')`), 'invalid_username');
+    const free = await db.as(b.id, `select public.username_available('neo_one') as ok`);
+    expect(free.rows[0].ok).toBe(false);
+    await db.fails(db.as(a.id, `select public.save_profile_data('{"bio":"коротко"}')`), 'bio_short');
+    await db.fails(db.as(a.id, `select public.save_profile_data('{"links":[{"title":"x","url":"javascript:1"}]}')`), 'invalid_link');
+    await db.fails(db.as(a.id, `select public.save_profile_data('{"birth_date":"2001-01-01"}')`), 'birth_date_locked');
+    await db.as(a.id, `select public.save_profile_data('{"experience":[{"company":"Студия","position":"Дизайнер","from_year":2023}],"languages":[{"code":"en","level":"b2"}]}')`);
+    const ex = await db.as(b.id, `select company from public.profile_experience where profile_id = $1`, [a.id]);
+    expect(ex.rows).toEqual([{ company: 'Студия' }]);
+    // Напрямую колонки профиля менять нельзя — только через RPC
+    await db.fails(db.as(a.id, `update public.profiles set plan = 'pro' where id = $1`, [a.id]), 'permission denied');
+    await db.fails(db.as(a.id, `update public.profiles set bio = 'x' where id = $1`, [a.id]), 'permission denied');
+  });
+
+  it('портфолио «только клиентам» видят только бывшие заказчики', async () => {
+    const exec = await createUser(db);
+    const client = await createUser(db, { balance: 10_000 });
+    const stranger = await createUser(db);
+    await db.as(exec.id, `insert into public.portfolio_items (title, url, visibility) values ('Лендинг', 'https://a.b', 'clients'), ('Логотип', 'https://c.d', 'public')`);
+    const see = async (who: string) =>
+      (await db.as(who, `select title from public.portfolio_items where profile_id = $1 order by title`, [exec.id])).rows.map((r) => r.title);
+    expect(await see(stranger.id)).toEqual(['Логотип']);
+    const task = await publish(db, client.id);
+    await db.sys(`update public.tasks set executor_id = $2, status = 'in_progress' where id = $1`, [task, exec.id]);
+    expect(await see(client.id)).toEqual(['Лендинг', 'Логотип']);
   });
 
   it('дату рождения, телефон и язык видит только владелец', async () => {
@@ -63,14 +105,17 @@ describe('онбординг и профиль', () => {
       db.as(u.id, `update public.profile_private set birth_date = '2020-01-01' where id = $1`, [u.id]),
       'permission denied',
     );
-    await db.as(u.id, `update public.profiles set bio = 'Привет' where id = $1`, [u.id]);
+    // Свои витринные поля — только через save_profile_data
+    await db.as(u.id, `select public.save_profile_data('{"city":"Казань"}')`);
   });
 
-  it('чужой профиль изменить нельзя (RLS молча ничего не обновляет)', async () => {
+  it('чужой профиль изменить нельзя: прямой записи в профили нет, RPC меняет только свой', async () => {
     const a = await createUser(db);
     const b = await createUser(db);
-    const r = await db.as(b.id, `update public.profiles set bio = 'взлом' where id = $1`, [a.id]);
-    expect(r.rowCount).toBe(0);
+    await db.fails(db.as(b.id, `update public.profiles set bio = 'взлом' where id = $1`, [a.id]), 'permission denied');
+    await db.as(b.id, `select public.save_profile_data('{"city":"Взлом"}')`);
+    const r = await db.sys(`select city from public.profiles where id = $1`, [a.id]);
+    expect(r.rows[0].city).toBeNull();
   });
 });
 

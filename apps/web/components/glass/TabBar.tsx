@@ -2,54 +2,57 @@
 
 import clsx from 'clsx';
 import { motion } from 'framer-motion';
+import { Plus } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { t } from '@parri/shared';
 import { PRESS_SCALE, springs } from '@/lib/springs';
 import { Glass } from './Glass';
-import { NAV_ITEMS } from './nav';
+import { TAB_ITEMS, isActive } from './nav';
 
-/** Плавающий таб-бар-пилюля для узких экранов. На md+ его заменяет сайдбар. */
+/**
+ * Телефон: стеклянная пилюля с вкладками и отдельная круглая кнопка «+» справа
+ * (как плавающий «+» в Cal AI, но в стекле iOS 26 и с акцентом Parri). На md+ — сайдбар.
+ */
 export function TabBar() {
   const pathname = usePathname();
   return (
     <nav
-      aria-label="Основная навигация"
-      className="fixed inset-x-0 bottom-0 z-40 flex justify-center px-[var(--p-gutter)] pb-[max(12px,env(safe-area-inset-bottom))] md:hidden"
+      aria-label={t('nav.main')}
+      className="fixed inset-x-0 bottom-0 z-40 flex items-center justify-center gap-3 px-[var(--p-gutter)] pb-[max(12px,env(safe-area-inset-bottom))] md:hidden"
     >
-      <Glass radius="pill" className="flex h-16 w-full max-w-[420px] items-center justify-between px-2">
-        {NAV_ITEMS.map(({ href, label, icon: Icon, primary }) => {
-          const active = pathname === href || pathname.startsWith(href + '/');
-          if (primary) {
-            return (
-              <motion.div key={href} whileTap={{ scale: PRESS_SCALE }} transition={springs.press}>
-                <Link
-                  href={href}
-                  aria-label={t(label)}
-                  className="flex size-12 items-center justify-center rounded-pill bg-accent text-on-accent shadow-[0_6px_18px_rgba(255,84,40,0.4)]"
-                >
-                  <Icon size={26} strokeWidth={2.6} />
-                </Link>
-              </motion.div>
-            );
-          }
+      <Glass radius="pill" className="flex h-16 min-w-0 flex-1 max-w-[340px] items-center justify-around px-1.5">
+        {TAB_ITEMS.map(({ href, label, icon: Icon }) => {
+          const active = isActive(pathname, href);
           return (
-            <motion.div key={href} whileTap={{ scale: PRESS_SCALE }} transition={springs.press}>
+            <motion.div key={href} whileTap={{ scale: PRESS_SCALE }} transition={springs.press} className="relative flex-1">
+              {active && (
+                <motion.span layoutId="tab-active" transition={springs.press} className="absolute inset-x-0.5 inset-y-0 rounded-pill bg-fill-strong/80" />
+              )}
               <Link
                 href={href}
                 aria-current={active ? 'page' : undefined}
                 className={clsx(
-                  'flex w-[64px] flex-col items-center gap-0.5 rounded-pill py-1.5 text-[11px] font-bold',
-                  active ? 'text-accent-text' : 'text-text-2',
+                  'relative flex flex-col items-center gap-0.5 rounded-pill py-1.5 text-[11px] font-bold',
+                  active ? 'text-text' : 'text-text-2',
                 )}
               >
                 <Icon size={22} strokeWidth={active ? 2.6 : 2.2} />
-                {t(label)}
+                <span className="max-w-full truncate px-1">{t(label)}</span>
               </Link>
             </motion.div>
           );
         })}
       </Glass>
+      <motion.div whileTap={{ scale: PRESS_SCALE }} transition={springs.press}>
+        <Link
+          href="/tasks/new"
+          aria-label={t('nav.create')}
+          className="flex size-16 items-center justify-center rounded-full bg-accent text-on-accent shadow-[0_10px_28px_rgba(255,84,40,0.45)]"
+        >
+          <Plus size={30} strokeWidth={2.8} />
+        </Link>
+      </motion.div>
     </nav>
   );
 }

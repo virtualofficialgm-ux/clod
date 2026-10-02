@@ -63,7 +63,7 @@ export default function Account() {
         label={t('account.logout')}
         onPress={async () => {
           await signOut();
-          router.replace('/welcome');
+          router.replace('/register');
         }}
       />
     </Screen>

@@ -17,17 +17,20 @@ test('гостя из приложения отправляет на вход', 
   await page.waitForURL('**/login?next=%2Ffeed');
 });
 
-test('регистрация: аккаунт → код → профиль (14+) → навыки → готово', async ({ page }, info) => {
+test('регистрация по шагам: email → код → пароль → профиль (16+) → … → готово', async ({ page }, info) => {
   test.skip(info.project.name !== 'desktop', 'один раз');
   const email = `e2e-${Date.now()}@parri.test`;
   await page.goto('/register');
   await hydrated(page);
+  await expect(page.getByRole('button', { name: 'Продолжить с Google' })).toBeVisible();
+  await page.getByRole('button', { name: 'Продолжить по email' }).click();
+
   await page.getByLabel('Email').fill(email);
-  await page.getByLabel('Пароль').fill('short');
-  await page.getByRole('button', { name: 'Далее' }).click();
-  await expect(page.getByText('Пароль — от 8 символов')).toBeVisible();
-  await page.getByLabel('Пароль').fill('password123');
-  await page.getByRole('button', { name: 'Далее' }).click();
+  await page.getByRole('button', { name: 'Продолжить' }).click();
+  await expect(page.getByText('Примите условия использования')).toBeVisible();
+  await page.getByRole('checkbox').check();
+  await page.getByRole('button', { name: 'Продолжить' }).click();
+
   await expect(page.getByRole('heading', { name: 'Введите код' })).toBeVisible();
   await fillOtp(page, '000000');
   await page.getByRole('button', { name: 'Подтвердить' }).click();
@@ -35,28 +38,64 @@ test('регистрация: аккаунт → код → профиль (14+)
   await fillOtp(page, await lastOtp(email));
   await page.getByRole('button', { name: 'Подтвердить' }).click();
 
-  await expect(page.getByRole('heading', { name: 'Расскажите о себе' })).toBeVisible();
-  await page.getByLabel('Имя').fill('Тест');
+  await expect(page.getByRole('heading', { name: 'Придумайте пароль' })).toBeVisible();
+  await page.getByLabel('Пароль', { exact: true }).fill('short');
+  await page.getByRole('button', { name: 'Продолжить' }).click();
+  await expect(page.getByText('Пароль — от 8 символов')).toBeVisible();
+  await page.getByLabel('Пароль', { exact: true }).fill('Parri-Demo-2026!');
+  await expect(page.getByText('Надёжный')).toBeVisible();
+  await page.getByLabel('Повторите пароль').fill('Parri-Demo-2026!');
+  await page.getByRole('button', { name: 'Продолжить' }).click();
+
+  await expect(page.getByRole('heading', { name: 'Как вас зовут?' })).toBeVisible();
+  await page.getByLabel('Имя', { exact: true }).fill('Тест');
   await page.getByLabel('Фамилия').fill('Студентов');
   const young = new Date();
-  young.setFullYear(young.getFullYear() - 13);
+  young.setFullYear(young.getFullYear() - 15);
   await page.getByLabel('Дата рождения').fill(young.toISOString().slice(0, 10));
-  await page.getByLabel('Телефон').fill('+7 999 111-22-33');
-  await page.getByRole('button', { name: 'Далее' }).click();
-  await expect(page.getByText('Регистрация доступна с 14 лет')).toBeVisible();
-  await shot(page, 'register-profile-error');
+  await page.getByRole('button', { name: 'Продолжить' }).click();
+  await expect(page.getByText('Регистрация доступна с 16 лет').first()).toBeVisible();
   await page.getByLabel('Дата рождения').fill('2005-06-15');
+  await page.getByRole('button', { name: 'Продолжить' }).click();
+
+  await expect(page.getByRole('heading', { name: 'Где вы находитесь?' })).toBeVisible();
+  await page.getByLabel('Страна').selectOption('RU');
+  await page.getByLabel('Город').fill('Москва');
+  await page.getByRole('button', { name: 'Продолжить' }).click();
+
+  await expect(page.getByRole('heading', { name: 'Чем вы занимаетесь?' })).toBeVisible();
+  await page.getByRole('radio', { name: 'Дизайнер презентаций' }).click();
+  await page.getByRole('radio', { name: /Начинающий/ }).click();
+  await expect(page.getByText('Так увидят ваш профиль')).toBeVisible();
   await page.getByRole('button', { name: 'Далее' }).click();
 
   await expect(page.getByRole('heading', { name: 'Что вы умеете?' })).toBeVisible();
-  await page.getByRole('button', { name: 'Figma' }).click();
-  await page.getByRole('button', { name: 'Слайды' }).click();
-  await page.getByRole('combobox', { name: 'Вуз' }).fill('Lomonosov');
-  await page.getByRole('option', { name: /Lomonosov Moscow State University/ }).click();
+  for (const n of ['Слайды', 'Питч-деки', 'Дизайн презентаций', 'Figma']) await page.getByRole('checkbox', { name: n, exact: true }).first().click();
+  await expect(page.getByRole('button', { name: 'Далее' })).toBeDisabled();
+  await page.getByRole('checkbox', { name: 'Логотипы', exact: true }).click();
   await shot(page, 'register-skills');
   await page.getByRole('button', { name: 'Далее' }).click();
-  await expect(page.getByRole('heading', { name: 'Готово!' })).toBeVisible();
-  await page.getByRole('button', { name: 'Перейти к ленте' }).click();
+
+  await expect(page.getByRole('heading', { name: 'Расскажите о себе' })).toBeVisible();
+  await page.getByRole('button', { name: 'Оформить с ИИ' }).click();
+  await page.getByRole('button', { name: 'Продолжить' }).click();
+
+  await expect(page.getByRole('heading', { name: 'Где вы учитесь?' })).toBeVisible();
+  await page.getByRole('searchbox', { name: 'Университет' }).fill('Lomonosov');
+  await page.getByRole('radio', { name: /Lomonosov Moscow State University/ }).click();
+  await page.getByRole('button', { name: 'Добавить и продолжить' }).click();
+
+  await expect(page.getByRole('heading', { name: 'Проверим и подтвердим' })).toBeVisible();
+  await expect(page.getByText('Слайды, Питч-деки')).toBeVisible();
+  const confirm = page.getByRole('button', { name: 'Подтвердить и продолжить' });
+  await expect(confirm).toBeDisabled();
+  await page.getByRole('checkbox', { name: /Пользовательское соглашение/ }).check();
+  await page.getByRole('checkbox', { name: /Политика конфиденциальности/ }).check();
+  await confirm.click();
+
+  await expect(page.getByRole('heading', { name: 'Всё готово!' })).toBeVisible();
+  await shot(page, 'register-done');
+  await page.getByRole('button', { name: 'Перейти к задачам' }).click();
   await page.waitForURL('**/feed');
   // Новичок видит задачи своего вуза
   await page.getByRole('tab', { name: 'В моём вузе' }).click();
@@ -198,6 +237,6 @@ test('«Рядом» по реальной геолокации', async ({ brows
   await login(page, 'maria@parri.test');
   await page.getByRole('tab', { name: 'Рядом' }).click();
   await expect(page.getByText('Проверить наличие кроссовок')).toBeVisible();
-  await expect(page.getByText(/Рядом · \d+ м/).first()).toBeVisible();
+  await expect(page.getByText(/^\d+ м$/).first()).toBeVisible();
   await ctx.close();
 });

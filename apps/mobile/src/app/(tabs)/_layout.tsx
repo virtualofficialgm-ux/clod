@@ -15,12 +15,14 @@ export default function TabsLayout() {
       </View>
     );
   }
-  if (!session) return <Redirect href="/welcome" />;
+  if (!session) return <Redirect href="/register" />;
   if (me.data?.profile.onboarding !== 'done') return <Redirect href="/register" />;
   return (
     <Tabs tabBar={(props) => <AppTabBar {...props} />} screenOptions={{ headerShown: false, sceneStyle: { backgroundColor: 'transparent' } }}>
+      <Tabs.Screen name="home" />
       <Tabs.Screen name="feed" />
       <Tabs.Screen name="tasks" />
+      <Tabs.Screen name="messages" />
       <Tabs.Screen name="create" />
       <Tabs.Screen name="balance" />
       <Tabs.Screen name="account" />

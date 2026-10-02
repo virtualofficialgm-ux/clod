@@ -20,7 +20,7 @@ export function OtpField({ value, onChange, label }: { value: string; onChange: 
             key={i}
             style={[
               styles.cell,
-              { backgroundColor: colors.cardSolid, borderColor: i === value.length ? colors.accent : colors.cardBorder },
+              { backgroundColor: colors.fill, borderColor: i === value.length ? colors.ink : 'transparent' },
             ]}
           >
             <AppText variant="title3" tabular>
@@ -47,6 +47,6 @@ export function OtpField({ value, onChange, label }: { value: string; onChange: 
 
 const styles = StyleSheet.create({
   row: { flexDirection: 'row', gap: 8 },
-  cell: { flex: 1, height: 56, borderRadius: radii.md, borderWidth: 1.5, alignItems: 'center', justifyContent: 'center' },
+  cell: { flex: 1, height: 60, borderRadius: radii.md, borderWidth: 2, alignItems: 'center', justifyContent: 'center' },
   hidden: { position: 'absolute', opacity: 0, height: 1, width: 1 },
 });

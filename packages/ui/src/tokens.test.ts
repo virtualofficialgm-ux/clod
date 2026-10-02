@@ -34,3 +34,13 @@ describe('tokens.css', () => {
     expect(file).toBe(renderTokensCss());
   });
 });
+
+describe('плитки и «чернила»', () => {
+  for (const [name, t] of Object.entries(themes)) {
+    it(`${name}: текст на плитке и на «чернилах» ≥ 4.5`, () => {
+      expect(contrastRatio(t.text, t.fill)).toBeGreaterThanOrEqual(4.5);
+      expect(contrastRatio(t.textSecondary, t.fill)).toBeGreaterThanOrEqual(4.5);
+      expect(contrastRatio(t.onInk, t.ink)).toBeGreaterThanOrEqual(4.5);
+    });
+  }
+});

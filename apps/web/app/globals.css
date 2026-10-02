@@ -21,6 +21,15 @@
   --color-success: var(--p-success);
   --color-warning: var(--p-warning);
   --color-danger: var(--p-danger);
+  --color-fill: var(--p-fill);
+  --color-fill-strong: var(--p-fill-strong);
+  --color-ink: var(--p-ink);
+  --color-on-ink: var(--p-on-ink);
+  --color-accent-soft: var(--p-accent-soft);
+  --color-chart-1: var(--p-chart-1);
+  --color-chart-2: var(--p-chart-2);
+  --color-chart-3: var(--p-chart-3);
+  --color-chart-4: var(--p-chart-4);
   --color-white: #fff;
   --color-black: #000;
   --color-transparent: transparent;
@@ -54,6 +63,10 @@
   --text-price--line-height: var(--p-leading-price);
   --text-price--letter-spacing: var(--p-tracking-price);
   --text-price--font-weight: var(--p-weight-price);
+  --text-number: var(--p-text-number);
+  --text-number--line-height: var(--p-leading-number);
+  --text-number--letter-spacing: var(--p-tracking-number);
+  --text-number--font-weight: var(--p-weight-number);
   --text-body: var(--p-text-body);
   --text-body--line-height: var(--p-leading-body);
   --text-callout: var(--p-text-callout);
@@ -77,6 +90,8 @@
     --p-leading-title2: 32px;
     --p-text-price: 32px;
     --p-leading-price: 36px;
+    --p-text-number: 44px;
+    --p-leading-number: 48px;
   }
 }
 
@@ -141,10 +156,17 @@
     z-index: -1;
   }
 
+  /* Карточка контента: белая, мягкая тень, крупное скругление (как карточки Cal AI) */
   .card {
     background: var(--p-card);
     border: 1px solid var(--p-card-border);
     border-radius: var(--p-radius-lg);
+    box-shadow: 0 6px 24px var(--p-card-shadow);
+  }
+  /* Серая плитка: варианты выбора, поля, вторичные блоки */
+  .tile {
+    background: var(--p-fill);
+    border-radius: var(--p-radius-md);
   }
 }
 
@@ -195,19 +217,19 @@
 }
 .mesh__blob:nth-child(1) {
   background: var(--p-blob-1);
-  top: -20vmax;
-  left: -15vmax;
+  top: -38vmax;
+  left: -10vmax;
 }
 .mesh__blob:nth-child(2) {
   background: var(--p-blob-2);
-  top: 10vmax;
+  top: -30vmax;
   right: -25vmax;
   animation-delay: calc(var(--p-blob-cycle) / -3);
   animation-direction: alternate-reverse;
 }
 .mesh__blob:nth-child(3) {
   background: var(--p-blob-3);
-  bottom: -30vmax;
+  bottom: -45vmax;
   left: 15vmax;
   animation-delay: calc(var(--p-blob-cycle) / -1.5);
 }

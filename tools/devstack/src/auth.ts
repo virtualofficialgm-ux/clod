@@ -144,10 +144,19 @@ export async function handleAuth(req: Req, sub: string): Promise<{ status: numbe
 
     case 'POST /otp': {
       const email = String(body.email ?? '');
-      const user = await findUser(email);
+      let user = await findUser(email);
       if (!user) {
         if (body.create_user === false) throw badRequest('otp_disabled', 'Signups not allowed for otp', 422);
-        throw badRequest('otp_disabled', 'Use signup', 422);
+        if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) throw badRequest('validation_failed', 'Invalid email');
+        // Как GoTrue: signInWithOtp создаёт пользователя без пароля (пароль задаётся позже через PUT /user)
+        const r = await pool.query<UserRow>(
+          `insert into auth.users (instance_id, email, raw_user_meta_data,
+             confirmation_token, recovery_token, email_change_token_new, email_change)
+           values ('00000000-0000-0000-0000-000000000000', lower($1), $2, '', '', '', '')
+           returning *`,
+          [email, body.data ?? {}],
+        );
+        user = r.rows[0]!;
       }
       await issueOtp(user.email, 'email');
       return { status: 200, body: {} };

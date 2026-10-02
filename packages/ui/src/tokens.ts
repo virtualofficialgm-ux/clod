@@ -46,6 +46,19 @@ export interface ThemeColors {
   glassBorderBottom: string;
   glassHighlight: string;
   glassShadow: string;
+  /** Заливка плиток выбора, полей ввода и вторичных кнопок (как серые плитки Cal AI) */
+  fill: string;
+  /** Нажатая плитка / трек прогресс-кольца */
+  fillStrong: string;
+  /** «Чернила»: выбранная плитка, тёмная кнопка, активная вкладка */
+  ink: string;
+  onInk: string;
+  /** Мягкий акцентный фон (бейджи, подсветка) */
+  accentSoft: string;
+  /** Тень карточек */
+  cardShadow: string;
+  /** Цвета колец и графиков (вторичные серии) */
+  chart: readonly [string, string, string, string];
   /** Пятна фона */
   blobs: readonly [string, string, string];
   blobOpacity: number;
@@ -53,7 +66,7 @@ export interface ThemeColors {
 
 export const themes: Record<ThemeName, ThemeColors> = {
   light: {
-    background: '#F4F1EC',
+    background: '#F6F6F8',
     text: '#0B0B0F',
     textSecondary: '#5B5B66',
     textTertiary: '#6B6B76',
@@ -61,9 +74,9 @@ export const themes: Record<ThemeName, ThemeColors> = {
     accentPressed: palette.accentPressed,
     onAccent: '#FFFFFF',
     accentText: '#C93A14',
-    card: 'rgba(255,255,255,0.92)',
+    card: 'rgba(255,255,255,0.96)',
     cardSolid: '#FFFFFF',
-    cardBorder: 'rgba(11,11,15,0.06)',
+    cardBorder: 'rgba(11,11,15,0.05)',
     separator: 'rgba(11,11,15,0.08)',
     success: '#1E7D45',
     warning: '#9A5B00',
@@ -74,11 +87,18 @@ export const themes: Record<ThemeName, ThemeColors> = {
     glassBorderBottom: 'rgba(255,255,255,0.1)',
     glassHighlight: 'rgba(255,255,255,0.3)',
     glassShadow: 'rgba(0,0,0,0.12)',
-    blobs: ['#FF7A45', '#FFC4A3', '#9CC8FF'],
-    blobOpacity: 0.75,
+    fill: '#EEEEF1',
+    fillStrong: '#E2E2E7',
+    ink: '#111114',
+    onInk: '#FFFFFF',
+    accentSoft: 'rgba(255,84,40,0.12)',
+    cardShadow: 'rgba(17,17,20,0.06)',
+    chart: ['#FF5428', '#FFA24C', '#6E8BFF', '#38B27A'],
+    blobs: ['#FFB08F', '#FFE1D2', '#D9E6FF'],
+    blobOpacity: 0.55,
   },
   dark: {
-    background: '#09090B',
+    background: '#000000',
     text: '#F5F5F7',
     textSecondary: '#A1A1AA',
     textTertiary: '#8E8E98',
@@ -86,8 +106,8 @@ export const themes: Record<ThemeName, ThemeColors> = {
     accentPressed: palette.accentPressed,
     onAccent: '#FFFFFF',
     accentText: '#FF6A40',
-    card: 'rgba(28,28,32,0.92)',
-    cardSolid: '#1C1C20',
+    card: 'rgba(22,22,25,0.96)',
+    cardSolid: '#161619',
     cardBorder: 'rgba(255,255,255,0.08)',
     separator: 'rgba(255,255,255,0.1)',
     success: '#4ADE80',
@@ -99,14 +119,21 @@ export const themes: Record<ThemeName, ThemeColors> = {
     glassBorderBottom: 'rgba(255,255,255,0.06)',
     glassHighlight: 'rgba(255,255,255,0.12)',
     glassShadow: 'rgba(0,0,0,0.45)',
-    blobs: ['#FF5428', '#B85A3C', '#2F5D9E'],
-    blobOpacity: 0.45,
+    fill: '#1F1F23',
+    fillStrong: '#2C2C31',
+    ink: '#F5F5F7',
+    onInk: '#0B0B0F',
+    accentSoft: 'rgba(255,84,40,0.18)',
+    cardShadow: 'rgba(0,0,0,0)',
+    chart: ['#FF5428', '#FFB067', '#8EA4FF', '#4ADE80'],
+    blobs: ['#FF5428', '#7A3320', '#1E3A66'],
+    blobOpacity: 0.16,
   },
 };
 
 export const radii = {
   sm: 12,
-  md: 16,
+  md: 18,
   lg: 24,
   xl: 28,
   xxl: 32,
@@ -157,6 +184,8 @@ export const typeScaleMobile = {
   title2: { size: 28, lineHeight: 32, weight: '700', tracking: -0.02 },
   title3: { size: 22, lineHeight: 26, weight: '700', tracking: -0.015 },
   price: { size: 32, lineHeight: 36, weight: '800', tracking: -0.02 },
+  /** Крупные цифры на сводках (баланс, кольца) — как цифры калорий в Cal AI */
+  number: { size: 44, lineHeight: 48, weight: '800', tracking: -0.035 },
   body: { size: 17, lineHeight: 24, weight: '400', tracking: -0.005 },
   bodyStrong: { size: 17, lineHeight: 24, weight: '600', tracking: -0.005 },
   callout: { size: 16, lineHeight: 22, weight: '500', tracking: 0 },
@@ -172,6 +201,7 @@ export const typeScaleWeb = {
   title2: { size: 40, lineHeight: 44, weight: '800', tracking: -0.025 },
   title3: { size: 24, lineHeight: 30, weight: '700', tracking: -0.015 },
   price: { size: 36, lineHeight: 40, weight: '800', tracking: -0.02 },
+  number: { size: 56, lineHeight: 58, weight: '800', tracking: -0.035 },
   body: { size: 17, lineHeight: 26, weight: '400', tracking: -0.005 },
   bodyStrong: { size: 17, lineHeight: 26, weight: '600', tracking: -0.005 },
   callout: { size: 16, lineHeight: 22, weight: '500', tracking: 0 },

@@ -3,7 +3,10 @@ import { NextResponse, type NextRequest } from 'next/server';
 import { SUPABASE_ANON_KEY, SUPABASE_URL } from '@/lib/env';
 
 /** Разделы приложения, куда без входа нельзя */
-const PROTECTED = ['/feed', '/tasks', '/my-tasks', '/balance', '/account'];
+const PROTECTED = [
+  '/dashboard', '/feed', '/nearby', '/tasks', '/my-tasks', '/messages', '/balance', '/account', '/people',
+  '/u', '/notifications', '/settings', '/support', '/disputes', '/verification', '/subscription', '/assistant', '/admin',
+];
 /** Страницы входа: вошедшего пользователя отправляем в ленту */
 const AUTH_ONLY_GUEST = ['/login', '/reset'];
 
@@ -35,7 +38,7 @@ export async function proxy(request: NextRequest) {
   }
   if (user && AUTH_ONLY_GUEST.includes(path)) {
     const url = request.nextUrl.clone();
-    url.pathname = '/feed';
+    url.pathname = '/dashboard';
     url.search = '';
     return NextResponse.redirect(url);
   }

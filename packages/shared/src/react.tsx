@@ -19,6 +19,7 @@ import {
   type ApiError,
   type Client,
 } from './api';
+import { chats } from './chats';
 import type { FeedParams, Message } from './types';
 
 /**
@@ -48,6 +49,7 @@ export const keys = {
   messages: (id: string) => ['messages', id] as const,
   saved: ['saved-searches'] as const,
   ledger: ['ledger'] as const,
+  chats: ['chats'] as const,
 };
 
 /** Текущая сессия; loading=true до первой проверки */
@@ -188,4 +190,16 @@ export function useSignOut() {
     await auth.signOut(sb);
     qc.clear();
   };
+}
+
+/** Список чатов: обновляется раз в 15 с (и сразу после отправки/прочтения) */
+export function useChats(enabled = true) {
+  const sb = useSupabase();
+  return useQuery({ queryKey: keys.chats, queryFn: () => chats.list(sb), enabled, refetchInterval: 15_000 });
+}
+
+/** Общее число непрочитанных сообщений — для значка на вкладке */
+export function useUnreadCount(enabled = true) {
+  const q = useChats(enabled);
+  return q.data?.reduce((s, c) => s + c.unread, 0) ?? 0;
 }

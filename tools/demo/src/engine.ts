@@ -213,8 +213,19 @@ async function handleAuth(method: string, sub: string, query: URLSearchParams, b
       return { status: 200, body: {} };
     }
     case 'POST /otp': {
-      const u = await findUser(String(body.email ?? ''));
-      if (!u) throw authErr('otp_disabled', 'Signups not allowed for otp', 422);
+      const email = String(body.email ?? '').trim();
+      let u = await findUser(email);
+      if (!u) {
+        if (body.create_user === false) throw authErr('otp_disabled', 'Signups not allowed for otp', 422);
+        if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) throw authErr('validation_failed', 'Invalid email');
+        u = (
+          await sys<UserRow>(
+            `insert into auth.users (instance_id, email, raw_user_meta_data, confirmation_token, recovery_token, email_change_token_new, email_change)
+             values ('00000000-0000-0000-0000-000000000000', lower($1), $2, '', '', '', '') returning *`,
+            [email, JSON.stringify(body.data ?? {})],
+          )
+        )[0]!;
+      }
       await issueOtp(u.email, 'email');
       return { status: 200, body: {} };
     }

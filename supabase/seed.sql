@@ -43,6 +43,18 @@ from (values
 ) as v(id, first_name, last_name, bio, uni, plan, role)
 where p.id = v.id;
 
+update public.profiles p set
+  username = v.username, display_name = v.display_name, profession = v.profession, headline = v.headline,
+  experience_level = v.lvl::public.experience_level, country_code = 'RU', city = 'Москва', timezone = 'Europe/Moscow',
+  languages = v.langs::jsonb, onboarded_at = now(), response_time = '1h'
+from (values
+  ('a0000000-0000-4000-8000-000000000001'::uuid, 'anna', 'Анна С.', 'Дизайнер', 'Студентка-дизайнер, МГУ', 'junior', '[{"code":"ru","level":"native"},{"code":"en","level":"b2"}]'),
+  ('a0000000-0000-4000-8000-000000000002'::uuid, 'ivan', 'Иван П.', 'Фронтенд-разработчик', 'Фронтенд и презентации', 'middle', '[{"code":"ru","level":"native"},{"code":"en","level":"c1"}]'),
+  ('a0000000-0000-4000-8000-000000000003'::uuid, 'maria', 'Мария К.', 'Переводчик', 'Переводы EN/RU, фото, тексты', 'junior', '[{"code":"ru","level":"native"},{"code":"en","level":"c2"}]'),
+  ('a0000000-0000-4000-8000-000000000004'::uuid, 'admin', 'Parri', 'Команда Parri', null, null, '[{"code":"ru","level":"native"}]')
+) as v(id, username, display_name, profession, headline, lvl, langs)
+where p.id = v.id;
+
 update public.profile_private set birth_date = date '2004-05-14', phone = '+79990000001'
  where id = 'a0000000-0000-4000-8000-000000000001';
 update public.profile_private set birth_date = date '2003-11-02', phone = '+79990000002'
@@ -54,6 +66,14 @@ update public.profile_private set birth_date = date '1995-01-01'
 
 insert into public.profile_skills (profile_id, skill_slug) values
   ('a0000000-0000-4000-8000-000000000001', 'figma'),
+  ('a0000000-0000-4000-8000-000000000001', 'ui_ux'),
+  ('a0000000-0000-4000-8000-000000000001', 'branding'),
+  ('a0000000-0000-4000-8000-000000000001', 'illustration'),
+  ('a0000000-0000-4000-8000-000000000001', 'web_design'),
+  ('a0000000-0000-4000-8000-000000000002', 'javascript'),
+  ('a0000000-0000-4000-8000-000000000002', 'typescript'),
+  ('a0000000-0000-4000-8000-000000000003', 'proofreading'),
+  ('a0000000-0000-4000-8000-000000000003', 'editing'),
   ('a0000000-0000-4000-8000-000000000002', 'frontend'),
   ('a0000000-0000-4000-8000-000000000002', 'slides'),
   ('a0000000-0000-4000-8000-000000000002', 'pitch_decks'),

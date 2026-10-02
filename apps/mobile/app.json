@@ -25,7 +25,17 @@
       "favicon": "./assets/favicon.png",
       "output": "single"
     },
-    "plugins": ["expo-router", "expo-font"],
+    "plugins": [
+      "expo-router",
+      "expo-font",
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Parri использует фото для аватара и портфолио.",
+          "cameraPermission": "Parri использует камеру для фото профиля и доказательств выполнения задач."
+        }
+      ]
+    ],
     "experiments": {
       "typedRoutes": true
     }

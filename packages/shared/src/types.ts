@@ -1,5 +1,6 @@
 import type { Category, Deadline, ResultFormat, TaskKind, TaskStatus } from './constants';
 
+import type { DisplayCurrency, ExperienceLevel, LanguageLevel, UiLocale } from './catalog';
 import type { PlanId } from './money';
 export type { PlanId };
 export type OnboardingStep = 'profile' | 'skills' | 'done';
@@ -26,14 +27,108 @@ export interface Profile {
   completed_count: number;
   earned_cents: number;
   created_at: string;
+  username: string | null;
+  display_name: string | null;
+  headline: string | null;
+  profession: string | null;
+  experience_level: ExperienceLevel | null;
+  country_code: string | null;
+  city: string | null;
+  timezone: string | null;
+  languages: WorkLanguage[];
+  display_currency: DisplayCurrency;
+  custom_skills: string[];
+  links: ProfileLink[];
+  faculty: string | null;
+  specialty: string | null;
+  platform_role: 'executor' | 'customer' | 'both';
+  availability: 'available' | 'busy' | 'hidden';
+  preferred_kinds: TaskKind[];
+  response_time: '5m' | '1h' | '3h' | 'day' | null;
+  hidden_fields: string[];
+  notify_skill_tasks: boolean;
+  onboarded_at: string | null;
+}
+
+export interface WorkLanguage {
+  code: string;
+  level: LanguageLevel;
+}
+
+export interface ProfileLink {
+  title: string;
+  url: string;
 }
 
 export interface ProfilePrivate {
   id: string;
   birth_date: string | null;
   phone: string | null;
-  locale: string;
+  locale: UiLocale;
+  student_email: string | null;
+  two_factor_enabled: boolean;
+  notifications_enabled: boolean;
+  terms_accepted_at: string | null;
 }
+
+export interface Experience {
+  id: string;
+  profile_id: string;
+  company: string;
+  position: string;
+  from_year: number | null;
+  to_year: number | null;
+}
+
+export interface PortfolioItem {
+  id: string;
+  profile_id: string;
+  title: string;
+  url: string | null;
+  file_path: string | null;
+  category: Category | null;
+  visibility: 'public' | 'clients' | 'private';
+  created_at: string;
+}
+
+/** Поля для save_profile_data: передаются только изменённые */
+export type ProfileData = Partial<{
+  first_name: string;
+  last_name: string;
+  display_name: string;
+  avatar_url: string | null;
+  birth_date: string;
+  phone: string | null;
+  username: string;
+  country_code: string | null;
+  city: string | null;
+  timezone: string | null;
+  locale: UiLocale;
+  display_currency: DisplayCurrency;
+  languages: WorkLanguage[];
+  profession: string | null;
+  headline: string | null;
+  experience_level: ExperienceLevel | null;
+  skills: string[];
+  skill_levels: Record<string, string>;
+  custom_skills: string[];
+  bio: string | null;
+  portfolio_links: string[];
+  links: ProfileLink[];
+  experience: Pick<Experience, 'company' | 'position' | 'from_year' | 'to_year'>[];
+  university_id: number | null;
+  faculty: string | null;
+  specialty: string | null;
+  student_email: string | null;
+  platform_role: Profile['platform_role'];
+  availability: Profile['availability'];
+  preferred_kinds: TaskKind[];
+  response_time: Profile['response_time'];
+  hidden_fields: string[];
+  notify_skill_tasks: boolean;
+  notifications_enabled: boolean;
+  two_factor_enabled: boolean;
+}>;
 
 export interface Wallet {
   user_id: string;

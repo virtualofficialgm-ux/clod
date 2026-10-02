@@ -14,7 +14,7 @@ export default async function Landing() {
   const {
     data: { user },
   } = await supabase.auth.getUser();
-  if (user) redirect('/feed');
+  if (user) redirect('/dashboard');
 
   const formats = [
     { icon: Globe, title: t('kind.online'), text: t('landing.formatOnline') },

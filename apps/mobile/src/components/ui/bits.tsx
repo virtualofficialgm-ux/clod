@@ -9,22 +9,9 @@ import { GlassSurface } from '@/components/glass/GlassSurface';
 import { familyByWeight } from '@/theme/fonts';
 import { useTheme } from '@/theme/ThemeProvider';
 
-/** Почти непрозрачная карточка для текста */
-export function Card({ children, style, testID }: { children: React.ReactNode; style?: StyleProp<ViewStyle>; testID?: string }) {
-  const { colors, reduceTransparency } = useTheme();
-  return (
-    <View
-      testID={testID}
-      style={[
-        styles.card,
-        { backgroundColor: reduceTransparency ? colors.cardSolid : colors.card, borderColor: colors.cardBorder },
-        style,
-      ]}
-    >
-      {children}
-    </View>
-  );
-}
+/** Карточка контента (белая, мягкая тень) — общая с kit */
+import { Card } from './kit';
+export { Card };
 
 export function PageTitle({ children, subtitle }: { children: React.ReactNode; subtitle?: string }) {
   const { colors } = useTheme();

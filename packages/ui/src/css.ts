@@ -15,8 +15,9 @@ const kebab = (s: string) => s.replace(/[A-Z]/g, (c) => '-' + c.toLowerCase());
 function themeVars(t: ThemeColors): string[] {
   const lines: string[] = [];
   for (const [key, value] of Object.entries(t)) {
-    if (key === 'blobs') {
-      (value as readonly string[]).forEach((c, i) => lines.push(`--p-blob-${i + 1}: ${c};`));
+    if (key === 'blobs' || key === 'chart') {
+      const prefix = key === 'blobs' ? 'blob' : 'chart';
+      (value as readonly string[]).forEach((c, i) => lines.push(`--p-${prefix}-${i + 1}: ${c};`));
     } else if (key === 'blobOpacity') {
       lines.push(`--p-blob-opacity: ${value};`);
     } else {

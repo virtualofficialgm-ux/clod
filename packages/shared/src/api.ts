@@ -1,15 +1,19 @@
 import type { RealtimeChannel, SupabaseClient } from '@supabase/supabase-js';
 import type { Category, Deadline } from './constants';
+import { hasErrorText } from './i18n';
 import type { TaskDraft } from './schemas';
 import type {
   ComposeResult,
+  Experience,
   FeedParams,
   FeedTask,
   FileRef,
   LedgerEntry,
   Message,
   MyTask,
+  PortfolioItem,
   Profile,
+  ProfileData,
   ProfilePrivate,
   ReadyWhen,
   ResponseWithExecutor,
@@ -57,6 +61,9 @@ export function toApiError(e: unknown): ApiError {
   const text = `${err?.code ?? ''} ${err?.message ?? ''}`;
   const hit = KNOWN.find((k) => text.includes(k));
   if (hit) return new ApiError(`errors.${hit}`, err?.message);
+  // Коды из RPC вида raise exception 'some_code' — если для них есть текст в errors.*
+  const code = /^([a-z][a-z0-9_]+)(?::|$)/.exec(err?.message ?? '')?.[1];
+  if (code && hasErrorText(code)) return new ApiError(`errors.${code}`, err?.message);
   if (err?.code === '23505') return new ApiError('errors.already_responded', err.message);
   if (err?.code === '23514') return new ApiError('errors.check_failed', err.message);
   if (err?.status === 429) return new ApiError('errors.over_request_rate_limit', err.message);
@@ -64,7 +71,7 @@ export function toApiError(e: unknown): ApiError {
   return new ApiError('errors.unknown', err?.message);
 }
 
-async function unwrap<T>(p: PromiseLike<{ data: T | null; error: unknown }>): Promise<T> {
+export async function unwrap<T>(p: PromiseLike<{ data: T | null; error: unknown }>): Promise<T> {
   const { data, error } = await p;
   if (error) throw toApiError(error);
   return data as T;
@@ -78,6 +85,21 @@ export const auth = {
     const { data, error } = await sb.auth.signUp({ email, password, options: { data: { locale } } });
     if (error) throw toApiError(error);
     return data;
+  },
+  /** Регистрация по шагам: код на email (аккаунт создаётся, если его нет), пароль задаётся после кода */
+  async startEmail(sb: Client, email: string, locale = 'ru') {
+    const { error } = await sb.auth.signInWithOtp({ email, options: { shouldCreateUser: true, data: { locale } } });
+    if (error) throw toApiError(error);
+  },
+  async verifyEmail(sb: Client, email: string, token: string) {
+    const { data, error } = await sb.auth.verifyOtp({ email, token, type: 'email' });
+    if (error) throw toApiError(error);
+    return data;
+  },
+  /** Вход через Google / Apple (нужно включить провайдера в Supabase) */
+  async signInWithProvider(sb: Client, provider: 'google' | 'apple', redirectTo?: string) {
+    const { error } = await sb.auth.signInWithOAuth({ provider, options: { redirectTo } });
+    if (error) throw toApiError(error);
   },
   async verifySignup(sb: Client, email: string, token: string) {
     const { data, error } = await sb.auth.verifyOtp({ email, token, type: 'signup' });
@@ -139,7 +161,7 @@ export const profile = {
     const [p, priv, skills, wallet] = await Promise.all([
       unwrap<Profile>(sb.from('profiles').select('*').eq('id', uid).single()),
       unwrap<ProfilePrivate>(sb.from('profile_private').select('*').eq('id', uid).single()),
-      unwrap<{ skill_slug: string }[]>(sb.from('profile_skills').select('skill_slug').eq('profile_id', uid)),
+      unwrap<{ skill_slug: string }[]>(sb.from('profile_skills').select('skill_slug').eq('profile_id', uid).order('sort')),
       unwrap<Wallet>(sb.from('wallets').select('*').eq('user_id', uid).single()),
     ]);
     const university = p.university_id
@@ -147,19 +169,36 @@ export const profile = {
       : null;
     return { profile: p, private: priv, skills: skills.map((s) => s.skill_slug), wallet, university };
   },
-  saveProfile(sb: Client, v: { firstName: string; lastName: string; birthDate: string; phone: string; locale: string }) {
+  /** Любой шаг регистрации и редактирование профиля: обновляются только переданные ключи */
+  saveData(sb: Client, data: ProfileData) {
+    return unwrap<Profile>(sb.rpc('save_profile_data', { p: data }));
+  },
+  complete(sb: Client, v: { terms: boolean; privacy: boolean; twoFactor: boolean; notifications: boolean }) {
     return unwrap<Profile>(
-      sb.rpc('save_profile', {
-        p_first_name: v.firstName,
-        p_last_name: v.lastName,
-        p_birth_date: v.birthDate,
-        p_phone: v.phone,
-        p_locale: v.locale,
+      sb.rpc('complete_onboarding', {
+        p_terms: v.terms,
+        p_privacy: v.privacy,
+        p_two_factor: v.twoFactor,
+        p_notifications: v.notifications,
       }),
     );
   },
-  saveSkills(sb: Client, skills: string[], universityId: number | null) {
-    return unwrap<Profile>(sb.rpc('save_skills', { p_skills: skills, p_university_id: universityId }));
+  usernameAvailable(sb: Client, username: string) {
+    return unwrap<boolean>(sb.rpc('username_available', { p_username: username }));
+  },
+  experience(sb: Client, profileId: string) {
+    return unwrap<Experience[]>(sb.from('profile_experience').select('*').eq('profile_id', profileId).order('sort'));
+  },
+  portfolio(sb: Client, profileId: string) {
+    return unwrap<PortfolioItem[]>(
+      sb.from('portfolio_items').select('*').eq('profile_id', profileId).order('created_at', { ascending: false }),
+    );
+  },
+  addPortfolio(sb: Client, item: Pick<PortfolioItem, 'title' | 'url' | 'file_path' | 'category' | 'visibility'>) {
+    return unwrap<PortfolioItem>(sb.from('portfolio_items').insert(item).select().single());
+  },
+  removePortfolio(sb: Client, id: string) {
+    return unwrap<null>(sb.from('portfolio_items').delete().eq('id', id));
   },
   skills(sb: Client) {
     return unwrap<Skill[]>(sb.from('skills').select('*').order('sort'));
@@ -329,17 +368,25 @@ export const room = {
 export const BUCKET = 'task-files';
 
 export const files = {
+  /** Аватар: публичный бакет, путь {user}/avatar-{ts}.{ext}; возвращает публичную ссылку */
+  async uploadAvatar(sb: Client, userId: string, body: Blob | ArrayBuffer, contentType: string): Promise<string> {
+    const ext = contentType.includes('png') ? 'png' : contentType.includes('webp') ? 'webp' : 'jpg';
+    const path = `${userId}/avatar-${Date.now()}.${ext}`;
+    const { error } = await sb.storage.from('avatars').upload(path, body, { contentType, upsert: true });
+    if (error) throw new ApiError('errors.upload_failed', error.message);
+    return sb.storage.from('avatars').getPublicUrl(path).data.publicUrl;
+  },
   /** Путь в бакете: {user}/{task}/{brief|chat|submission}/{uuid}-{name} */
   path(userId: string, taskId: string, area: 'brief' | 'chat' | 'submission', name: string, id: string) {
     const safe = name.replace(/[^\p{L}\p{N}._-]+/gu, '_').slice(-80);
     return `${userId}/${taskId}/${area}/${id}-${safe}`;
   },
-  async upload(sb: Client, path: string, body: Blob | ArrayBuffer, contentType: string): Promise<void> {
-    const { error } = await sb.storage.from(BUCKET).upload(path, body, { contentType, upsert: false });
+  async upload(sb: Client, path: string, body: Blob | ArrayBuffer, contentType: string, bucket = BUCKET): Promise<void> {
+    const { error } = await sb.storage.from(bucket).upload(path, body, { contentType, upsert: bucket === 'avatars' });
     if (error) throw new ApiError('errors.upload_failed', error.message);
   },
-  async signedUrl(sb: Client, path: string): Promise<string> {
-    const { data, error } = await sb.storage.from(BUCKET).createSignedUrl(path, 3600);
+  async signedUrl(sb: Client, path: string, bucket = BUCKET): Promise<string> {
+    const { data, error } = await sb.storage.from(bucket).createSignedUrl(path, 3600);
     if (error || !data) throw new ApiError('errors.download_failed', error?.message);
     return data.signedUrl;
   },
