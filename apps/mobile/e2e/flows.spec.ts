@@ -198,6 +198,50 @@ test('взять задачу сразу и начать', async ({ browser }) =
   await ivan.ctx.close();
 });
 
+test('люди на телефоне: поиск, подписка, личные сообщения, уведомления', async ({ browser }) => {
+  const maria = await asUser(browser, 'maria@parri.test');
+  await maria.page.goto('/people');
+  await maria.page.getByLabel('Имя, навык или слово').fill('Иван');
+  await expect(maria.page.getByTestId('people-list')).toContainText('Иван');
+  await maria.page.getByTestId('person').first().getByRole('button', { name: 'Открыть профиль' }).click();
+  await expect(maria.page.getByTestId('profile-name')).toContainText('Иван');
+  await shot(maria.page, 'profile-public');
+  await maria.page.getByRole('button', { name: 'Подписаться' }).click();
+  await expect(maria.page.getByRole('button', { name: 'Вы подписаны' })).toBeVisible();
+  await maria.page.getByRole('button', { name: 'Написать' }).click();
+  await maria.page.getByLabel('Сообщение').fill('Иван, привет! Поможешь с версткой?');
+  await maria.page.getByRole('button', { name: 'Отправить' }).click();
+  await expect(maria.page.getByText('Иван, привет! Поможешь с версткой?', { exact: true })).toBeVisible();
+
+  const ivan = await asUser(browser, 'ivan@parri.test');
+  await ivan.page.goto('/home');
+  await expect(ivan.page.getByTestId('bell')).toBeVisible();
+  await ivan.page.getByTestId('bell').click();
+  await expect(ivan.page.getByTestId('notifications')).toContainText('подписался на вас');
+  await shot(ivan.page, 'notifications');
+  await ivan.page.getByText(/Поможешь с версткой/).first().click();
+  await expect(ivan.page.getByText('Иван, привет! Поможешь с версткой?', { exact: true })).toBeVisible();
+  await ivan.page.getByLabel('Сообщение').fill('Да, давай');
+  await ivan.page.getByRole('button', { name: 'Отправить' }).click();
+  await expect(maria.page.getByText('Да, давай', { exact: true })).toBeVisible({ timeout: 10_000 });
+  await expect(maria.page.getByText('Прочитано')).toBeVisible({ timeout: 10_000 });
+  await maria.ctx.close();
+  await ivan.ctx.close();
+});
+
+test('настройки на телефоне: приватность и кабинет', async ({ browser }) => {
+  const anna = await asUser(browser, 'anna@parri.test');
+  await anna.page.goto('/account');
+  await expect(anna.page.getByTestId('account-name')).toContainText('Анна');
+  await shot(anna.page, 'account');
+  await anna.page.goto('/settings?tab=privacy');
+  await expect(anna.page.getByTestId('privacy')).toBeVisible();
+  await anna.page.getByRole('button', { name: 'Сохранить изменения' }).click();
+  await expect(anna.page.getByText('Настройки приватности сохранены')).toBeVisible();
+  await shot(anna.page, 'settings');
+  await anna.ctx.close();
+});
+
 test('пополнение баланса через Stripe (тестовые страницы)', async ({ browser }) => {
   const { ctx, page } = await asUser(browser, 'maria@parri.test');
   await page.goto('/balance');

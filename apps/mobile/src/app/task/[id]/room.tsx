@@ -15,11 +15,13 @@ import {
   keys,
   useApiMutation,
   useMe,
+  usePeerState,
   useRoomMessages,
   useSupabase,
   useTaskDetail,
+  useTypingPing,
 } from '@parri/shared/react';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useQueryClient } from '@tanstack/react-query';
 import { router, useLocalSearchParams } from 'expo-router';
 import {
   ArrowUp,
@@ -31,7 +33,7 @@ import {
   Paperclip,
   X,
 } from '@/components/icons';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   KeyboardAvoidingView,
   Linking,
@@ -319,17 +321,10 @@ export default function Room() {
   const [text, setText] = useState('');
   const [pending, setPending] = useState<PickedFile[]>([]);
   const [sheet, setSheet] = useState<null | 'submit' | 'review' | 'extension' | 'tip'>(null);
-  const counterpart = detail.data
-    ? detail.data.viewer_role === 'customer'
-      ? detail.data.task.executor_id
-      : detail.data.task.customer_id
-    : null;
-  const readAt = useQuery({
-    queryKey: ['chat-read', id, counterpart],
-    queryFn: () => chats.counterpartReadAt(sb, id!, counterpart!),
-    enabled: !!counterpart && participant,
-    refetchInterval: 5000,
-  }).data;
+  const where = useMemo(() => ({ taskId: id }), [id]);
+  const peer = usePeerState(where, participant);
+  const readAt = peer?.read_at;
+  const ping = useTypingPing(where);
   const scroll = useRef<ScrollView>(null);
 
   const send = useApiMutation(
@@ -389,6 +384,14 @@ export default function Room() {
                     {t('room.title')}
                   </AppText>
                   <AppText variant="title3">{task.title}</AppText>
+                  {peer?.typing ? (
+                    <AppText variant="callout" color="success" testID="typing">
+                      {(d.viewer_role === 'customer'
+                        ? d.executor?.first_name
+                        : d.customer.first_name) ?? ''}{' '}
+                      {t('direct.typing')}
+                    </AppText>
+                  ) : null}
                   <View
                     style={{ flexDirection: 'row', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}
                   >
@@ -463,7 +466,10 @@ export default function Room() {
                   />
                   <TextInput
                     value={text}
-                    onChangeText={setText}
+                    onChangeText={(v) => {
+                      setText(v);
+                      ping();
+                    }}
                     placeholder={t('room.placeholder')}
                     accessibilityLabel={t('room.placeholder')}
                     placeholderTextColor={colors.textSecondary}

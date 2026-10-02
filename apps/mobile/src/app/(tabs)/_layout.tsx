@@ -3,6 +3,7 @@ import { Redirect } from 'expo-router';
 import { Tabs } from 'expo-router/tabs';
 import { View } from 'react-native';
 import { AppTabBar } from '@/components/glass/AppTabBar';
+import { AccountStateScreen } from '@/components/social/AccountStateScreen';
 import { Center } from '@/components/ui/bits';
 
 export default function TabsLayout() {
@@ -17,6 +18,8 @@ export default function TabsLayout() {
   }
   if (!session) return <Redirect href="/register" />;
   if (me.data?.profile.onboarding !== 'done') return <Redirect href="/register" />;
+  if (me.data.profile.banned_at || me.data.profile.deleted_at) return <AccountStateScreen state="blocked" />;
+  if (me.data.profile.deactivated_at) return <AccountStateScreen state="deactivated" />;
   return (
     <Tabs tabBar={(props) => <AppTabBar {...props} />} screenOptions={{ headerShown: false, sceneStyle: { backgroundColor: 'transparent' } }}>
       <Tabs.Screen name="home" />
