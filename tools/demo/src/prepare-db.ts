@@ -50,6 +50,8 @@ export function adaptMigration(sql: string): string {
     .replace(/extensions\.geography\(point, 4326\)/g, 'point')
     .replace(/::extensions\.geography/g, '')
     .replace(/::extensions\.geometry/g, '')
+    // citext: в демо обычный text (регистр в нике и почте не нормализуется)
+    .replace(/extensions\.citext/g, 'text')
     .replace(/extensions\.geography/g, 'point')
     .replace(/create index \w+ on public\.\w+ using gin \(\w+ extensions\.gin_trgm_ops\);/g, '')
     .replace(/create index tasks_location on public\.tasks using gist \(location\);/g, '');

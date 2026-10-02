@@ -6,6 +6,10 @@
  */
 import { PGlite, type Transaction } from '@electric-sql/pglite';
 import { ComposeError, offlineDraft, validateInput } from '../../../supabase/functions/ai-compose/handler.ts';
+import { BotError, handleBot, type BotTask } from '../../../supabase/functions/parri-bot/handler.ts';
+import { handleAction, handleStripeWebhook, PaymentsError, type PaymentsDb, type PaymentsEnv } from '../../../supabase/functions/payments/handler.ts';
+import { TranslateError, translate } from '../../../supabase/functions/translate/handler.ts';
+import { createFakeStripe } from '../../devstack/src/fakeStripe.ts';
 
 export const DEMO_URL = 'https://parri.demo';
 
@@ -538,6 +542,55 @@ async function handleStorage(method: string, sub: string, query: URLSearchParams
   throw new HttpError(404, { error: 'not_found', message: `demo: ${method} /storage/v1${sub}` });
 }
 
+// ---------- Функции: бот, перевод, деньги ----------
+async function botAction(claims: Claims, body: any) {
+  return handleBot(
+    body?.message,
+    {
+      log: (role, text, tasks) => withRole(claims, (q) => q(`select public.bot_log($1, $2, $3::jsonb)`, [role, text, JSON.stringify(tasks ?? [])])).then(() => undefined),
+      history: async () => ((await withRole(claims, (q) => q(`select role, body from public.bot_messages order by id desc limit 10`))) as { role: 'user' | 'assistant'; body: string }[]).reverse(),
+      searchTasks: async (f) =>
+        (await withRole(claims, (q) =>
+          q(
+            `select id, title, reward_cents::int, currency, category, deadline, kind
+             from public.feed_tasks(p_kind => $1, p_query => $2, p_categories => $3::public.task_category[], p_max_reward => $4, p_max_minutes => $5, p_limit => 5)`,
+            [f.kind ?? 'online', f.query ?? null, f.categories ?? null, f.maxRewardCents ?? null, f.maxMinutes ?? null],
+          ),
+        )) as BotTask[],
+    },
+    null,
+  );
+}
+
+// Сервисные вызовы денег — от владельца базы (как service_role в продакшене)
+const PAY_TABLES = new Set(['payments', 'payouts', 'refund_requests', 'stripe_customers', 'connect_accounts', 'subscriptions', 'profiles']);
+const payDb: PaymentsDb = {
+  async rpc(fn, args) {
+    if (!/^[a-z_]+$/.test(fn)) throw new Error('bad function name');
+    const keys = Object.keys(args);
+    const values = keys.map((k) => (args[k] !== null && typeof args[k] === 'object' ? JSON.stringify(args[k]) : args[k]));
+    const rows = await sys(`select to_jsonb(public.${fn}(${keys.map((k, i) => `${k} => $${i + 1}`).join(', ')})) as r`, values);
+    return rows[0]?.r as any;
+  },
+  async one(table, match) {
+    if (!PAY_TABLES.has(table)) throw new Error('bad table');
+    const keys = Object.keys(match);
+    const where = keys.map((k, i) => `${k.replace(/[^a-z_]/g, '')} = $${i + 1}`).join(' and ');
+    const rows = await sys(`select to_jsonb(t) as r from public.${table} t where ${where} limit 1`, keys.map((k) => match[k]));
+    return (rows[0]?.r ?? null) as any;
+  },
+};
+const WEBHOOK_SECRET = 'whsec_parri_demo';
+const payEnv: PaymentsEnv = { stripe: null, stripeWebhookSecret: WEBHOOK_SECRET, nowpayments: null, nowpaymentsIpnSecret: null };
+const fakeStripe = createFakeStripe({
+  webhookSecret: WEBHOOK_SECRET,
+  pagesBase: DEMO_URL,
+  deliver: async (raw, sig) => {
+    await handleStripeWebhook(payEnv, payDb, raw, sig);
+  },
+});
+payEnv.stripe = fakeStripe.api;
+
 // ---------- Маршрутизация ----------
 function toHttpError(e: unknown): HttpError {
   if (e instanceof HttpError) return e;
@@ -589,6 +642,40 @@ export async function demoFetch(input: RequestInfo | URL, init?: RequestInit): P
         if (e instanceof ComposeError) return respond(400, { error: e.code });
         throw e;
       }
+    } else if (path === '/functions/v1/parri-bot') {
+      if (claims.role !== 'authenticated' || !claims.sub) return respond(401, { error: 'not_authenticated' });
+      try {
+        r = { status: 200, body: await botAction(claims, json()) };
+      } catch (e) {
+        if (e instanceof BotError) return respond(e.code === 'invalid_input' ? 400 : e.code === 'bot_requires_pro' ? 403 : 502, { error: e.code });
+        throw e;
+      }
+    } else if (path === '/functions/v1/translate') {
+      if (claims.role !== 'authenticated') return respond(401, { error: 'unauthorized' });
+      try {
+        r = { status: 200, body: await translate(null, json()) };
+      } catch (e) {
+        if (e instanceof TranslateError) return respond(e.code === 'invalid_input' ? 400 : 503, { error: e.code });
+        throw e;
+      }
+    } else if (path === '/functions/v1/payments') {
+      if (claims.role !== 'authenticated' || !claims.sub) return respond(401, { error: 'not_authenticated' });
+      try {
+        const email = (await sys<{ email: string }>(`select email from auth.users where id = $1`, [claims.sub]))[0]?.email;
+        r = { status: 200, body: (await handleAction(payEnv, payDb, { id: claims.sub, email }, json())) ?? null };
+      } catch (e) {
+        if (e instanceof PaymentsError) return respond(e.status, { error: e.code });
+        const code = /^([a-z_]+)/.exec((e as Error).message ?? '')?.[1];
+        return respond(400, { error: code ?? 'internal', message: (e as Error).message });
+      }
+    } else if (path === '/functions/v1/fx-rates') {
+      r = { status: 200, body: { updated: 0 } };
+    } else if (path.startsWith('/dev/stripe/')) {
+      // Тестовые страницы Stripe: шелл демо показывает их поверх приложения (JSON вместо редиректа)
+      const form = new URLSearchParams(method === 'POST' ? text() : '');
+      for (const [k, v] of url.searchParams) form.set(k, v);
+      const page = await fakeStripe.page(method, path, form);
+      r = page ? { status: 200, body: { html: page.html ?? null, redirect: page.redirect ?? null } } : { status: 404, body: { message: 'not found' } };
     } else r = { status: 404, body: { message: `demo: ${path}` } };
     return respond(r.status, r.body, r.headers);
   } catch (e) {

@@ -2,7 +2,7 @@
 // интерфейс (веб-экспорт Expo в демо-режиме) + Postgres (PGlite) + миграции/сиды + движок Supabase-API.
 // Запуск: pnpm --filter @parri/demo build  →  tools/demo/dist/index.html
 import { execSync } from 'node:child_process';
-import { createHmac } from 'node:crypto';
+import { createHash, createHmac } from 'node:crypto';
 import { mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { join } from 'node:path';
@@ -81,6 +81,7 @@ console.log('4/4 страница…');
 const safeScript = (js: string) => js.replace(/<\/script/gi, '<\\/script');
 const template = readFileSync(join(here, 'src/shell.html'), 'utf8');
 const html = template
+  .replace('/*SCHEMA*/', createHash('sha256').update(demoBootstrapSql()).digest('hex').slice(0, 10))
   .replace('/*FONTS*/', fonts)
   .replace('<!--BLOBS-->', Object.entries(blobs).map(([id, b]) => `<script type="application/octet-stream" id="${id}">${b}</script>`).join('\n'))
   .replace('/*ENGINE*/', () => safeScript(engineJs))

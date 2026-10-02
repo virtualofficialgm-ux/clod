@@ -99,6 +99,10 @@ button:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
 #preview { position: fixed; inset: 0; z-index: 75; display: flex; align-items: center; justify-content: center; background: rgba(0, 0, 0, .55); padding: 16px; }
 #preview .box { max-width: min(720px, 100%); max-height: 100%; overflow: auto; background: var(--panel-solid); border-radius: 24px; padding: 18px; display: grid; gap: 12px; }
 #preview img { max-width: 100%; border-radius: 12px; }
+[hidden] { display: none !important; }
+#checkout { position: fixed; inset: 0; z-index: 80; background: rgba(0, 0, 0, .55); display: flex; align-items: center; justify-content: center; padding: 16px; }
+#checkout iframe { width: min(460px, 100%); height: min(640px, 100%); border: 0; border-radius: 28px; background: var(--panel-solid); }
+#checkout-close { position: absolute; top: 16px; right: 16px; }
 #preview pre { white-space: pre-wrap; margin: 0; font-size: 14px; }
 </style>
 
@@ -119,12 +123,17 @@ button:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
       <li><strong>Анна</strong>: «Задачи» → «Мои задачи» → «Собрать таблицу цен конкурентов» на проверке → чек-лист → «Принять и оплатить».</li>
       <li><strong>Мария</strong>: откликнуться на «Логотип для студенческого клуба» со своей ценой; затем Анна выбирает её в «Откликах» — разница уходит в Сейф.</li>
       <li><strong>Новый аккаунт</strong>: «Начать бесплатно». Код подтверждения появится вверху экрана вместо письма.</li>
-      <li><strong>«+»</strong>: создать задачу, нажать «Оформить с ИИ» и посмотреть итог с комиссией 10%.</li>
+      <li><strong>«+»</strong>: создать задачу, нажать «Оформить с ИИ» и посмотреть итог с комиссией (5% → 2,5% по шкале).</li>
+      <li><strong>Баланс → «Пополнить»</strong>: тестовая оплата картой, деньги приходят на счёт. В «Профиль → Подписка» — Pro.</li>
+      <li><strong>Профиль</strong>: «Рядом», «Аналитика», «Найти людей», поддержка, споры, верификация, бот PARRI (на Pro, например у Ивана).</li>
+      <li><strong>Иван</strong>: взять задачу «Рядом», открыть рабочую комнату и «Отметиться на месте».</li>
     </ol>
     <h2>Что в демо иначе</h2>
     <ul>
       <li>Писем нет — код показывается на экране.</li>
-      <li>«Оформить с ИИ» даёт шаблонный черновик: ключ Claude не подключён.</li>
+      <li>«Оформить с ИИ», перевод и бот работают без ключа Claude: черновик по шаблону, бот отвечает по базе знаний, перевод недоступен.</li>
+      <li>Оплата — тестовая страница Stripe поверх приложения, деньги не списываются. USDT в демо выключен.</li>
+      <li>Админ-панель есть только на сайте, в демо — мобильное приложение.</li>
       <li>Геолокацию просмотрщик не выдаёт, поэтому «Рядом» честно просит доступ.</li>
       <li>Чат обновляется раз в несколько секунд, без Realtime.</li>
     </ul>
@@ -144,6 +153,7 @@ button:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
   </div>
 </div>
 <div id="otp" hidden role="status" aria-live="polite"><span id="otp-text"></span><b id="otp-code" class="mono"></b><button class="chip" id="otp-copy" type="button">Копировать</button></div>
+<div id="checkout" hidden><iframe id="checkout-frame" title="Тестовая оплата"></iframe><button class="chip" id="checkout-close" type="button">Закрыть</button></div>
 <div id="preview" hidden><div class="box" id="preview-box"></div></div>
 
 <script>/*ENGINE*/</script>
@@ -165,7 +175,10 @@ button:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
     return new Response(new Blob([u]).stream().pipeThrough(new DecompressionStream('gzip'))).arrayBuffer();
   }
   var store = { get: function (k) { try { return localStorage.getItem(k); } catch (e) { return null; } }, set: function (k, v) { try { localStorage.setItem(k, v); } catch (e) {} } };
-  var dbKey = store.get('parri-demo-db') || 'parri-demo-1';
+  // Версия схемы: новые миграции → новая база (старая из IndexedDB не подходит к новому интерфейсу)
+  var SCHEMA = 'parri-demo-/*SCHEMA*/';
+  var saved = store.get('parri-demo-db');
+  var dbKey = saved && saved.indexOf(SCHEMA + '-') === 0 ? saved : SCHEMA + '-1';
 
   var ready = (async function () {
     status('Загружаем Postgres…');
@@ -214,11 +227,53 @@ button:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
   // Сброс: новая пустая база и выход из аккаунта
   $('reset').addEventListener('click', async function () {
     var old = dbKey;
-    store.set('parri-demo-db', 'parri-demo-' + Date.now());
+    store.set('parri-demo-db', SCHEMA + '-' + Date.now());
     try { Object.keys(localStorage).forEach(function (k) { if (k.indexOf('sb-') === 0) localStorage.removeItem(k); }); } catch (e) {}
     try { var list = await indexedDB.databases(); list.forEach(function (d) { if (d.name && d.name.indexOf(old) !== -1) indexedDB.deleteDatabase(d.name); }); } catch (e) {}
     location.replace(ORIGINAL);
   });
+
+  // Тестовые страницы Stripe (оплата, подписка, выплаты) — поверх приложения, без перезагрузки вкладки
+  var checkoutDone = null;
+  function finishCheckout(back) { $('checkout').hidden = true; var f = checkoutDone; checkoutDone = null; if (f) f(back); }
+  $('checkout-close').addEventListener('click', function () { finishCheckout(null); });
+  async function showCheckout(url, method, body) {
+    var res = await window.__parriFetch(url, method === 'POST' ? { method: 'POST', headers: { 'content-type': 'application/x-www-form-urlencoded' }, body: body } : undefined);
+    var page = await res.json();
+    if (page.redirect) {
+      var next = new URL(page.redirect, url).href;
+      if (next.indexOf('https://parri.demo/dev/') === 0) return showCheckout(next, 'GET');
+      return finishCheckout(next);
+    }
+    var frame = $('checkout-frame');
+    frame.onload = function () {
+      var doc = frame.contentDocument;
+      if (!doc) return;
+      doc.querySelectorAll('form').forEach(function (form) {
+        form.addEventListener('submit', function (e) {
+          e.preventDefault();
+          var data = new URLSearchParams(new FormData(form, e.submitter || undefined));
+          var action = new URL(form.getAttribute('action') || '', url).href;
+          showCheckout(action, (form.getAttribute('method') || 'get').toUpperCase() === 'POST' ? 'POST' : 'GET', data.toString()).catch(function () { finishCheckout(null); });
+        });
+      });
+      doc.querySelectorAll('a[href]').forEach(function (a) {
+        a.addEventListener('click', function (e) {
+          e.preventDefault();
+          var href = new URL(a.getAttribute('href'), url).href;
+          if (href.indexOf('https://parri.demo/dev/') === 0) showCheckout(href, 'GET'); else finishCheckout(href);
+        });
+      });
+    };
+    frame.srcdoc = page.html || '<p>Страница недоступна</p>';
+    $('checkout').hidden = false;
+  }
+  window.__parriDemoCheckout = function (url) {
+    return new Promise(function (resolve) {
+      checkoutDone = resolve;
+      showCheckout(url, 'GET').catch(function () { finishCheckout(null); });
+    });
+  };
 
   // Файлы задач открываются предпросмотром внутри страницы
   var nativeOpen = window.open.bind(window);

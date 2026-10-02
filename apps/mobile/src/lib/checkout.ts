@@ -1,5 +1,6 @@
 import * as WebBrowser from 'expo-web-browser';
 import { Platform } from 'react-native';
+import { DEMO } from './supabase';
 
 /** Адрес сайта для возврата из Stripe (на телефоне страница закрывается сама или пользователем) */
 export function returnUrl(path: string): string {
@@ -12,6 +13,13 @@ export function returnUrl(path: string): string {
  * (Stripe вернёт обратно), на телефоне — встроенный браузер; после закрытия статус проверяется опросом.
  */
 export async function openProviderPage(url: string): Promise<'returned' | 'navigated'> {
+  // Демо одной страницей: тестовая страница Stripe открывается поверх приложения, без перезагрузки
+  const demoCheckout = (globalThis as { __parriDemoCheckout?: (u: string) => Promise<string | null> }).__parriDemoCheckout;
+  if (DEMO && demoCheckout) {
+    // Как во встроенном браузере на телефоне: после закрытия экран сам проверяет статус
+    await demoCheckout(url);
+    return 'returned';
+  }
   if (Platform.OS === 'web') {
     location.assign(url);
     return 'navigated';
