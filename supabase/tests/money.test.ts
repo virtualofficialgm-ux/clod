@@ -209,6 +209,19 @@ describe('Сейф: своя цена исполнителя', () => {
     await assertLedgerInvariants(db);
   });
 
+  it('после смены цены приёмка выплачивает новую награду и новую комиссию', async () => {
+    const c = await createUser(db, { balance: 10_000 });
+    const e = await createUser(db);
+    const task = await publish(db, c.id, { reward: 1200, checklist: [] });
+    await db.as(c.id, `select public.choose_response($1)`, [await respond(db, e.id, task, 1500)]);
+    await db.as(e.id, `select public.submit_work($1, 'https://example.com/r')`, [task]);
+    const sub = (await db.sys<{ id: string }>(`select id from public.submissions where task_id = $1`, [task])).rows[0]!.id;
+    await db.as(c.id, `select public.review_submission($1, 'accept', '{}')`, [sub]);
+    expect(await wallet(db, c.id)).toEqual({ available: 10_000 - 1650, safe: 0 });
+    expect(await wallet(db, e.id)).toEqual({ available: 1500, safe: 0 });
+    await assertLedgerInvariants(db);
+  });
+
   it('если на доплату не хватает денег, выбор не происходит', async () => {
     const c = await createUser(db, { balance: 2750 });
     const e = await createUser(db);
@@ -256,9 +269,11 @@ describe('Защита денег от клиента', () => {
   it('журнал неизменяем, а несбалансированная транзакция отклоняется', async () => {
     const u = await createUser(db, { balance: 1000 });
     await db.fails(db.sys(`update public.ledger_entries set amount_cents = 1 where user_id = $1`, [u.id]), 'ledger_is_append_only');
-    await db.sys(`insert into public.ledger_entries (tx_id, kind, account, user_id, amount_cents)
-                  values (gen_random_uuid(), 'adjustment', 'available', $1, 5)`, [u.id]);
-    await db.fails(db.sys('set constraints all immediate'), 'ledger_unbalanced');
+    await db.fails(
+      db.sys(`insert into public.ledger_entries (tx_id, kind, account, user_id, amount_cents)
+              values (gen_random_uuid(), 'adjustment', 'available', $1, 5)`, [u.id]),
+      'ledger_unbalanced',
+    );
   });
 
   it('пользователь видит только свой кошелёк и свои проводки', async () => {

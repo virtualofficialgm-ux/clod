@@ -55,6 +55,10 @@ export function useDb(): Db {
           await run('set local role anon');
         }
         const res = await run(sql, params);
+        // Как в PostgREST: отложенные проверки (баланс проводок) выполняются при коммите
+        // ещё под ролью пользователя — форсируем их здесь, пока роль не сброшена
+        await run('set constraints all immediate');
+        await run('set constraints all deferred');
         await run('reset role');
         await run('release savepoint as_user');
         return res as never;
@@ -68,6 +72,8 @@ export function useDb(): Db {
       await run('savepoint sys');
       try {
         const res = await run(sql, params);
+        await run('set constraints all immediate');
+        await run('set constraints all deferred');
         await run('release savepoint sys');
         return res as never;
       } catch (e) {

@@ -2,7 +2,8 @@ import '@fontsource-variable/manrope';
 import './globals.css';
 import type { Metadata, Viewport } from 'next';
 import { t } from '@parri/shared';
-import { PrefsProvider, prefsBootScript } from '@/lib/prefs';
+import { prefsBootScript } from '@/lib/prefs';
+import { Providers } from './providers';
 
 export const metadata: Metadata = {
   title: { default: t('app.name'), template: `%s · ${t('app.name')}` },
@@ -26,7 +27,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <script dangerouslySetInnerHTML={{ __html: prefsBootScript }} />
       </head>
       <body>
-        <PrefsProvider>{children}</PrefsProvider>
+        <Providers>{children}</Providers>
       </body>
     </html>
   );

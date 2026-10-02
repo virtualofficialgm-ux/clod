@@ -1,6 +1,7 @@
 'use client';
 
 import { motion } from 'framer-motion';
+import Link from 'next/link';
 import { Clock, GraduationCap, Globe, MapPin } from 'lucide-react';
 import {
   formatDistance,
@@ -23,8 +24,16 @@ export interface TaskCardData {
   campusName?: string;
 }
 
+interface TaskCardProps {
+  task: TaskCardData;
+  onClick?: () => void;
+  href?: string;
+  /** Дополнительная строка внизу (отклики, статус) */
+  footer?: React.ReactNode;
+}
+
 /** Карточка задачи: почти непрозрачная, крупная цена, формат и срок. */
-export function TaskCard({ task, onClick }: { task: TaskCardData; onClick?: () => void }) {
+export function TaskCard({ task, onClick, href, footer }: TaskCardProps) {
   const KindIcon = task.kind === 'online' ? Globe : task.kind === 'nearby' ? MapPin : GraduationCap;
   const kindLabel =
     task.kind === 'nearby' && task.distanceM != null
@@ -33,13 +42,14 @@ export function TaskCard({ task, onClick }: { task: TaskCardData; onClick?: () =
         ? task.campusName
         : t(`kind.${task.kind}`);
 
-  return (
+  const interactive = !!(onClick || href);
+  const body = (
     <motion.article
-      whileTap={onClick ? { scale: 0.98 } : undefined}
-      whileHover={onClick ? { y: -2 } : undefined}
+      whileTap={interactive ? { scale: 0.98 } : undefined}
+      whileHover={interactive ? { y: -2 } : undefined}
       transition={springs.press}
       onClick={onClick}
-      className="card flex flex-col gap-3 p-5 shadow-[0_2px_12px_rgba(0,0,0,0.04)]"
+      className="card flex h-full flex-col gap-3 p-5 shadow-[0_2px_12px_rgba(0,0,0,0.04)]"
     >
       <div className="flex items-start justify-between gap-3">
         <span className="tabular text-price font-extrabold text-accent-text">
@@ -60,6 +70,14 @@ export function TaskCard({ task, onClick }: { task: TaskCardData; onClick?: () =
           {t(`deadline.${task.deadline}`)}
         </span>
       </div>
+      {footer}
     </motion.article>
+  );
+  return href ? (
+    <Link href={href} aria-label={`${task.title}, ${formatMoney(task.rewardCents)}`} className="block rounded-lg">
+      {body}
+    </Link>
+  ) : (
+    body
   );
 }

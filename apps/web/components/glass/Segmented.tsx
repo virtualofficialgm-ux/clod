@@ -17,7 +17,7 @@ interface SegmentedProps<T extends string> {
 export function Segmented<T extends string>({ value, onChange, options, label }: SegmentedProps<T>) {
   const id = useId();
   return (
-    <Glass radius="pill" role="tablist" aria-label={label} className="inline-flex gap-1 p-1">
+    <Glass radius="pill" role="tablist" aria-label={label} className="inline-flex max-w-full gap-1 self-start overflow-x-auto p-1">
       {options.map((o) => {
         const active = o.value === value;
         return (

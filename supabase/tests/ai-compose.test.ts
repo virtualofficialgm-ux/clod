@@ -19,7 +19,7 @@ describe('ai-compose', () => {
     });
     const out = await composeTask(client, input);
     expect(out).toEqual({ description: 'Описание', category: 'presentations', result_format: 'pptx', checklist: ['6 слайдов'] });
-    const body = create.mock.calls[0]![0] as Record<string, any>;
+    const body = (create.mock.calls[0] as unknown[])[0] as Record<string, any>;
     expect(body.model).toBe(MODEL);
     expect(body.fallbacks).toBe('default');
     expect(body.betas).toEqual(['server-side-fallback-2026-07-01']);

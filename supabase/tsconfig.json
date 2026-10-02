@@ -1,5 +1,9 @@
 {
   "extends": "../tsconfig.base.json",
-  "compilerOptions": { "types": ["node"] },
+  "compilerOptions": {
+    "types": ["node"],
+    // В тестах строки результатов SQL читаются напрямую (rows[0].x)
+    "noUncheckedIndexedAccess": false
+  },
   "include": ["tests", "functions/ai-compose/handler.ts"]
 }

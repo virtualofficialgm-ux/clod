@@ -22,10 +22,15 @@ export function assertCents(value: number, name = 'amount'): void {
   }
 }
 
-/** Комиссия с округлением до цента по правилу «половина вверх» */
-export function calcFee(rewardCents: number, plan: PlanId = 'free'): number {
+/** Комиссия по ставке в базисных пунктах, округление до цента «половина вверх» */
+export function calcFeeBps(rewardCents: number, feeBps: number): number {
   assertCents(rewardCents, 'reward');
-  return Math.floor((rewardCents * FEE_BPS[plan] + 5000) / 10000);
+  return Math.floor((rewardCents * feeBps + 5000) / 10000);
+}
+
+/** Комиссия по тарифу заказчика */
+export function calcFee(rewardCents: number, plan: PlanId = 'free'): number {
+  return calcFeeBps(rewardCents, FEE_BPS[plan]);
 }
 
 export interface PriceBreakdown {

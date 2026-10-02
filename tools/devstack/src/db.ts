@@ -1,5 +1,9 @@
 import pg from 'pg';
 
+// Как PostgREST: bigint и numeric отдаются клиенту числами JSON (центы < 2^53)
+pg.types.setTypeParser(20, (v) => Number(v));
+pg.types.setTypeParser(1700, (v) => Number(v));
+
 export const pool = new pg.Pool({
   connectionString: process.env.DATABASE_URL ?? 'postgresql://postgres:postgres@127.0.0.1:54322/postgres',
   max: 10,
