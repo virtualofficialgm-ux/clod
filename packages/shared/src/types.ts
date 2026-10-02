@@ -48,6 +48,12 @@ export interface Profile {
   hidden_fields: string[];
   notify_skill_tasks: boolean;
   onboarded_at: string | null;
+  privacy: Record<string, unknown>;
+  verified_at: string | null;
+  last_seen_at: string | null;
+  deactivated_at: string | null;
+  deleted_at: string | null;
+  banned_at?: string | null;
 }
 
 export interface WorkLanguage {

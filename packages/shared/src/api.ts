@@ -189,6 +189,12 @@ export const profile = {
       }),
     );
   },
+  /** Навыки с уровнями в порядке профиля */
+  mySkills(sb: Client, profileId: string) {
+    return unwrap<{ skill_slug: string; level: string | null; sort: number }[]>(
+      sb.from('profile_skills').select('skill_slug,level,sort').eq('profile_id', profileId).order('sort'),
+    );
+  },
   usernameAvailable(sb: Client, username: string) {
     return unwrap<boolean>(sb.rpc('username_available', { p_username: username }));
   },

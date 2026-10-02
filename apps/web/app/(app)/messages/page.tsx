@@ -1,7 +1,7 @@
 'use client';
 
 import { displayStatus, formatAgo, formatMoney, t, type TranslationKey } from '@parri/shared';
-import { useChats, useMe } from '@parri/shared/react';
+import { useChats, useDirectThreads, useMe } from '@parri/shared/react';
 import clsx from 'clsx';
 import { MessageCircle, Search } from 'lucide-react';
 import Link from 'next/link';
@@ -17,13 +17,26 @@ export default function MessagesPage() {
   const chats = useChats();
   const [query, setQuery] = useState('');
   const [filter, setFilter] = useState<'all' | 'unread'>('all');
+  const [kind, setKind] = useState<'tasks' | 'direct'>('tasks');
+  const threads = useDirectThreads();
+  const directUnread = (threads.data ?? []).reduce((a, x) => a + x.unread, 0);
+  const taskUnread = (chats.data ?? []).reduce((a, x) => a + x.unread, 0);
+  const directList = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    return (threads.data ?? [])
+      .filter((c) => filter === 'all' || c.unread > 0)
+      .filter((c) => !q || `${c.peer_name} ${c.last_body}`.toLowerCase().includes(q));
+  }, [threads.data, query, filter]);
   const myId = me.data?.profile.id;
 
   const list = useMemo(() => {
     const q = query.trim().toLowerCase();
     return (chats.data ?? [])
       .filter((c) => filter === 'all' || c.unread > 0)
-      .filter((c) => !q || `${c.title} ${c.counterpart_name} ${c.last_body ?? ''}`.toLowerCase().includes(q));
+      .filter(
+        (c) =>
+          !q || `${c.title} ${c.counterpart_name} ${c.last_body ?? ''}`.toLowerCase().includes(q),
+      );
   }, [chats.data, query, filter]);
 
   return (
@@ -34,6 +47,21 @@ export default function MessagesPage() {
           {t('messages.title')}
           <span className="text-accent">.</span>
         </PageTitle>
+        <Segmented
+          label={t('messages.title')}
+          value={kind}
+          onChange={setKind}
+          options={[
+            {
+              value: 'tasks',
+              label: `${t('direct.tabsTasks')}${taskUnread ? ` · ${taskUnread}` : ''}`,
+            },
+            {
+              value: 'direct',
+              label: `${t('direct.tabsDirect')}${directUnread ? ` · ${directUnread}` : ''}`,
+            },
+          ]}
+        />
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
           <Glass radius="pill" className="flex h-12 min-w-0 flex-1 items-center gap-2 px-4">
             <Search size={18} strokeWidth={2.4} className="shrink-0 text-text-2" aria-hidden />
@@ -57,7 +85,57 @@ export default function MessagesPage() {
           />
         </div>
 
-        {chats.isLoading ? (
+        {kind === 'direct' ? (
+          threads.isLoading ? (
+            <CenterSpinner />
+          ) : directList.length === 0 ? (
+            <EmptyState
+              icon={<MessageCircle size={36} />}
+              title={t('direct.empty')}
+              text={t('direct.emptyText')}
+              action={<LinkButton href="/people">{t('people.title')}</LinkButton>}
+            />
+          ) : (
+            <ul
+              className="card divide-y divide-separator overflow-hidden p-0"
+              data-testid="direct-threads"
+            >
+              {directList.map((c) => (
+                <li key={c.peer_id}>
+                  <Link
+                    href={`/messages/u/${c.peer_id}`}
+                    className="flex items-center gap-3 px-4 py-4 transition-colors hover:bg-fill/60"
+                  >
+                    <Avatar name={c.peer_name} url={c.peer_avatar} size={52} />
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-baseline justify-between gap-2">
+                        <p className="truncate text-body font-bold">{c.peer_name}</p>
+                        <span className="shrink-0 text-caption text-text-2">
+                          {formatAgo(c.last_at)}
+                        </span>
+                      </div>
+                      <div className="flex items-center justify-between gap-2">
+                        <p
+                          className={clsx(
+                            'truncate text-callout',
+                            c.unread ? 'font-semibold text-text' : 'text-text-2',
+                          )}
+                        >
+                          {(c.last_sender === myId ? t('messages.you') : '') + c.last_body}
+                        </p>
+                        {c.unread > 0 && (
+                          <span className="flex h-6 min-w-6 shrink-0 items-center justify-center rounded-pill bg-accent px-2 text-caption text-on-accent">
+                            {c.unread}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          )
+        ) : chats.isLoading ? (
           <CenterSpinner />
         ) : list.length === 0 ? (
           <EmptyState
@@ -84,18 +162,32 @@ export default function MessagesPage() {
                     : t('messages.noMessages');
               return (
                 <li key={c.task_id}>
-                  <Link href={`/tasks/${c.task_id}/room`} className="flex items-center gap-3 px-4 py-4 transition-colors hover:bg-fill/60">
+                  <Link
+                    href={`/tasks/${c.task_id}/room`}
+                    className="flex items-center gap-3 px-4 py-4 transition-colors hover:bg-fill/60"
+                  >
                     <Avatar name={c.counterpart_name} url={c.counterpart_avatar} size={52} />
                     <div className="min-w-0 flex-1">
                       <div className="flex items-baseline justify-between gap-2">
                         <p className="truncate text-body font-bold">{c.counterpart_name}</p>
-                        {c.last_at && <span className="shrink-0 text-caption text-text-2">{formatAgo(c.last_at)}</span>}
+                        {c.last_at && (
+                          <span className="shrink-0 text-caption text-text-2">
+                            {formatAgo(c.last_at)}
+                          </span>
+                        )}
                       </div>
                       <p className="truncate text-callout font-semibold text-text-2">
                         {c.title} · {formatMoney(c.reward_cents)}
                       </p>
                       <div className="flex items-center justify-between gap-2">
-                        <p className={clsx('truncate text-callout', c.unread ? 'font-semibold text-text' : 'text-text-2')}>{preview}</p>
+                        <p
+                          className={clsx(
+                            'truncate text-callout',
+                            c.unread ? 'font-semibold text-text' : 'text-text-2',
+                          )}
+                        >
+                          {preview}
+                        </p>
                         {c.unread > 0 ? (
                           <span className="flex h-6 min-w-6 shrink-0 items-center justify-center rounded-pill bg-accent px-2 text-caption text-on-accent">
                             {c.unread}

@@ -6,7 +6,7 @@ import {
   useQueryClient,
   type QueryKey,
 } from '@tanstack/react-query';
-import { createContext, useContext, useEffect, useState } from 'react';
+import { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
 import {
   auth,
   taskExtras,
@@ -21,6 +21,7 @@ import {
   type Client,
 } from './api';
 import { chats } from './chats';
+import { direct, notifications, people, presence, type ConnectionKind, type PeopleQuery } from './social';
 import { money } from './moneyApi';
 import type { FeedParams, Message } from './types';
 
@@ -62,6 +63,16 @@ export const keys = {
   questions: (id: string) => ['questions', id] as const,
   drafts: ['task-drafts'] as const,
   reviews: (id: string) => ['reviews', id] as const,
+  profile: (h: string) => ['profile', h] as const,
+  people: (q: unknown) => ['people', q] as const,
+  connections: (k: string) => ['connections', k] as const,
+  invitations: ['invitations'] as const,
+  notifications: ['notifications'] as const,
+  unreadNotifications: ['notifications', 'unread'] as const,
+  directThreads: ['direct-threads'] as const,
+  direct: (id: string) => ['direct', id] as const,
+  blocked: ['blocked'] as const,
+  peer: (w: unknown) => ['peer', w] as const,
 };
 
 /** Текущая сессия; loading=true до первой проверки */
@@ -263,4 +274,73 @@ export function useTaskDrafts(enabled = true) {
 export function useReviewsFor(userId: string | undefined) {
   const sb = useSupabase();
   return useQuery({ queryKey: keys.reviews(userId ?? ''), queryFn: () => taskExtras.reviewsFor(sb, userId!), enabled: !!userId });
+}
+
+// ---------- Люди, уведомления, личные сообщения ----------
+export function usePublicProfile(handle: string | undefined) {
+  const sb = useSupabase();
+  return useQuery({ queryKey: keys.profile(handle ?? ''), queryFn: () => people.profile(sb, handle!), enabled: !!handle });
+}
+export function useReviewsOf(userId: string | undefined) {
+  const sb = useSupabase();
+  return useQuery({ queryKey: ['reviews-of', userId], queryFn: () => people.reviews(sb, userId!), enabled: !!userId });
+}
+export function usePeople(q: PeopleQuery) {
+  const sb = useSupabase();
+  return useInfiniteQuery({
+    queryKey: keys.people(q),
+    queryFn: ({ pageParam }) => people.search(sb, q, pageParam),
+    initialPageParam: 0,
+    getNextPageParam: (last, all) => (last.length === 30 ? all.length : undefined),
+  });
+}
+export function useConnections(kind: ConnectionKind) {
+  const sb = useSupabase();
+  return useQuery({ queryKey: keys.connections(kind), queryFn: () => people.connections(sb, kind) });
+}
+export function useInvitations() {
+  const sb = useSupabase();
+  return useQuery({ queryKey: keys.invitations, queryFn: () => people.invitations(sb) });
+}
+export function useBlocked() {
+  const sb = useSupabase();
+  return useQuery({ queryKey: keys.blocked, queryFn: () => people.blocked(sb) });
+}
+export function useNotifications(enabled = true) {
+  const sb = useSupabase();
+  return useQuery({ queryKey: keys.notifications, queryFn: () => notifications.list(sb), enabled, refetchInterval: 30_000 });
+}
+/** Число новых уведомлений — для колокольчика */
+export function useUnreadNotifications(enabled = true) {
+  const sb = useSupabase();
+  return useQuery({ queryKey: keys.unreadNotifications, queryFn: () => notifications.unread(sb), enabled, refetchInterval: 20_000 }).data ?? 0;
+}
+export function useDirectThreads(enabled = true) {
+  const sb = useSupabase();
+  return useQuery({ queryKey: keys.directThreads, queryFn: () => direct.threads(sb), enabled, refetchInterval: 15_000 });
+}
+export function useDirect(userId: string | undefined) {
+  const sb = useSupabase();
+  return useQuery({ queryKey: keys.direct(userId ?? ''), queryFn: () => direct.with(sb, userId!), enabled: !!userId, refetchInterval: 4_000 });
+}
+/** Состояние собеседника (прочитано, печатает, в сети) — опрос каждые 3 секунды */
+export function usePeerState(where: { taskId?: string; peerId?: string }, enabled = true) {
+  const sb = useSupabase();
+  return useQuery({
+    queryKey: keys.peer(where),
+    queryFn: () => presence.peer(sb, where),
+    enabled: enabled && !!(where.taskId || where.peerId),
+    refetchInterval: 3_000,
+  }).data;
+}
+/** Отправлять «печатает» не чаще раза в 3 секунды */
+export function useTypingPing(where: { taskId?: string; peerId?: string }) {
+  const sb = useSupabase();
+  const last = useRef(0);
+  return useCallback(() => {
+    const now = Date.now();
+    if (now - last.current < 3_000) return;
+    last.current = now;
+    void presence.typing(sb, where).catch(() => undefined);
+  }, [sb, where.taskId, where.peerId]);
 }

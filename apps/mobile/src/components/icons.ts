@@ -101,3 +101,7 @@ export { default as Play } from 'lucide-react-native/icons/play';
 export { default as CheckCheck } from 'lucide-react-native/icons/check-check';
 export { default as Repeat } from 'lucide-react-native/icons/repeat';
 export { default as Video } from 'lucide-react-native/icons/video';
+export { default as Ellipsis } from 'lucide-react-native/icons/ellipsis';
+export { default as ArrowDown } from 'lucide-react-native/icons/arrow-down';
+export { default as KeyRound } from 'lucide-react-native/icons/key-round';
+export { default as MonitorSmartphone } from 'lucide-react-native/icons/monitor-smartphone';

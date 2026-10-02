@@ -14,6 +14,8 @@ import {
 import { useFeed, useLedger, useMe, useMyTasks } from '@parri/shared/react';
 import { ArrowDownLeft, ArrowUpRight, CheckCircle2, Briefcase, Plus, Search, Sparkles, TrendingUp, Wallet } from 'lucide-react';
 import Link from 'next/link';
+import { NotificationBell } from '@/components/social/NotificationBell';
+import { Avatar } from '@/components/ui/bits';
 import { useMemo, useState } from 'react';
 import { Segmented } from '@/components/glass/Segmented';
 import { TaskCard } from '@/components/task/TaskCard';
@@ -50,6 +52,12 @@ export default function DashboardPage() {
             {t('dashboard.hello', { name: firstName })}
             <span className="text-accent">.</span>
           </h1>
+        </div>
+        <div className="flex gap-2">
+          <NotificationBell />
+          <Link href="/account" aria-label={t('nav.profile')} className="md:hidden">
+            <Avatar name={firstName} url={me.data?.profile.avatar_url} size={48} />
+          </Link>
         </div>
       </header>
 

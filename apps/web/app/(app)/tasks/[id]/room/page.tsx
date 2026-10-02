@@ -21,11 +21,13 @@ import {
   keys,
   useApiMutation,
   useMe,
+  usePeerState,
   useRoomMessages,
   useSupabase,
   useTaskDetail,
+  useTypingPing,
 } from '@parri/shared/react';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useQueryClient } from '@tanstack/react-query';
 import clsx from 'clsx';
 import {
   ArrowUp,
@@ -40,7 +42,7 @@ import {
 } from 'lucide-react';
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { BottomSheet } from '@/components/glass/BottomSheet';
 import { Button } from '@/components/glass/Button';
 import { Chip } from '@/components/glass/Chip';
@@ -395,17 +397,10 @@ export default function RoomPage() {
   const [text, setText] = useState('');
   const [pending, setPending] = useState<File[]>([]);
   const [sheet, setSheet] = useState<null | 'submit' | 'review' | 'extension' | 'tip'>(null);
-  const counterpart = detail.data
-    ? detail.data.viewer_role === 'customer'
-      ? detail.data.task.executor_id
-      : detail.data.task.customer_id
-    : null;
-  const readAt = useQuery({
-    queryKey: ['chat-read', id, counterpart],
-    queryFn: () => chats.counterpartReadAt(sb, id, counterpart!),
-    enabled: !!counterpart && participant,
-    refetchInterval: 5000,
-  }).data;
+  const where = useMemo(() => ({ taskId: id }), [id]);
+  const peer = usePeerState(where, participant);
+  const readAt = peer?.read_at;
+  const ping = useTypingPing(where);
   const endRef = useRef<HTMLDivElement>(null);
 
   const send = useApiMutation(
@@ -478,6 +473,11 @@ export default function RoomPage() {
             <div className="min-w-0 basis-full sm:basis-0 sm:flex-1">
               <p className="text-caption uppercase tracking-wide text-text-2">{t('room.title')}</p>
               <h1 className="truncate text-title3 font-bold">{task.title}</h1>
+              {peer?.typing && (
+                <p className="text-callout font-semibold text-success" data-testid="typing">
+                  {(d.viewer_role === 'customer' ? d.executor?.first_name : d.customer.first_name) ?? ''} {t('direct.typing')}
+                </p>
+              )}
               {task.due_at && active && (
                 <p className="text-callout font-semibold text-text-2">
                   {t('room.deadline')}: {formatDateTime(task.due_at)} ·{' '}
@@ -582,7 +582,10 @@ export default function RoomPage() {
                   rows={1}
                   value={text}
                   maxLength={4000}
-                  onChange={(e) => setText(e.target.value)}
+                  onChange={(e) => {
+                    setText(e.target.value);
+                    ping();
+                  }}
                   onKeyDown={(e) => {
                     if (e.key === 'Enter' && !e.shiftKey) submit(e);
                   }}

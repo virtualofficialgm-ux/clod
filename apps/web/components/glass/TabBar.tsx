@@ -7,6 +7,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { t } from '@parri/shared';
 import { PRESS_SCALE, springs } from '@/lib/springs';
+import { useBadges } from '@/components/social/badges';
 import { Glass } from './Glass';
 import { TAB_ITEMS, isActive } from './nav';
 
@@ -16,13 +17,14 @@ import { TAB_ITEMS, isActive } from './nav';
  */
 export function TabBar() {
   const pathname = usePathname();
+  const badges = useBadges();
   return (
     <nav
       aria-label={t('nav.main')}
       className="fixed inset-x-0 bottom-0 z-40 flex items-center justify-center gap-3 px-[var(--p-gutter)] pb-[max(12px,env(safe-area-inset-bottom))] md:hidden"
     >
       <Glass radius="pill" className="flex h-16 min-w-0 flex-1 max-w-[340px] items-center justify-around px-1.5">
-        {TAB_ITEMS.map(({ href, label, icon: Icon }) => {
+        {TAB_ITEMS.map(({ href, label, icon: Icon, badge }) => {
           const active = isActive(pathname, href);
           return (
             <motion.div key={href} whileTap={{ scale: PRESS_SCALE }} transition={springs.press} className="relative flex-1">
@@ -37,7 +39,10 @@ export function TabBar() {
                   active ? 'text-text' : 'text-text-2',
                 )}
               >
-                <Icon size={22} strokeWidth={active ? 2.6 : 2.2} />
+                <span className="relative">
+                  <Icon size={22} strokeWidth={active ? 2.6 : 2.2} />
+                  {badge && badges[badge] > 0 && <span className="absolute -right-1.5 -top-1 size-2.5 rounded-full bg-accent" aria-label={String(badges[badge])} />}
+                </span>
                 <span className="max-w-full truncate px-1">{t(label)}</span>
               </Link>
             </motion.div>

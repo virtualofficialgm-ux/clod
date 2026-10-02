@@ -29,6 +29,7 @@ import {
 } from '@/components/icons';
 import { TaskCard } from '@/components/task/TaskCard';
 import { Screen } from '@/components/ui/Screen';
+import { NotificationBell } from '@/components/social/NotificationBell';
 import { Avatar, StatusBadge } from '@/components/ui/bits';
 import {
   BigNumber,
@@ -74,9 +75,12 @@ export default function Home() {
       tabBar
       onRefresh={() => Promise.all([me.refetch(), asExecutor.refetch(), asCustomer.refetch(), ledger.refetch(), feed.refetch()])}
       actions={
-        <Pressable accessibilityRole="button" accessibilityLabel={t('nav.profile')} onPress={() => router.push('/account')} hitSlop={8}>
-          <Avatar name={shortName(p?.first_name, p?.last_name)} url={p?.avatar_url} size={40} />
-        </Pressable>
+        <View style={{ flexDirection: 'row', gap: 8, alignItems: 'center' }}>
+          <NotificationBell />
+          <Pressable accessibilityRole="button" accessibilityLabel={t('nav.profile')} onPress={() => router.push('/account')} hitSlop={8}>
+            <Avatar name={shortName(p?.first_name, p?.last_name)} url={p?.avatar_url} size={40} />
+          </Pressable>
+        </View>
       }
     >
       <View style={{ gap: 4 }}>

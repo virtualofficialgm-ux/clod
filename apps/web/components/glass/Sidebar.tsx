@@ -6,6 +6,7 @@ import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { shortName, t } from '@parri/shared';
 import { useMe, useSignOut } from '@parri/shared/react';
+import { useBadges } from '@/components/social/badges';
 import { Avatar } from '@/components/ui/bits';
 import { Glass } from './Glass';
 import { SIDEBAR_ITEMS, isActive } from './nav';
@@ -19,6 +20,7 @@ export function Sidebar({ collapsed, onToggle }: { collapsed: boolean; onToggle:
   const p = me.data?.profile;
   const staff = p?.role === 'admin' || p?.role === 'moderator';
   const name = shortName(p?.first_name, p?.last_name);
+  const badges = useBadges();
 
   return (
     <aside
@@ -55,8 +57,9 @@ export function Sidebar({ collapsed, onToggle }: { collapsed: boolean; onToggle:
           {!collapsed && t('nav.create')}
         </Link>
 
-        {SIDEBAR_ITEMS.filter((i) => !i.staff || staff).map(({ href, label, icon: Icon }) => {
+        {SIDEBAR_ITEMS.filter((i) => !i.staff || staff).map(({ href, label, icon: Icon, badge }) => {
           const active = isActive(pathname, href);
+          const count = badge ? badges[badge] : 0;
           return (
             <Link
               key={href}
@@ -70,8 +73,16 @@ export function Sidebar({ collapsed, onToggle }: { collapsed: boolean; onToggle:
                 active ? 'bg-ink text-on-ink' : 'text-text hover:bg-fill',
               )}
             >
-              <Icon size={20} strokeWidth={2.4} />
-              {!collapsed && t(label)}
+              <span className="relative">
+                <Icon size={20} strokeWidth={2.4} />
+                {count > 0 && collapsed && <span className="absolute -right-1.5 -top-1.5 size-2.5 rounded-full bg-accent" />}
+              </span>
+              {!collapsed && <span className="flex-1">{t(label)}</span>}
+              {!collapsed && count > 0 && (
+                <span data-testid={`badge-${badge}`} className="tabular min-w-6 rounded-pill bg-accent px-1.5 text-center text-caption font-bold leading-6 text-on-accent">
+                  {count > 99 ? '99+' : count}
+                </span>
+              )}
             </Link>
           );
         })}
