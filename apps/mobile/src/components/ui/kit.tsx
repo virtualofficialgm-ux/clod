@@ -455,3 +455,51 @@ const styles = StyleSheet.create({
   quick: { width: 56, height: 56, borderRadius: 28, alignItems: 'center', justifyContent: 'center' },
   pill: { height: 40, paddingHorizontal: 16, borderRadius: 999, flexDirection: 'row', alignItems: 'center', gap: 6 },
 });
+
+// ---------- Столбчатый график ----------
+export function BarChart({ data, format, label }: { data: { label: string; value: number }[]; format: (v: number) => string; label: string }) {
+  const { colors } = useTheme();
+  const max = Math.max(1, ...data.map((d) => d.value));
+  return (
+    <View accessible accessibilityLabel={`${label}: ${data.map((d) => `${d.label} ${format(d.value)}`).join(', ')}`} style={{ gap: 8 }}>
+      <View style={{ height: 130, flexDirection: 'row', alignItems: 'flex-end', gap: 6 }}>
+        {data.map((d, i) => (
+          <View key={d.label} style={{ flex: 1, height: '100%', justifyContent: 'flex-end', alignItems: 'center', gap: 4 }}>
+            {d.value > 0 ? (
+              <AppText variant="caption" color="textSecondary" style={{ fontSize: 10 }} numberOfLines={1}>
+                {format(d.value)}
+              </AppText>
+            ) : null}
+            <View
+              style={{
+                width: '100%',
+                maxWidth: 36,
+                height: `${Math.max(4, (d.value / max) * 100)}%`,
+                borderRadius: 10,
+                backgroundColor: i === data.length - 1 ? colors.accent : d.value > 0 ? colors.ink : colors.fill,
+              }}
+            />
+          </View>
+        ))}
+      </View>
+      <View style={{ flexDirection: 'row', gap: 6 }}>
+        {data.map((d) => (
+          <AppText key={d.label} variant="caption" color="textSecondary" style={{ flex: 1, textAlign: 'center', fontSize: 10 }} numberOfLines={1}>
+            {d.label}
+          </AppText>
+        ))}
+      </View>
+    </View>
+  );
+}
+
+export function SoonBadge() {
+  const { colors } = useTheme();
+  return (
+    <View style={{ alignSelf: 'flex-start', backgroundColor: colors.fillStrong, borderRadius: 99, paddingHorizontal: 10, paddingVertical: 2 }}>
+      <AppText variant="caption" color="textSecondary">
+        {t('common.soon')}
+      </AppText>
+    </View>
+  );
+}

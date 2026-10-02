@@ -164,3 +164,20 @@ test('полный цикл на мобильном: отклик → выбор
   await anna.ctx.close();
   await maria.ctx.close();
 });
+
+test('пополнение баланса через Stripe (тестовые страницы)', async ({ browser }) => {
+  const { ctx, page } = await asUser(browser, 'maria@parri.test');
+  await page.goto('/balance');
+  // Статический экспорт: ждём, пока React оживит страницу
+  await expect(page.getByTestId('ledger-row').first()).toBeVisible();
+  await page.getByRole('button', { name: 'Пополнить' }).first().click();
+  await page.getByTestId('topup-pay').click();
+  await page.waitForURL('**/dev/stripe/checkout/**');
+  await page.getByRole('button', { name: 'Оплатить' }).click();
+  await page.waitForURL('**/balance?payment=success**');
+  await expect(page.getByText('Оплата прошла')).toBeVisible({ timeout: 15_000 });
+  await shot(page, 'topup-success');
+  await page.getByTestId('payment-close').click();
+  await expect(page.getByTestId('ledger-row').first()).toContainText('Пополнение');
+  await ctx.close();
+});

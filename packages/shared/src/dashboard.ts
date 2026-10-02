@@ -29,7 +29,7 @@ export function profileCompleteness(me: Pick<Me, 'profile' | 'skills'> | null | 
 export function earnedThisMonth(ledger: readonly LedgerEntry[], now = new Date()): number {
   const start = new Date(now.getFullYear(), now.getMonth(), 1).getTime();
   return ledger
-    .filter((e) => e.kind === 'task_release' && e.account === 'available' && e.amount_cents > 0)
+    .filter((e) => e.kind === 'task_release' && e.account === 'available' && e.amount_cents > 0 && e.currency !== 'USDT')
     .filter((e) => new Date(e.created_at).getTime() >= start)
     .reduce((s, e) => s + e.amount_cents, 0);
 }
@@ -46,4 +46,25 @@ export function deadlineDays(list: readonly MyTask[]): Map<string, MyTask[]> {
     map.set(key, [...(map.get(key) ?? []), task]);
   }
   return map;
+}
+
+/** Доход по неделям (последние n недель, от старых к новым) — для графика баланса */
+export function weeklyIncome(ledger: readonly LedgerEntry[], weeks = 7, currency: 'USD' | 'USDT' = 'USD', now = new Date()): { start: Date; cents: number }[] {
+  const day = (now.getDay() + 6) % 7; // понедельник = 0
+  const monday = new Date(now.getFullYear(), now.getMonth(), now.getDate() - day);
+  const buckets = Array.from({ length: weeks }, (_, i) => ({
+    start: new Date(monday.getFullYear(), monday.getMonth(), monday.getDate() - 7 * (weeks - 1 - i)),
+    cents: 0,
+  }));
+  for (const e of ledger) {
+    if (e.kind !== 'task_release' || e.account !== 'available' || e.amount_cents <= 0 || (e.currency ?? 'USD') !== currency) continue;
+    const t = new Date(e.created_at).getTime();
+    for (let i = buckets.length - 1; i >= 0; i--) {
+      if (t >= buckets[i]!.start.getTime()) {
+        if (i === buckets.length - 1 || t < buckets[i + 1]!.start.getTime()) buckets[i]!.cents += e.amount_cents;
+        break;
+      }
+    }
+  }
+  return buckets;
 }

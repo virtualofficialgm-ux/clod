@@ -129,6 +129,7 @@ export async function createUser(
 
 export interface PublishOpts {
   reward?: number;
+  currency?: 'USD' | 'USDT';
   kind?: 'online' | 'nearby' | 'campus';
   checklist?: string[];
   id?: string;
@@ -142,7 +143,7 @@ export async function publish(db: Db, customer: string, opts: PublishOpts = {}):
     `select public.publish_task(p_id => $1, p_title => 'Тестовая задача', p_brief => 'Короткая инструкция',
        p_category => 'design', p_result_format => 'pdf', p_deadline => '24h', p_kind => $2,
        p_reward_cents => $3, p_checklist => $4,
-       p_lat => $5, p_lng => $6, p_radius_m => $7)`,
+       p_lat => $5, p_lng => $6, p_radius_m => $7, p_currency => $8)`,
     [
       id,
       kind,
@@ -151,6 +152,7 @@ export async function publish(db: Db, customer: string, opts: PublishOpts = {}):
       kind === 'nearby' ? 55.75 : null,
       kind === 'nearby' ? 37.61 : null,
       kind === 'nearby' ? 250 : null,
+      opts.currency ?? 'USD',
     ],
   );
   return id;
@@ -163,6 +165,30 @@ export async function respond(db: Db, executor: string, task: string, price = 25
     [task, price],
   );
   return res.rows[0]!.id;
+}
+
+/** Все балансы кошелька в центах */
+export async function walletFull(db: Db, uid: string) {
+  const r = await db.sys<Record<string, string>>(
+    `select available_cents, safe_cents, held_cents, usdt_available_cents, usdt_safe_cents, usdt_held_cents
+       from public.wallets where user_id = $1`,
+    [uid],
+  );
+  return Object.fromEntries(Object.entries(r.rows[0]!).map(([k, v]) => [k.replace('_cents', ''), Number(v)]));
+}
+
+/** Пополнение через «вебхук»: платёж создан и подтверждён сервисными функциями */
+export async function creditVia(db: Db, uid: string, cents: number, currency: 'USD' | 'USDT' = 'USD'): Promise<string> {
+  const ref = `ref_${randomUUID()}`;
+  await db.sys(`select public.svc_payment_create($1, 'topup', $2, $3, $4, $5)`, [
+    uid,
+    currency === 'USDT' ? 'nowpayments' : 'stripe',
+    currency,
+    cents,
+    ref,
+  ]);
+  await db.sys(`select public.svc_payment_succeeded($1)`, [ref]);
+  return ref;
 }
 
 export async function wallet(db: Db, uid: string) {
@@ -179,24 +205,26 @@ export async function assertLedgerInvariants(db: Db): Promise<void> {
   // поэтому форсируем её здесь
   await db.sys('set constraints all immediate');
   await db.sys('set constraints all deferred');
+  const sum = (account: string, currency: string, col: string) => `
+    select '${account}-${currency}' as name, count(*)::text as bad from public.wallets w
+      where w.${col} <> coalesce((select sum(amount_cents) from public.ledger_entries l
+        where l.user_id = w.user_id and l.account = '${account}' and l.currency = '${currency}'), 0)`;
   const checks = await db.sys<{ name: string; bad: string }>(`
     select 'total' as name, count(*)::text as bad from (
-      select 1 from public.ledger_entries having coalesce(sum(amount_cents), 0) <> 0) x
-    union all
-    select 'available', count(*)::text from public.wallets w
-      where w.available_cents <> coalesce((select sum(amount_cents) from public.ledger_entries l
-        where l.user_id = w.user_id and l.account = 'available'), 0)
-    union all
-    select 'safe', count(*)::text from public.wallets w
-      where w.safe_cents <> coalesce((select sum(amount_cents) from public.ledger_entries l
-        where l.user_id = w.user_id and l.account = 'escrow'), 0)
+      select currency from public.ledger_entries group by currency having sum(amount_cents) <> 0) x
+    union all ${sum('available', 'USD', 'available_cents')}
+    union all ${sum('escrow', 'USD', 'safe_cents')}
+    union all ${sum('hold', 'USD', 'held_cents')}
+    union all ${sum('available', 'USDT', 'usdt_available_cents')}
+    union all ${sum('escrow', 'USDT', 'usdt_safe_cents')}
+    union all ${sum('hold', 'USDT', 'usdt_held_cents')}
     union all
     select 'escrow', count(*)::text from public.escrow_accounts e
       where e.balance_cents <> coalesce((select sum(amount_cents) from public.ledger_entries l
         where l.task_id = e.task_id and l.account = 'escrow'), 0)
     union all
     select 'tx', count(*)::text from (
-      select tx_id from public.ledger_entries group by tx_id having sum(amount_cents) <> 0) t
+      select tx_id from public.ledger_entries group by tx_id, currency having sum(amount_cents) <> 0) t
   `);
   for (const row of checks.rows) {
     if (row.bad !== '0') throw new Error(`ledger invariant "${row.name}" violated (${row.bad})`);

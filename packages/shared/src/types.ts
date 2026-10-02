@@ -134,6 +134,10 @@ export interface Wallet {
   user_id: string;
   available_cents: number;
   safe_cents: number;
+  held_cents: number;
+  usdt_available_cents: number;
+  usdt_safe_cents: number;
+  usdt_held_cents: number;
 }
 
 export interface University {
@@ -334,7 +338,8 @@ export interface LedgerEntry {
   id: number;
   tx_id: string;
   kind: string;
-  account: 'available' | 'escrow';
+  account: 'available' | 'escrow' | 'hold';
+  currency: 'USD' | 'USDT';
   task_id: string | null;
   amount_cents: number;
   memo: string | null;

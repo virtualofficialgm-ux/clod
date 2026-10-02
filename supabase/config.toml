@@ -60,3 +60,15 @@ policy = "per_worker"
 
 [functions.ai-compose]
 verify_jwt = true
+
+[functions.payments]
+verify_jwt = true
+
+[functions.stripe-webhook]
+verify_jwt = false
+
+[functions.crypto-webhook]
+verify_jwt = false
+
+[functions.fx-rates]
+verify_jwt = false

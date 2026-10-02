@@ -8,6 +8,8 @@ import { Chip } from '@/components/glass/Chip';
 import { Segmented } from '@/components/glass/Segmented';
 import { Screen } from '@/components/ui/Screen';
 import { Avatar, Card, PageTitle, Pill, Row, SectionTitle } from '@/components/ui/bits';
+import { ListGroup, ListRow } from '@/components/ui/kit';
+import { Sparkles, Wallet } from '@/components/icons';
 import { useTheme, type ThemePref } from '@/theme/ThemeProvider';
 
 export default function Account() {
@@ -42,6 +44,10 @@ export default function Account() {
           </Row>
         </View>
       )}
+      <ListGroup>
+        <ListRow icon={(c) => <Wallet size={18} color={c} />} title={t('balance.title')} onPress={() => router.push('/balance')} />
+        <ListRow icon={(c) => <Sparkles size={18} color={c} />} title={t('plans.title')} value={t(`account.${p?.plan ?? 'free'}` as TranslationKey)} onPress={() => router.push('/subscription')} />
+      </ListGroup>
       <View style={{ gap: 10 }}>
         <SectionTitle>{t('account.theme')}</SectionTitle>
         <Segmented<ThemePref>

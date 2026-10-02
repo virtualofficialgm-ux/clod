@@ -3,7 +3,9 @@
   "compilerOptions": {
     "types": ["node"],
     // В тестах строки результатов SQL читаются напрямую (rows[0].x)
-    "noUncheckedIndexedAccess": false
+    "noUncheckedIndexedAccess": false,
+    // Edge Functions (Deno) импортируют модули с расширением .ts
+    "allowImportingTsExtensions": true
   },
-  "include": ["tests", "functions/ai-compose/handler.ts"]
+  "include": ["tests", "functions/ai-compose/handler.ts", "functions/payments/handler.ts", "functions/_shared/stripe.ts"]
 }

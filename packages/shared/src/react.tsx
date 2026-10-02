@@ -20,6 +20,7 @@ import {
   type Client,
 } from './api';
 import { chats } from './chats';
+import { money } from './moneyApi';
 import type { FeedParams, Message } from './types';
 
 /**
@@ -50,6 +51,13 @@ export const keys = {
   saved: ['saved-searches'] as const,
   ledger: ['ledger'] as const,
   chats: ['chats'] as const,
+  rates: ['fx-rates'] as const,
+  payments: ['payments'] as const,
+  payouts: ['payouts'] as const,
+  refunds: ['refunds'] as const,
+  subscription: ['subscription'] as const,
+  connect: ['connect'] as const,
+  addresses: ['crypto-addresses'] as const,
 };
 
 /** Текущая сессия; loading=true до первой проверки */
@@ -202,4 +210,39 @@ export function useChats(enabled = true) {
 export function useUnreadCount(enabled = true) {
   const q = useChats(enabled);
   return q.data?.reduce((s, c) => s + c.unread, 0) ?? 0;
+}
+
+// ---------- Деньги ----------
+export function useRates() {
+  const sb = useSupabase();
+  return useQuery({
+    queryKey: keys.rates,
+    queryFn: () => money.rates(sb),
+    staleTime: 10 * 60_000,
+    select: (rows) => Object.fromEntries(rows.map((r) => [r.currency, r])) as Record<string, (typeof rows)[number]>,
+  });
+}
+export function usePayments() {
+  const sb = useSupabase();
+  return useQuery({ queryKey: keys.payments, queryFn: () => money.payments(sb) });
+}
+export function usePayouts() {
+  const sb = useSupabase();
+  return useQuery({ queryKey: keys.payouts, queryFn: () => money.payouts(sb) });
+}
+export function useRefunds() {
+  const sb = useSupabase();
+  return useQuery({ queryKey: keys.refunds, queryFn: () => money.refunds(sb) });
+}
+export function useSubscription() {
+  const sb = useSupabase();
+  return useQuery({ queryKey: keys.subscription, queryFn: () => money.subscription(sb) });
+}
+export function useConnectAccount() {
+  const sb = useSupabase();
+  return useQuery({ queryKey: keys.connect, queryFn: () => money.connectAccount(sb) });
+}
+export function useCryptoAddresses() {
+  const sb = useSupabase();
+  return useQuery({ queryKey: keys.addresses, queryFn: () => money.cryptoAddresses(sb) });
 }

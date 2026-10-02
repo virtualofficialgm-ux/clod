@@ -65,7 +65,7 @@ export default function NewTaskPage() {
   const [busy, setBusy] = useState(false);
 
   const rewardCents = parseDollars(reward);
-  const price = rewardCents && rewardCents > 0 ? priceBreakdown(rewardCents, me.data?.profile.plan ?? 'free') : null;
+  const price = rewardCents && rewardCents > 0 ? priceBreakdown(rewardCents) : null;
   const available = me.data?.wallet.available_cents ?? 0;
   const shortBy = price ? price.total - available : 0;
   const uniName = me.data?.university?.name;

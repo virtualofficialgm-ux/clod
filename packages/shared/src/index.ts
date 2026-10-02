@@ -8,4 +8,5 @@ export * from './showcase';
 export * from './dashboard';
 export * from './chats';
 export * from './catalog';
+export * from './moneyApi';
 export { t, createT, type TranslationKey, type Locale } from './i18n';

@@ -1,4 +1,4 @@
-import { calcFee, proportionalFeeRefund } from '@parri/shared';
+import { calcFee, feeBpsForReward, proportionalFeeRefund } from '@parri/shared';
 import { afterAll, describe, expect, it } from 'vitest';
 import { assertLedgerInvariants, closePool, createUser, publish, respond, useDb, wallet } from './db';
 
@@ -10,15 +10,19 @@ describe('комиссия: SQL совпадает с TypeScript', () => {
     const values = [100, 101, 104, 105, 115, 149, 150, 999, 1005, 2500, 33333, 99995, 1_000_000];
     for (let i = 0; i < 200; i++) values.push(100 + Math.floor(Math.random() * 999_900));
     const res = await db.sys<{ r: string; fee: string }>(
-      `select r::text, public.calc_fee(r, public.fee_bps_for('free'))::text as fee from unnest($1::bigint[]) r`,
+      `select r::text, public.calc_fee(r, public.fee_bps_for_reward(r))::text as fee from unnest($1::bigint[]) r`,
       [values],
     );
-    for (const row of res.rows) expect(Number(row.fee)).toBe(calcFee(Number(row.r), 'free'));
+    for (const row of res.rows) expect(Number(row.fee)).toBe(calcFee(Number(row.r)));
   });
 
-  it('Pro платит те же 10%', async () => {
-    const res = await db.sys<{ fee: string }>(`select public.calc_fee(2500, public.fee_bps_for('pro'))::text as fee`);
-    expect(Number(res.rows[0]!.fee)).toBe(calcFee(2500, 'pro'));
+  it('шкала совпадает на границах ступеней', async () => {
+    const edges = [4999, 5000, 9999, 10000, 19999, 20000, 49999, 50000];
+    const res = await db.sys<{ r: string; bps: number }>(
+      `select r::text, public.fee_bps_for_reward(r) as bps from unnest($1::bigint[]) r`,
+      [edges],
+    );
+    for (const row of res.rows) expect(row.bps).toBe(feeBpsForReward(Number(row.r)));
   });
 
   it('пропорциональный возврат комиссии совпадает', async () => {
@@ -31,9 +35,9 @@ describe('Сейф: публикация', () => {
   it('списывает награду и комиссию с баланса в Сейф', async () => {
     const c = await createUser(db, { balance: 10_000 });
     const task = await publish(db, c.id, { reward: 2500 });
-    expect(await wallet(db, c.id)).toEqual({ available: 10_000 - 2750, safe: 2750 });
+    expect(await wallet(db, c.id)).toEqual({ available: 10_000 - 2625, safe: 2625 });
     const t = await db.sys(`select status, reward_cents, fee_cents, fee_bps from public.tasks where id = $1`, [task]);
-    expect(t.rows[0]).toMatchObject({ status: 'open', reward_cents: '2500', fee_cents: '250', fee_bps: 1000 });
+    expect(t.rows[0]).toMatchObject({ status: 'open', reward_cents: '2500', fee_cents: '125', fee_bps: 500 });
     await assertLedgerInvariants(db);
   });
 
@@ -68,13 +72,13 @@ describe('Сейф: выплата после приёмки', () => {
     const sub = await db.sys<{ id: string }>(`select id from public.submissions where task_id = $1`, [task]);
     await db.as(c.id, `select public.review_submission($1, 'accept', array[true, true])`, [sub.rows[0]!.id]);
 
-    expect(await wallet(db, c.id)).toEqual({ available: 10_000 - 2750, safe: 0 });
+    expect(await wallet(db, c.id)).toEqual({ available: 10_000 - 2625, safe: 0 });
     expect(await wallet(db, e.id)).toEqual({ available: 2500, safe: 0 });
     const rev = await db.sys<{ s: string }>(
       `select sum(amount_cents)::text as s from public.ledger_entries where task_id = $1 and account = 'platform_revenue'`,
       [task],
     );
-    expect(Number(rev.rows[0]!.s)).toBe(250);
+    expect(Number(rev.rows[0]!.s)).toBe(125);
     const stats = await db.sys(`select completed_count, earned_cents from public.profiles where id = $1`, [e.id]);
     expect(stats.rows[0]).toMatchObject({ completed_count: 1, earned_cents: '2500' });
     await assertLedgerInvariants(db);
@@ -114,7 +118,7 @@ describe('Сейф: выплата после приёмки', () => {
     ]);
     // Старую версию принять нельзя
     await db.fails(db.as(c.id, `select public.review_submission($1, 'accept', array[true, true])`, [sub]), 'invalid_status');
-    expect(await wallet(db, c.id)).toEqual({ available: 10_000 - 2750, safe: 2750 });
+    expect(await wallet(db, c.id)).toEqual({ available: 10_000 - 2625, safe: 2625 });
     await assertLedgerInvariants(db);
   });
 
@@ -128,7 +132,7 @@ describe('Сейф: выплата после приёмки', () => {
     await db.as(c.id, `select public.review_submission($1, 'dispute', '{}', 'Работа не соответствует заданию')`, [sub]);
     const d = await db.sys(`select status from public.disputes where task_id = $1`, [task]);
     expect(d.rows[0].status).toBe('pending');
-    expect(await wallet(db, c.id)).toEqual({ available: 10_000 - 2750, safe: 2750 });
+    expect(await wallet(db, c.id)).toEqual({ available: 10_000 - 2625, safe: 2625 });
     expect((await wallet(db, e.id)).available).toBe(0);
   });
 });
@@ -165,7 +169,7 @@ describe('Сейф: возврат', () => {
     expect(resp.rows[0].status).toBe('rejected');
 
     await db.as(c.id, `select public.republish_task($1)`, [task]);
-    expect(await wallet(db, c.id)).toEqual({ available: 10_000 - 2750, safe: 2750 });
+    expect(await wallet(db, c.id)).toEqual({ available: 10_000 - 2625, safe: 2625 });
     const t = await db.sys(`select status, archive_reason from public.tasks where id = $1`, [task]);
     expect(t.rows[0]).toEqual({ status: 'open', archive_reason: null });
     await assertLedgerInvariants(db);
@@ -176,15 +180,18 @@ describe('Сейф: возврат', () => {
     const task = await publish(db, c.id, { reward: 2500 });
     await db.sys(`update public.tasks set expires_at = now() - interval '1 minute' where id = $1`, [task]);
     await db.as(c.id, `select public.republish_task($1)`, [task]);
-    expect(await wallet(db, c.id)).toEqual({ available: 10_000 - 2750, safe: 2750 });
+    expect(await wallet(db, c.id)).toEqual({ available: 10_000 - 2625, safe: 2625 });
     await assertLedgerInvariants(db);
   });
 
-  it('отменённую (не просроченную) задачу повторно опубликовать нельзя', async () => {
+  it('отменённую задачу можно опубликовать снова, открытую или в работе — нельзя', async () => {
     const c = await createUser(db, { balance: 10_000 });
     const task = await publish(db, c.id);
-    await db.as(c.id, `select public.cancel_task($1)`, [task]);
     await db.fails(db.as(c.id, `select public.republish_task($1)`, [task]), 'invalid_status');
+    await db.as(c.id, `select public.cancel_task($1)`, [task]);
+    await db.as(c.id, `select public.republish_task($1)`, [task]);
+    expect(await wallet(db, c.id)).toEqual({ available: 10_000 - 2625, safe: 2625 });
+    await assertLedgerInvariants(db);
   });
 });
 
@@ -194,9 +201,9 @@ describe('Сейф: своя цена исполнителя', () => {
     const e = await createUser(db);
     const task = await publish(db, c.id, { reward: 2500 });
     await db.as(c.id, `select public.choose_response($1)`, [await respond(db, e.id, task, 3000)]);
-    expect(await wallet(db, c.id)).toEqual({ available: 10_000 - 3300, safe: 3300 });
+    expect(await wallet(db, c.id)).toEqual({ available: 10_000 - 3150, safe: 3150 });
     const t = await db.sys(`select reward_cents, fee_cents from public.tasks where id = $1`, [task]);
-    expect(t.rows[0]).toEqual({ reward_cents: '3000', fee_cents: '300' });
+    expect(t.rows[0]).toEqual({ reward_cents: '3000', fee_cents: '150' });
     await assertLedgerInvariants(db);
   });
 
@@ -205,7 +212,7 @@ describe('Сейф: своя цена исполнителя', () => {
     const e = await createUser(db);
     const task = await publish(db, c.id, { reward: 2500 });
     await db.as(c.id, `select public.choose_response($1)`, [await respond(db, e.id, task, 2000)]);
-    expect(await wallet(db, c.id)).toEqual({ available: 10_000 - 2200, safe: 2200 });
+    expect(await wallet(db, c.id)).toEqual({ available: 10_000 - 2100, safe: 2100 });
     await assertLedgerInvariants(db);
   });
 
@@ -217,20 +224,31 @@ describe('Сейф: своя цена исполнителя', () => {
     await db.as(e.id, `select public.submit_work($1, 'https://example.com/r')`, [task]);
     const sub = (await db.sys<{ id: string }>(`select id from public.submissions where task_id = $1`, [task])).rows[0]!.id;
     await db.as(c.id, `select public.review_submission($1, 'accept', '{}')`, [sub]);
-    expect(await wallet(db, c.id)).toEqual({ available: 10_000 - 1650, safe: 0 });
+    expect(await wallet(db, c.id)).toEqual({ available: 10_000 - 1575, safe: 0 });
     expect(await wallet(db, e.id)).toEqual({ available: 1500, safe: 0 });
     await assertLedgerInvariants(db);
   });
 
   it('если на доплату не хватает денег, выбор не происходит', async () => {
-    const c = await createUser(db, { balance: 2750 });
+    const c = await createUser(db, { balance: 2625 });
     const e = await createUser(db);
     const task = await publish(db, c.id, { reward: 2500 });
     const resp = await respond(db, e.id, task, 5000);
     await db.fails(db.as(c.id, `select public.choose_response($1)`, [resp]), 'insufficient_funds');
     const t = await db.sys(`select status from public.tasks where id = $1`, [task]);
     expect(t.rows[0].status).toBe('open');
-    expect(await wallet(db, c.id)).toEqual({ available: 0, safe: 2750 });
+    expect(await wallet(db, c.id)).toEqual({ available: 0, safe: 2625 });
+  });
+
+  it('своя цена переходит на другую ступень шкалы — ставка пересчитывается', async () => {
+    const c = await createUser(db, { balance: 20_000 });
+    const e = await createUser(db);
+    const task = await publish(db, c.id, { reward: 4900 });
+    await db.as(c.id, `select public.choose_response($1)`, [await respond(db, e.id, task, 5000)]);
+    const t = await db.sys(`select fee_bps, fee_cents from public.tasks where id = $1`, [task]);
+    expect(t.rows[0]).toEqual({ fee_bps: 400, fee_cents: '200' });
+    expect(await wallet(db, c.id)).toEqual({ available: 20_000 - 5200, safe: 5200 });
+    await assertLedgerInvariants(db);
   });
 });
 

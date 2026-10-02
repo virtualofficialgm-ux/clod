@@ -242,7 +242,18 @@ export const tasks = {
   mine(sb: Client, role: 'customer' | 'executor') {
     return unwrap<MyTask[]>(sb.rpc('my_tasks', { p_role: role }));
   },
-  publish(sb: Client, id: string, d: TaskDraft, attachments: FileRef[]) {
+  /**
+   * Публикация (идемпотентна по id: повторный вызов не списывает деньги второй раз).
+   * price: валюта счёта (USD/USDT) и, для цены в рублях, исходная сумма и время курса —
+   * если курс успел обновиться, сервер вернёт rate_changed и форма попросит подтвердить сумму.
+   */
+  publish(
+    sb: Client,
+    id: string,
+    d: TaskDraft,
+    attachments: FileRef[],
+    price: { currency?: 'USD' | 'USDT'; inputCurrency?: 'RUB' | null; inputAmount?: number | null; rateFetchedAt?: string | null } = {},
+  ) {
     return unwrap<Task>(
       sb.rpc('publish_task', {
         p_id: id,
@@ -260,6 +271,10 @@ export const tasks = {
         p_radius_m: d.kind === 'nearby' ? d.radiusM : null,
         p_place_name: d.kind === 'nearby' ? d.placeName || null : null,
         p_attachments: attachments,
+        p_currency: price.currency ?? 'USD',
+        p_input_currency: price.inputCurrency ?? null,
+        p_input_amount: price.inputAmount ?? null,
+        p_rate_fetched_at: price.rateFetchedAt ?? null,
       }),
     );
   },

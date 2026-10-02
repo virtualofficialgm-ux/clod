@@ -10,6 +10,10 @@ export { default as BookmarkCheck } from 'lucide-react-native/icons/bookmark-che
 export { default as Bot } from 'lucide-react-native/icons/bot';
 export { default as Box } from 'lucide-react-native/icons/box';
 export { default as Briefcase } from 'lucide-react-native/icons/briefcase';
+export { default as Building2Icon } from 'lucide-react-native/icons/building';
+export { default as Printer } from 'lucide-react-native/icons/printer';
+export { default as Percent } from 'lucide-react-native/icons/percent';
+export { default as ShieldCheck } from 'lucide-react-native/icons/shield-check';
 export { default as Calendar } from 'lucide-react-native/icons/calendar';
 export { default as Camera } from 'lucide-react-native/icons/camera';
 export { default as ChartColumn } from 'lucide-react-native/icons/chart-column';

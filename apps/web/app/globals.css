@@ -254,3 +254,18 @@
 :root[data-motion='reduce'] .mesh__blob {
   animation: none;
 }
+
+/* Печать квитанций: без навигации и фона */
+@media print {
+  .mesh,
+  aside,
+  nav,
+  header {
+    display: none !important;
+  }
+  html,
+  body {
+    background: #fff !important;
+    color: #000 !important;
+  }
+}

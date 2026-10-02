@@ -1,7 +1,7 @@
 'use client';
 
 import {
-  calcFeeBps,
+  calcFee,
   formatAgo,
   formatMoney,
   responses,
@@ -48,7 +48,7 @@ export default function ResponsesPage() {
   }
 
   const items = list.data ?? [];
-  const delta = (r: ResponseWithExecutor) => r.price_cents + calcFeeBps(r.price_cents, task.fee_bps) - (task.reward_cents + task.fee_cents);
+  const delta = (r: ResponseWithExecutor) => r.price_cents + calcFee(r.price_cents) - (task.reward_cents + task.fee_cents);
   const canChoose = task.status === 'open' && !task.expired;
 
   return (

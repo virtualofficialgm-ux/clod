@@ -6,6 +6,7 @@ import { StatusBar } from 'expo-status-bar';
 import { useState } from 'react';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
+import { PortalHost } from '@/components/ui/Portal';
 import { ToastProvider } from '@/components/ui/bits';
 import { DEMO, supabase } from '@/lib/supabase';
 import { fontAssets } from '@/theme/fonts';
@@ -16,7 +17,9 @@ function Navigator() {
   return (
     <ToastProvider>
       <StatusBar style={name === 'dark' ? 'light' : 'dark'} />
-      <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: colors.background } }} />
+      <PortalHost>
+        <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: colors.background } }} />
+      </PortalHost>
     </ToastProvider>
   );
 }

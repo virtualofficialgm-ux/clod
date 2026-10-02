@@ -419,3 +419,45 @@ export function QuickAction({ icon, label, href, onClick }: { icon: React.ReactN
     </button>
   );
 }
+
+// ---------- Столбчатый график (доход по неделям) ----------
+export function BarChart({ data, format, label }: { data: { label: string; value: number }[]; format: (v: number) => string; label: string }) {
+  const reduce = useReducedMotion();
+  const max = Math.max(1, ...data.map((d) => d.value));
+  return (
+    <figure className="flex flex-col gap-3" aria-label={label}>
+      <div className="flex h-36 items-end gap-2">
+        {data.map((d, i) => {
+          const h = Math.max(4, (d.value / max) * 100);
+          const last = i === data.length - 1;
+          return (
+            <div key={d.label} className="flex h-full flex-1 flex-col items-center justify-end gap-1.5" title={`${d.label}: ${format(d.value)}`}>
+              {d.value > 0 && <span className="tabular text-[11px] font-bold text-text-2">{format(d.value)}</span>}
+              <motion.span
+                className={clsx('w-full max-w-10 rounded-[10px]', last ? 'bg-accent' : d.value > 0 ? 'bg-ink' : 'bg-fill')}
+                initial={reduce ? false : { height: 0 }}
+                animate={{ height: `${h}%` }}
+                transition={reduce ? { duration: 0 } : { ...springs.appear, delay: i * 0.04 }}
+              />
+            </div>
+          );
+        })}
+      </div>
+      <div className="flex gap-2">
+        {data.map((d) => (
+          <span key={d.label} className="flex-1 text-center text-[11px] font-semibold text-text-2">
+            {d.label}
+          </span>
+        ))}
+      </div>
+      <figcaption className="sr-only">
+        {data.map((d) => `${d.label}: ${format(d.value)}`).join(', ')}
+      </figcaption>
+    </figure>
+  );
+}
+
+/** Плашка «Скоро» для недоступных вариантов */
+export function SoonBadge() {
+  return <span className="rounded-pill bg-fill-strong px-2.5 py-0.5 text-caption text-text-2">{t('common.soon')}</span>;
+}

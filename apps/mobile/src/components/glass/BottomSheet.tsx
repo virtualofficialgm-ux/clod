@@ -10,6 +10,7 @@ import { scheduleOnRN } from 'react-native-worklets';
 import { AppText } from '@/components/AppText';
 import { useTheme } from '@/theme/ThemeProvider';
 import { Button } from './Button';
+import { Portal } from '@/components/ui/Portal';
 import { GlassSurface } from './GlassSurface';
 
 interface BottomSheetProps {
@@ -66,6 +67,7 @@ export function BottomSheet({ open, onClose, title, children, footer }: BottomSh
   if (!mounted) return null;
 
   return (
+    <Portal>
     <View style={[StyleSheet.absoluteFill, styles.layer]} accessibilityViewIsModal>
       <Animated.View style={[StyleSheet.absoluteFill, styles.backdrop, backdropStyle]}>
         <Pressable style={StyleSheet.absoluteFill} onPress={onClose} accessibilityLabel={t('common.close')} />
@@ -96,6 +98,7 @@ export function BottomSheet({ open, onClose, title, children, footer }: BottomSh
         </GlassSurface>
       </Animated.View>
     </View>
+    </Portal>
   );
 }
 

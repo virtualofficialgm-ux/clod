@@ -8,6 +8,8 @@ import { Header } from '@/components/glass/Header';
 import { Segmented } from '@/components/glass/Segmented';
 import { Avatar, PageTitle, SectionTitle } from '@/components/ui/bits';
 import { usePrefs, type ThemePref } from '@/lib/prefs';
+import { ListGroup, ListRow } from '@/components/ui/kit';
+import { Sparkles, Wallet } from 'lucide-react';
 
 export default function AccountPage() {
   const me = useMe();
@@ -49,6 +51,10 @@ export default function AccountPage() {
             </div>
           </section>
         )}
+        <ListGroup>
+          <ListRow icon={<Wallet size={18} />} title={t('balance.title')} href="/balance" />
+          <ListRow icon={<Sparkles size={18} />} title={t('plans.title')} value={t(`account.${p?.plan ?? 'free'}` as TranslationKey)} href="/subscription" />
+        </ListGroup>
         <section className="flex flex-col gap-3">
           <SectionTitle>{t('account.theme')}</SectionTitle>
           <Segmented<ThemePref>

@@ -117,7 +117,7 @@ test('полный цикл: публикация → отклик → выбо�
   await anna.page.getByRole('button', { name: 'Дизайн', exact: true }).click();
   await anna.page.getByRole('button', { name: 'JPG', exact: true }).click();
   await anna.page.getByLabel('Награда').fill('12');
-  await expect(anna.page.getByTestId('total')).toHaveText(/13,20/);
+  await expect(anna.page.getByTestId('total')).toHaveText(/12,60/);
   await shot(anna.page, 'create-task');
   await anna.page.getByRole('button', { name: /Опубликовать за/ }).click();
   await anna.page.waitForURL(/\/tasks\/[0-9a-f-]{36}$/);
@@ -137,12 +137,12 @@ test('полный цикл: публикация → отклик → выбо�
   await ivan.page.getByRole('button', { name: 'Отправить отклик' }).click();
   await expect(ivan.page.getByText(/Ваш отклик: 15/)).toBeVisible();
 
-  // Анна сравнивает и выбирает Ивана: доплата $3.30 в Сейф
+  // Анна сравнивает и выбирает Ивана: доплата $3.15 в Сейф (награда +$3 и комиссия 5% с неё)
   await anna.page.goto(taskUrl + '/responses');
   await expect(anna.page.getByTestId('responses')).toContainText('Иван П.');
   await shot(anna.page, 'responses');
   await anna.page.getByRole('button', { name: 'Выбрать', exact: true }).click();
-  await expect(anna.page.getByText('Доплата в Сейф: 3,30 $')).toBeVisible();
+  await expect(anna.page.getByText('Доплата в Сейф: 3,15 $')).toBeVisible();
   await anna.page.getByRole('dialog').getByRole('button', { name: 'Выбрать' }).click();
   await anna.page.waitForURL(/\/room$/);
   await expect(anna.page.getByText('Исполнитель выбран. Удачной работы!')).toBeVisible();
@@ -238,5 +238,60 @@ test('«Рядом» по реальной геолокации', async ({ brows
   await page.getByRole('tab', { name: 'Рядом' }).click();
   await expect(page.getByText('Проверить наличие кроссовок')).toBeVisible();
   await expect(page.getByText(/^\d+ м$/).first()).toBeVisible();
+  await ctx.close();
+});
+
+test('деньги: пополнение через Stripe, подписка Pro, выплаты и заявка на вывод', async ({ browser }, info) => {
+  test.skip(info.project.name !== 'desktop', 'один раз');
+  const { ctx, page } = await asUser(browser, 'maria@parri.test');
+  await page.goto('/balance');
+  await hydrated(page);
+  const before = await page.getByText(/Готово к выводу/).locator('..').innerText();
+  await page.getByRole('button', { name: 'Пополнить' }).first().click();
+  await page.getByRole('radio', { name: /50\s?\$/ }).click();
+  await page.getByRole('button', { name: /Оплатить 50/ }).click();
+  // Тестовая страница Stripe из devstack: событие подписывается секретом вебхука
+  await page.waitForURL('**/dev/stripe/checkout/**');
+  await page.getByRole('button', { name: 'Оплатить' }).click();
+  await page.waitForURL('**/balance?payment=success**');
+  await expect(page.getByText('Оплата прошла')).toBeVisible({ timeout: 15_000 });
+  await shot(page, 'topup-success');
+  await page.getByRole('button', { name: 'К балансу' }).click();
+  await expect(page.getByText(/Готово к выводу/).locator('..')).not.toHaveText(before);
+
+  // Отклонённый платёж не зачисляется
+  await page.getByRole('button', { name: 'Пополнить' }).first().click();
+  await page.getByRole('button', { name: /Оплатить 25/ }).click();
+  await page.waitForURL('**/dev/stripe/checkout/**');
+  await page.getByRole('button', { name: 'Отклонить платёж' }).click();
+  await expect(page.getByText('Платёж отклонён')).toBeVisible();
+  await page.getByRole('button', { name: 'К балансу' }).click();
+
+  // Подписка Pro
+  await page.goto('/subscription');
+  await page.getByRole('button', { name: 'Подключить Pro' }).click();
+  await page.waitForURL('**/dev/stripe/checkout/**');
+  await page.getByRole('button', { name: 'Оплатить' }).click();
+  await page.waitForURL('**/subscription?payment=success');
+  await expect(page.getByRole('button', { name: 'Управлять подпиской' })).toBeVisible({ timeout: 15_000 });
+  await shot(page, 'subscription-pro');
+
+  // Выплаты: настройка Connect и заявка
+  await page.goto('/balance/withdraw');
+  await page.getByRole('button', { name: 'Настроить выплаты' }).click();
+  await page.waitForURL('**/dev/stripe/connect/**');
+  await page.getByRole('button', { name: 'Завершить проверку' }).click();
+  await expect(page.getByText('Выплаты настроены')).toBeVisible({ timeout: 15_000 });
+  await page.getByLabel('Сумма', { exact: true }).fill('15');
+  await page.getByRole('checkbox').check();
+  await page.getByRole('button', { name: 'Подтвердить вывод' }).click();
+  await expect(page.getByText('Заявка создана')).toBeVisible();
+  await expect(page.getByText('Ожидает проверки').first()).toBeVisible();
+  // Вторая заявка в течение часа — нельзя
+  await page.getByRole('button', { name: 'Изменить детали' }).click();
+  await page.getByLabel('Сумма', { exact: true }).fill('10');
+  await page.getByRole('checkbox').check();
+  await page.getByRole('button', { name: 'Подтвердить вывод' }).click();
+  await expect(page.getByText('Не чаще одной заявки в час')).toBeVisible();
   await ctx.close();
 });

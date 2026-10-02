@@ -10,11 +10,23 @@ export const CURRENCY = 'USD';
 export const MIN_REWARD_CENTS = 100; // $1
 export const MAX_REWARD_CENTS = 1_000_000; // $10 000
 
-/** Ставка комиссии за публикацию в базисных пунктах (1000 = 10%) */
-export const FEE_BPS: Record<PlanId, number> = {
-  free: 1000,
-  pro: 1000,
-};
+/**
+ * Шкала комиссии за публикацию (базисные пункты, 100 = 1%), как на theparri.com:
+ * до $49.99 — 5%, от $50 — 4%, от $100 — 3,5%, от $200 — 3%, от $500 — 2,5%.
+ * Тариф на комиссию не влияет (0% — только у тарифа Max, его пока нет).
+ */
+export const FEE_TIERS: readonly { fromCents: number; bps: number }[] = [
+  { fromCents: 50_000, bps: 250 },
+  { fromCents: 20_000, bps: 300 },
+  { fromCents: 10_000, bps: 350 },
+  { fromCents: 5_000, bps: 400 },
+  { fromCents: 0, bps: 500 },
+];
+
+export function feeBpsForReward(rewardCents: number): number {
+  assertCents(rewardCents, 'reward');
+  return FEE_TIERS.find((t) => rewardCents >= t.fromCents)!.bps;
+}
 
 export function assertCents(value: number, name = 'amount'): void {
   if (!Number.isInteger(value) || value < 0) {
@@ -28,9 +40,9 @@ export function calcFeeBps(rewardCents: number, feeBps: number): number {
   return Math.floor((rewardCents * feeBps + 5000) / 10000);
 }
 
-/** Комиссия по тарифу заказчика */
-export function calcFee(rewardCents: number, plan: PlanId = 'free'): number {
-  return calcFeeBps(rewardCents, FEE_BPS[plan]);
+/** Комиссия за публикацию задачи с такой наградой */
+export function calcFee(rewardCents: number): number {
+  return calcFeeBps(rewardCents, feeBpsForReward(rewardCents));
 }
 
 export interface PriceBreakdown {
@@ -40,10 +52,33 @@ export interface PriceBreakdown {
   feeBps: number;
 }
 
-export function priceBreakdown(rewardCents: number, plan: PlanId = 'free'): PriceBreakdown {
-  const fee = calcFee(rewardCents, plan);
-  return { reward: rewardCents, fee, total: rewardCents + fee, feeBps: FEE_BPS[plan] };
+export function priceBreakdown(rewardCents: number): PriceBreakdown {
+  const feeBps = feeBpsForReward(rewardCents);
+  const fee = calcFeeBps(rewardCents, feeBps);
+  return { reward: rewardCents, fee, total: rewardCents + fee, feeBps };
 }
+
+/** «5%», «3,5%» */
+export function formatBps(bps: number, locale = 'ru-RU'): string {
+  return `${new Intl.NumberFormat(locale, { maximumFractionDigits: 2 }).format(bps / 100)}%`;
+}
+
+/** Лимиты денег (зеркало SQL: payout_min_cents, topup_min_cents, request_payout) */
+export const MONEY_LIMITS = {
+  topupCardMinCents: 500,
+  topupUsdtMinCents: 2000,
+  payoutCardMinCents: 1000,
+  payoutUsdtMinCents: 2000,
+  payoutDailyMaxCents: 100_000,
+  payoutMinAge: 18,
+  topupPresetsCents: [1000, 2500, 5000, 10000, 20000],
+} as const;
+
+export const SUBSCRIPTION_PRICES = {
+  pro: { month: 1500, year: 14400 },
+} as const;
+
+export type MoneyCurrency = 'USD' | 'USDT';
 
 export function isRewardInRange(rewardCents: number): boolean {
   return (
@@ -74,13 +109,33 @@ export function dollarsToCents(dollars: number): number {
   return Math.round(dollars * 100);
 }
 
-export function formatMoney(cents: number, locale = 'ru-RU', opts: { compact?: boolean } = {}): string {
+export function formatMoney(
+  cents: number,
+  locale = 'ru-RU',
+  opts: { compact?: boolean; currency?: MoneyCurrency | 'RUB' | 'EUR' | 'AED' | 'KZT' } = {},
+): string {
   const whole = cents % 100 === 0;
+  const digits = { minimumFractionDigits: whole || opts.compact ? 0 : 2, maximumFractionDigits: opts.compact ? 0 : 2 };
+  if (opts.currency === 'USDT') {
+    return `${new Intl.NumberFormat(locale, digits).format(cents / 100)} USDT`;
+  }
   return new Intl.NumberFormat(locale, {
     style: 'currency',
-    currency: CURRENCY,
+    currency: opts.currency ?? CURRENCY,
     currencyDisplay: 'narrowSymbol',
-    minimumFractionDigits: whole || opts.compact ? 0 : 2,
-    maximumFractionDigits: opts.compact ? 0 : 2,
+    ...digits,
   }).format(cents / 100);
+}
+
+/**
+ * Сумма в долларах для справки в валюте отображения (рубли по курсу ЦБ и т. п.).
+ * Деньги на счетах не меняются — это только подпись.
+ */
+export function convertForDisplay(usdCents: number, perUsd: number): number {
+  return Math.round(usdCents * perUsd);
+}
+
+/** Рубли (копейки) → центы по курсу: так же, как сервер (round(amount / per_usd)) */
+export function rubToUsdCents(rubKopecks: number, perUsd: number): number {
+  return Math.round(rubKopecks / perUsd);
 }
