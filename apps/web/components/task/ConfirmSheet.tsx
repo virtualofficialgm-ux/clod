@@ -16,7 +16,16 @@ interface Props {
   error?: string | null;
 }
 
-export function ConfirmSheet({ open, onClose, title, text, confirmLabel, onConfirm, busy, error }: Props) {
+export function ConfirmSheet({
+  open,
+  onClose,
+  title,
+  text,
+  confirmLabel,
+  onConfirm,
+  busy,
+  error,
+}: Props) {
   return (
     <BottomSheet
       open={open}

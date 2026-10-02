@@ -97,3 +97,7 @@ export { default as Wallet } from 'lucide-react-native/icons/wallet';
 export { default as X } from 'lucide-react-native/icons/x';
 export { default as Zap } from 'lucide-react-native/icons/zap';
 export type { LucideIcon } from 'lucide-react-native';
+export { default as Play } from 'lucide-react-native/icons/play';
+export { default as CheckCheck } from 'lucide-react-native/icons/check-check';
+export { default as Repeat } from 'lucide-react-native/icons/repeat';
+export { default as Video } from 'lucide-react-native/icons/video';

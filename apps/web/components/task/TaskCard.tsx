@@ -33,13 +33,25 @@ interface TaskCardProps {
   footer?: React.ReactNode;
   /** Кнопки действий (взять, сохранить) — вне ссылки, чтобы не вкладывать интерактивные элементы */
   actions?: React.ReactNode;
+  /** Цена для показа (например, «≈ 2 038 ₽» или USDT) */
+  priceLabel?: string;
+  /** Метки под заголовком: совпадение, «Безопасная сделка» и т. п. */
+  badges?: React.ReactNode;
 }
 
 /**
  * Карточка задачи в стиле Cal AI: белая, мягкая тень, иконка категории в круге,
  * крупная цена и срок отдельной плашкой.
  */
-export function TaskCard({ task, onClick, href, footer, actions }: TaskCardProps) {
+export function TaskCard({
+  task,
+  onClick,
+  href,
+  footer,
+  actions,
+  priceLabel,
+  badges,
+}: TaskCardProps) {
   const KindIcon = task.kind === 'online' ? Globe : task.kind === 'nearby' ? MapPin : GraduationCap;
   const CatIcon = categoryIcon(task.category);
   const kindLabel =
@@ -53,7 +65,10 @@ export function TaskCard({ task, onClick, href, footer, actions }: TaskCardProps
   const content = (
     <>
       <div className="flex items-center gap-3">
-        <span aria-hidden className="flex size-11 shrink-0 items-center justify-center rounded-full bg-accent-soft text-accent-text">
+        <span
+          aria-hidden
+          className="flex size-11 shrink-0 items-center justify-center rounded-full bg-accent-soft text-accent-text"
+        >
           <CatIcon size={20} strokeWidth={2.4} />
         </span>
         <div className="min-w-0 flex-1">
@@ -65,8 +80,11 @@ export function TaskCard({ task, onClick, href, footer, actions }: TaskCardProps
         </div>
       </div>
       <h3 className="line-clamp-3 text-title3 font-bold text-text">{task.title}</h3>
+      {badges && <div className="flex flex-wrap gap-1.5">{badges}</div>}
       <div className="mt-auto flex items-end justify-between gap-3 pt-1">
-        <span className="tabular text-price font-extrabold">{formatMoney(task.rewardCents)}</span>
+        <span className="tabular text-price font-extrabold">
+          {priceLabel ?? formatMoney(task.rewardCents)}
+        </span>
         <span className="inline-flex h-8 shrink-0 items-center gap-1.5 rounded-pill bg-fill px-3 text-caption text-text">
           <Clock size={14} strokeWidth={2.6} aria-hidden />
           {t(`deadline.${task.deadline}`)}
@@ -84,7 +102,11 @@ export function TaskCard({ task, onClick, href, footer, actions }: TaskCardProps
       className="card flex h-full flex-col gap-4 p-5"
     >
       {href ? (
-        <Link href={href} aria-label={`${task.title}, ${formatMoney(task.rewardCents)}`} className="flex flex-1 flex-col gap-4 rounded-md">
+        <Link
+          href={href}
+          aria-label={`${task.title}, ${priceLabel ?? formatMoney(task.rewardCents)}`}
+          className="flex flex-1 flex-col gap-4 rounded-md"
+        >
           {content}
         </Link>
       ) : (

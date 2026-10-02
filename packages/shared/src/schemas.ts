@@ -119,6 +119,7 @@ export const responseFormSchema = z.object({
   skills: z.array(z.string()).max(10, 'errors.too_many').default([]),
   portfolioLinks: z.array(urlSchema).max(5, 'errors.too_many').default([]),
   ready: z.enum(['now', 'in_1h', 'today', 'tomorrow']).default('now'),
+  videoUrl: z.union([urlSchema, z.literal('')]).optional().default(''),
 });
 export type ResponseFormInput = z.input<typeof responseFormSchema>;
 

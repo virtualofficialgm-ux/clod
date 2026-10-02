@@ -183,6 +183,12 @@ export interface FeedTask {
   customer_avatar: string | null;
   customer_rating: number | null;
   has_responded: boolean;
+  bookmarked: boolean;
+  match: number;
+  currency: 'USD' | 'USDT';
+  required_level: 'junior' | 'middle' | 'expert' | null;
+  language: string | null;
+  proofs: string[];
 }
 
 export interface Task {
@@ -215,6 +221,15 @@ export interface Task {
   lat: number | null;
   lng: number | null;
   expired: boolean;
+  currency: 'USD' | 'USDT';
+  started_at: string | null;
+  take_mode: 'response' | 'instant' | null;
+  language: string | null;
+  required_level: 'junior' | 'middle' | 'expert' | null;
+  proofs: string[];
+  visit_window: string | null;
+  campus_building: string | null;
+  skills: string[];
 }
 
 export interface PersonSummary {
@@ -240,9 +255,14 @@ export interface TaskResponse {
   status: ResponseStatus;
   created_at: string;
   updated_at: string;
+  video_url: string | null;
+  viewed_at: string | null;
+  compared: boolean;
 }
 
 export interface ResponseWithExecutor extends Omit<TaskResponse, 'task_id' | 'updated_at'> {
+  match: number;
+  username: string | null;
   first_name: string | null;
   last_name: string | null;
   avatar_url: string | null;
@@ -264,6 +284,12 @@ export interface Submission {
   review_comment: string | null;
   reviewed_at: string | null;
   created_at: string;
+  stage: 'final' | 'intermediate';
+  included: string[];
+  note: string | null;
+  revision_items: number[] | null;
+  revision_criteria: string[] | null;
+  revision_due: string | null;
 }
 
 export interface Dispute {
@@ -287,13 +313,73 @@ export interface Attachment {
 export interface TaskDetail {
   task: Task;
   viewer_role: ViewerRole;
-  customer: PersonSummary;
+  customer: PersonSummary & { created_at: string; username: string | null; customer_completed: number; customer_open: number };
   executor: PersonSummary | null;
   university: { id: number; name: string } | null;
   attachments: Attachment[];
   my_response: TaskResponse | null;
   submissions: Submission[];
   dispute: Dispute | null;
+  bookmarked: boolean;
+  questions_count: number;
+  extension: TaskExtension | null;
+  my_review: Review | null;
+  takes_left: number;
+  start_deadline: string | null;
+}
+
+export interface TaskExtension {
+  id: string;
+  task_id: string;
+  requested_by: string;
+  minutes: number;
+  reason: string | null;
+  status: 'pending' | 'accepted' | 'declined';
+  decided_at: string | null;
+  created_at: string;
+}
+
+export interface Review {
+  id: string;
+  task_id: string;
+  author_id: string;
+  target_id: string;
+  author_role: 'customer' | 'executor';
+  rating: number;
+  quality: number | null;
+  communication: number | null;
+  deadlines: number | null;
+  requirements: number | null;
+  public_text: string | null;
+  skills_confirmed: string[];
+  work_again: boolean | null;
+  created_at: string;
+}
+
+export interface ReviewWithAuthor extends Review {
+  author: { id: string; first_name: string | null; last_name: string | null; avatar_url: string | null } | null;
+  task: { id: string; title: string } | null;
+}
+
+export interface TaskQuestion {
+  id: string;
+  parent_id: string | null;
+  author_id: string;
+  author_name: string;
+  author_avatar: string | null;
+  body: string;
+  deleted: boolean;
+  is_customer: boolean;
+  created_at: string;
+}
+
+export type ComplaintReason = 'fraud' | 'prohibited' | 'discrimination' | 'wrong_category' | 'spam' | 'other';
+
+export interface TaskDraftRow {
+  id: string;
+  user_id: string;
+  data: Record<string, unknown>;
+  updated_at: string;
 }
 
 export interface MyTask {
@@ -314,6 +400,13 @@ export interface MyTask {
   completed_at: string | null;
   counterpart_name: string | null;
   my_response_status: ResponseStatus | null;
+  currency: 'USD' | 'USDT';
+  new_responses: number;
+  assigned_at: string | null;
+  started_at: string | null;
+  take_mode: 'response' | 'instant' | null;
+  counterpart_id: string | null;
+  reviewed: boolean;
 }
 
 export type SystemEvent =
@@ -355,13 +448,18 @@ export interface SavedSearch {
 
 export interface FeedParams {
   kind: TaskKind;
+  levels?: ('junior' | 'middle' | 'expert')[];
+  language?: string | null;
+  bookmarked?: boolean;
+  /** Срок выполнения не больше N минут (фильтр «до 24 часов», «до недели») */
+  maxMinutes?: number | null;
   query?: string;
   categories?: Category[];
   minRewardCents?: number | null;
   maxRewardCents?: number | null;
   deadlines?: Deadline[];
   maxDistanceM?: number | null;
-  sort?: 'recommended' | 'newest' | 'highest_pay' | 'deadline' | 'distance';
+  sort?: 'recommended' | 'newest' | 'highest_pay' | 'deadline' | 'distance' | 'best_match';
 }
 
 export interface ComposeResult {

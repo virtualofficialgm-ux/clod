@@ -139,3 +139,10 @@ export function convertForDisplay(usdCents: number, perUsd: number): number {
 export function rubToUsdCents(rubKopecks: number, perUsd: number): number {
   return Math.round(rubKopecks / perUsd);
 }
+
+/** Цена для показа: в долларах/USDT или «≈ … ₽» по курсу ЦБ (только справка) */
+export function formatPrice(cents: number, currency: MoneyCurrency, display: 'USD' | 'RUB', rubPerUsd?: number | null): string {
+  if (currency === 'USDT') return formatMoney(cents, 'ru-RU', { currency: 'USDT' });
+  if (display === 'RUB' && rubPerUsd) return `≈ ${formatMoney(convertForDisplay(cents, rubPerUsd), 'ru-RU', { currency: 'RUB', compact: true })}`;
+  return formatMoney(cents);
+}

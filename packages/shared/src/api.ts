@@ -21,7 +21,13 @@ import type {
   Skill,
   Submission,
   Task,
+  ComplaintReason,
+  Review,
+  ReviewWithAuthor,
   TaskDetail,
+  TaskDraftRow,
+  TaskExtension,
+  TaskQuestion,
   TaskResponse,
   University,
   Wallet,
@@ -233,6 +239,10 @@ export const tasks = {
         p_sort: p.sort ?? 'recommended',
         p_limit: p.limit ?? 20,
         p_offset: p.offset ?? 0,
+        p_levels: p.levels?.length ? p.levels : null,
+        p_language: p.language || null,
+        p_bookmarked: !!p.bookmarked,
+        p_max_minutes: p.maxMinutes ?? null,
       }),
     );
   },
@@ -253,6 +263,7 @@ export const tasks = {
     d: TaskDraft,
     attachments: FileRef[],
     price: { currency?: 'USD' | 'USDT'; inputCurrency?: 'RUB' | null; inputAmount?: number | null; rateFetchedAt?: string | null } = {},
+    extra: TaskExtra = {},
   ) {
     return unwrap<Task>(
       sb.rpc('publish_task', {
@@ -275,6 +286,14 @@ export const tasks = {
         p_input_currency: price.inputCurrency ?? null,
         p_input_amount: price.inputAmount ?? null,
         p_rate_fetched_at: price.rateFetchedAt ?? null,
+        p_extra: {
+          language: extra.language ?? null,
+          required_level: extra.requiredLevel ?? null,
+          proofs: extra.proofs ?? [],
+          visit_window: extra.visitWindow ?? null,
+          campus_building: extra.campusBuilding ?? null,
+          skills: extra.skills ?? [],
+        },
       }),
     );
   },
@@ -300,6 +319,17 @@ export interface ResponseInput {
   skills: string[];
   portfolioLinks: string[];
   ready: ReadyWhen;
+  videoUrl?: string | null;
+}
+
+/** Дополнительные поля задачи (необязательные) */
+export interface TaskExtra {
+  language?: string | null;
+  requiredLevel?: 'junior' | 'middle' | 'expert' | null;
+  proofs?: ('photo' | 'checkin' | 'comment')[];
+  visitWindow?: string | null;
+  campusBuilding?: string | null;
+  skills?: string[];
 }
 
 const responseArgs = (v: ResponseInput) => ({
@@ -309,6 +339,7 @@ const responseArgs = (v: ResponseInput) => ({
   p_skills: v.skills,
   p_portfolio_links: v.portfolioLinks,
   p_ready: v.ready,
+  p_video_url: v.videoUrl || null,
 });
 
 export const responses = {
@@ -327,27 +358,163 @@ export const responses = {
   choose(sb: Client, responseId: string) {
     return unwrap<Task>(sb.rpc('choose_response', { p_response: responseId }));
   },
+  markViewed(sb: Client, taskId: string) {
+    return unwrap<number>(sb.rpc('mark_responses_viewed', { p_task: taskId }));
+  },
+  setCompared(sb: Client, responseId: string, on: boolean) {
+    return unwrap<null>(sb.rpc('set_response_compared', { p_response: responseId, p_on: on }));
+  },
+  /** Мой отклик с данными задачи — для страницы отклика */
+  async mine(sb: Client, responseId: string) {
+    const r = await unwrap<TaskResponse | null>(sb.from('task_responses').select('*').eq('id', responseId).maybeSingle());
+    if (!r) return null;
+    const task = await unwrap<Pick<Task, 'id' | 'title' | 'status' | 'customer_id' | 'reward_cents' | 'currency' | 'expires_at'> | null>(
+      sb.from('tasks').select('id,title,status,customer_id,reward_cents,currency,expires_at').eq('id', r.task_id).maybeSingle(),
+    );
+    return task ? { ...r, tasks: task } : null;
+  },
 };
 
 // ---------- Сдача и приёмка ----------
 
 export const work = {
-  submit(sb: Client, taskId: string, v: { link: string; comment: string; files: FileRef[] }) {
+  submit(
+    sb: Client,
+    taskId: string,
+    v: { link: string; comment: string; files: FileRef[]; stage?: 'final' | 'intermediate'; included?: string[]; note?: string },
+  ) {
     return unwrap<Submission>(
-      sb.rpc('submit_work', { p_task: taskId, p_link: v.link || null, p_comment: v.comment || null, p_files: v.files }),
+      sb.rpc('submit_work', {
+        p_task: taskId,
+        p_link: v.link || null,
+        p_comment: v.comment || null,
+        p_files: v.files,
+        p_stage: v.stage ?? 'final',
+        p_included: v.included ?? [],
+        p_note: v.note || null,
+      }),
     );
   },
-  review(sb: Client, submissionId: string, v: { decision: 'accept' | 'revision' | 'dispute'; checklist: boolean[]; comment: string }) {
+  review(
+    sb: Client,
+    submissionId: string,
+    v: {
+      decision: 'accept' | 'revision' | 'dispute';
+      checklist: boolean[];
+      comment: string;
+      revisionItems?: number[];
+      revisionCriteria?: string[];
+      revisionDue?: string | null;
+    },
+  ) {
     return unwrap<Task>(
       sb.rpc('review_submission', {
         p_submission: submissionId,
         p_decision: v.decision,
         p_checklist: v.checklist,
         p_comment: v.comment || null,
+        p_revision_items: v.revisionItems?.length ? v.revisionItems : null,
+        p_revision_criteria: v.revisionCriteria?.length ? v.revisionCriteria : null,
+        p_revision_due: v.revisionDue ?? null,
+      }),
+    );
+  },
+  take(sb: Client, taskId: string) {
+    return unwrap<Task>(sb.rpc('take_task', { p_task: taskId }));
+  },
+  start(sb: Client, taskId: string) {
+    return unwrap<Task>(sb.rpc('start_task', { p_task: taskId }));
+  },
+  refuse(sb: Client, taskId: string, reason?: string) {
+    return unwrap<Task>(sb.rpc('refuse_task', { p_task: taskId, p_reason: reason || null }));
+  },
+  requestExtension(sb: Client, taskId: string, minutes: number, reason?: string) {
+    return unwrap<TaskExtension>(sb.rpc('request_extension', { p_task: taskId, p_minutes: minutes, p_reason: reason || null }));
+  },
+  decideExtension(sb: Client, extensionId: string, accept: boolean) {
+    return unwrap<TaskExtension>(sb.rpc('decide_extension', { p_extension: extensionId, p_accept: accept }));
+  },
+  tip(sb: Client, taskId: string, cents: number) {
+    return unwrap<null>(sb.rpc('send_tip', { p_task: taskId, p_amount_cents: cents }));
+  },
+  review_counterpart(sb: Client, taskId: string, v: ReviewInput) {
+    return unwrap<Review>(
+      sb.rpc('leave_review', {
+        p_task: taskId,
+        p_rating: v.rating,
+        p_quality: v.quality ?? null,
+        p_communication: v.communication ?? null,
+        p_deadlines: v.deadlines ?? null,
+        p_requirements: v.requirements ?? null,
+        p_public: v.publicText || null,
+        p_private: v.privateText || null,
+        p_skills: v.skills ?? [],
+        p_work_again: v.workAgain ?? null,
       }),
     );
   },
 };
+
+export interface ReviewInput {
+  rating: number;
+  quality?: number | null;
+  communication?: number | null;
+  deadlines?: number | null;
+  requirements?: number | null;
+  publicText?: string;
+  privateText?: string;
+  skills?: string[];
+  workAgain?: boolean | null;
+}
+
+// ---------- Вопросы, жалобы, закладки, пропуск, черновики ----------
+
+export const taskExtras = {
+  questions(sb: Client, taskId: string) {
+    return unwrap<TaskQuestion[]>(sb.rpc('task_questions_for', { p_task: taskId }));
+  },
+  ask(sb: Client, taskId: string, body: string, parentId?: string | null) {
+    return unwrap<TaskQuestion>(sb.rpc('ask_question', { p_task: taskId, p_body: body, p_parent: parentId ?? null }));
+  },
+  deleteQuestion(sb: Client, id: string) {
+    return unwrap<null>(sb.rpc('delete_question', { p_question: id }));
+  },
+  complain(sb: Client, taskId: string, reason: ComplaintReason, details?: string) {
+    return unwrap<null>(sb.rpc('complain_task', { p_task: taskId, p_reason: reason, p_details: details || null }));
+  },
+  async bookmark(sb: Client, taskId: string, on: boolean) {
+    if (on) return unwrap<null>(sb.from('task_bookmarks').upsert({ task_id: taskId }, { onConflict: 'user_id,task_id', ignoreDuplicates: true }));
+    return unwrap<null>(sb.from('task_bookmarks').delete().eq('task_id', taskId));
+  },
+  skip(sb: Client, taskId: string) {
+    return unwrap<null>(sb.from('task_skips').upsert({ task_id: taskId }, { onConflict: 'user_id,task_id', ignoreDuplicates: true }));
+  },
+  drafts(sb: Client) {
+    return unwrap<TaskDraftRow[]>(sb.from('task_drafts').select('*').order('updated_at', { ascending: false }));
+  },
+  saveDraft(sb: Client, id: string, data: Record<string, unknown>) {
+    return unwrap<TaskDraftRow>(sb.from('task_drafts').upsert({ id, data, updated_at: new Date().toISOString() }).select().single());
+  },
+  deleteDraft(sb: Client, id: string) {
+    return unwrap<null>(sb.from('task_drafts').delete().eq('id', id));
+  },
+  async reviewsFor(sb: Client, userId: string): Promise<ReviewWithAuthor[]> {
+    const rows = await unwrap<Review[]>(sb.from('reviews').select('*').eq('target_id', userId).order('created_at', { ascending: false }));
+    if (!rows.length) return [];
+    const ids = [...new Set(rows.map((r) => r.author_id))];
+    const taskIds = [...new Set(rows.map((r) => r.task_id))];
+    const [authors, taskRows] = await Promise.all([
+      unwrap<NonNullable<ReviewWithAuthor['author']>[]>(sb.from('profiles').select('id,first_name,last_name,avatar_url').in('id', ids)),
+      unwrap<NonNullable<ReviewWithAuthor['task']>[]>(sb.from('tasks').select('id,title').in('id', taskIds)),
+    ]);
+    return rows.map((r) => ({
+      ...r,
+      author: authors.find((a) => a.id === r.author_id) ?? null,
+      task: taskRows.find((x) => x.id === r.task_id) ?? null,
+    }));
+  },
+};
+
 
 // ---------- Рабочая комната ----------
 

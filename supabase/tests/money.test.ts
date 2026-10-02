@@ -122,8 +122,8 @@ describe('Сейф: выплата после приёмки', () => {
     await assertLedgerInvariants(db);
   });
 
-  it('спор замораживает деньги в Сейфе', async () => {
-    const c = await createUser(db, { balance: 10_000 });
+  it('спор (тариф Pro) замораживает деньги в Сейфе', async () => {
+    const c = await createUser(db, { balance: 10_000, plan: 'pro' });
     const e = await createUser(db);
     const task = await publish(db, c.id);
     await db.as(c.id, `select public.choose_response($1)`, [await respond(db, e.id, task)]);

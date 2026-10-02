@@ -62,7 +62,11 @@ export function TaskCard({
             <CatIcon size={20} strokeWidth={2.4} color={colors.accentText} />
           </View>
           <View style={{ flex: 1, minWidth: 0 }}>
-            <AppText variant="callout" numberOfLines={1} style={{ fontFamily: familyByWeight['700'] }}>
+            <AppText
+              variant="callout"
+              numberOfLines={1}
+              style={{ fontFamily: familyByWeight['700'] }}
+            >
               {t(`category.${task.category}`)}
             </AppText>
             <View style={styles.kind}>
@@ -101,7 +105,19 @@ const styles = StyleSheet.create({
   head: { flexDirection: 'row', alignItems: 'center', gap: 12 },
   icon: { width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center' },
   kind: { flexDirection: 'row', alignItems: 'center', gap: 4 },
-  bottom: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-end', gap: 12 },
-  deadline: { height: 32, paddingHorizontal: 12, borderRadius: 999, flexDirection: 'row', alignItems: 'center', gap: 6 },
+  bottom: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-end',
+    gap: 12,
+  },
+  deadline: {
+    height: 32,
+    paddingHorizontal: 12,
+    borderRadius: 999,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
   actions: { flexDirection: 'row', gap: 8 },
 });

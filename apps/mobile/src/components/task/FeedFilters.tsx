@@ -1,4 +1,12 @@
-import { CATEGORIES, DEADLINES, SORTS, formatDistance, formatMoney, t, type FeedParams } from '@parri/shared';
+import {
+  CATEGORIES,
+  DEADLINES,
+  SORTS,
+  formatDistance,
+  formatMoney,
+  t,
+  type FeedParams,
+} from '@parri/shared';
 import { useState } from 'react';
 import { View } from 'react-native';
 import { BottomSheet } from '@/components/glass/BottomSheet';
@@ -36,7 +44,8 @@ export function FeedFilters({
   const [d, setD] = useState<FeedParams>(value);
   const [name, setName] = useState('');
   const [saving, setSaving] = useState(false);
-  const toggle = <T,>(list: T[] | undefined, x: T) => (list?.includes(x) ? list.filter((y) => y !== x) : [...(list ?? []), x]);
+  const toggle = <T,>(list: T[] | undefined, x: T) =>
+    list?.includes(x) ? list.filter((y) => y !== x) : [...(list ?? []), x];
 
   return (
     <BottomSheet
@@ -47,7 +56,12 @@ export function FeedFilters({
         <View style={{ gap: 10 }}>
           {saving ? (
             <View style={{ gap: 8 }}>
-              <TextField label={t('feed.saveName')} value={name} onChangeText={setName} maxLength={60} />
+              <TextField
+                label={t('feed.saveName')}
+                value={name}
+                onChangeText={setName}
+                maxLength={60}
+              />
               <Button
                 variant="glass"
                 block
@@ -61,11 +75,26 @@ export function FeedFilters({
               />
             </View>
           ) : (
-            <Button variant="glass" block label={t('feed.saveSearch')} onPress={() => setSaving(true)} />
+            <Button
+              variant="glass"
+              block
+              label={t('feed.saveSearch')}
+              onPress={() => setSaving(true)}
+            />
           )}
           <View style={{ flexDirection: 'row', gap: 8 }}>
-            <Button variant="glass" label={t('feed.reset')} onPress={() => setD({ kind: value.kind, query: value.query })} />
-            <Button size="lg" label={t('feed.apply')} style={{ flex: 1 }} block onPress={() => onApply(d)} />
+            <Button
+              variant="glass"
+              label={t('feed.reset')}
+              onPress={() => setD({ kind: value.kind, query: value.query })}
+            />
+            <Button
+              size="lg"
+              label={t('feed.apply')}
+              style={{ flex: 1 }}
+              block
+              onPress={() => onApply(d)}
+            />
           </View>
         </View>
       }
@@ -74,7 +103,12 @@ export function FeedFilters({
         <Label>{t('feed.sort')}</Label>
         <Row>
           {SORTS.filter((s) => s !== 'distance' || value.kind === 'nearby').map((s) => (
-            <Chip key={s} label={t(`sort.${s}`)} selected={(d.sort ?? 'recommended') === s} onPress={() => setD({ ...d, sort: s })} />
+            <Chip
+              key={s}
+              label={t(`sort.${s}`)}
+              selected={(d.sort ?? 'recommended') === s}
+              onPress={() => setD({ ...d, sort: s })}
+            />
           ))}
         </Row>
       </View>
@@ -82,7 +116,12 @@ export function FeedFilters({
         <Label>{t('feed.category')}</Label>
         <Row>
           {CATEGORIES.map((c) => (
-            <Chip key={c} label={t(`category.${c}`)} selected={d.categories?.includes(c)} onPress={() => setD({ ...d, categories: toggle(d.categories, c) })} />
+            <Chip
+              key={c}
+              label={t(`category.${c}`)}
+              selected={d.categories?.includes(c)}
+              onPress={() => setD({ ...d, categories: toggle(d.categories, c) })}
+            />
           ))}
         </Row>
       </View>
@@ -103,7 +142,12 @@ export function FeedFilters({
         <Label>{t('feed.deadline')}</Label>
         <Row>
           {DEADLINES.map((x) => (
-            <Chip key={x} label={t(`deadline.${x}`)} selected={d.deadlines?.includes(x)} onPress={() => setD({ ...d, deadlines: toggle(d.deadlines, x) })} />
+            <Chip
+              key={x}
+              label={t(`deadline.${x}`)}
+              selected={d.deadlines?.includes(x)}
+              onPress={() => setD({ ...d, deadlines: toggle(d.deadlines, x) })}
+            />
           ))}
         </Row>
       </View>

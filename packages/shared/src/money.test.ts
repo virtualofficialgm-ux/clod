@@ -79,3 +79,13 @@ describe('форматирование', () => {
   it('с центами', () => expect(formatMoney(2750 + 5)).toMatch(/^27,55\s?\$$/));
   it('доллары в центы без ошибок плавающей точки', () => expect(dollarsToCents(19.99)).toBe(1999));
 });
+
+describe('QR-код', () => {
+  it('матрица квадратная, путь не пустой', async () => {
+    const { qrMatrix, qrPath } = await import('./qr');
+    const m = qrMatrix('https://parri.app/tasks/b0000000-0000-4000-8000-000000000001');
+    expect(m.length).toBeGreaterThan(20);
+    expect(m.every((r) => r.length === m.length)).toBe(true);
+    expect(qrPath(m)).toMatch(/^M\d+ \d+h1v1h-1z/);
+  });
+});

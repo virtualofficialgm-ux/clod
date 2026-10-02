@@ -44,7 +44,7 @@ export type NearbyRadius = (typeof NEARBY_RADII_M)[number];
 export const TASK_STATUSES = ['open', 'in_progress', 'review', 'completed', 'archived'] as const;
 export type TaskStatus = (typeof TASK_STATUSES)[number];
 
-export const SORTS = ['recommended', 'newest', 'highest_pay', 'deadline', 'distance'] as const;
+export const SORTS = ['recommended', 'newest', 'highest_pay', 'deadline', 'distance', 'best_match'] as const;
 export type FeedSort = (typeof SORTS)[number];
 
 export const LIMITS = {

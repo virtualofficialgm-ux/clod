@@ -9,6 +9,7 @@ import {
 import { createContext, useContext, useEffect, useState } from 'react';
 import {
   auth,
+  taskExtras,
   profile,
   responses,
   room,
@@ -58,6 +59,9 @@ export const keys = {
   subscription: ['subscription'] as const,
   connect: ['connect'] as const,
   addresses: ['crypto-addresses'] as const,
+  questions: (id: string) => ['questions', id] as const,
+  drafts: ['task-drafts'] as const,
+  reviews: (id: string) => ['reviews', id] as const,
 };
 
 /** Текущая сессия; loading=true до первой проверки */
@@ -245,4 +249,18 @@ export function useConnectAccount() {
 export function useCryptoAddresses() {
   const sb = useSupabase();
   return useQuery({ queryKey: keys.addresses, queryFn: () => money.cryptoAddresses(sb) });
+}
+
+// ---------- Задачи: вопросы, черновики, отзывы ----------
+export function useTaskQuestions(taskId: string | undefined) {
+  const sb = useSupabase();
+  return useQuery({ queryKey: keys.questions(taskId ?? ''), queryFn: () => taskExtras.questions(sb, taskId!), enabled: !!taskId });
+}
+export function useTaskDrafts(enabled = true) {
+  const sb = useSupabase();
+  return useQuery({ queryKey: keys.drafts, queryFn: () => taskExtras.drafts(sb), enabled });
+}
+export function useReviewsFor(userId: string | undefined) {
+  const sb = useSupabase();
+  return useQuery({ queryKey: keys.reviews(userId ?? ''), queryFn: () => taskExtras.reviewsFor(sb, userId!), enabled: !!userId });
 }

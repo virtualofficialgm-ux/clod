@@ -4,34 +4,46 @@ import {
   displayStatus,
   files as filesApi,
   formatDateTime,
+  formatMoney,
   formatTimeLeft,
+  parseDollars,
   room,
   t,
+  work,
   type FileRef,
   type Message,
+  type Submission,
+  type TaskDetail,
   type TranslationKey,
 } from '@parri/shared';
 import { chats } from '@parri/shared';
 import { keys, useApiMutation, useMe, useRoomMessages, useSupabase, useTaskDetail } from '@parri/shared/react';
-import { useQueryClient } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import clsx from 'clsx';
-import { ArrowUp, ChevronLeft, Paperclip, X } from 'lucide-react';
+import { ArrowUp, CheckCheck, ChevronLeft, Clock, Coins, ExternalLink, Map, Paperclip, X } from 'lucide-react';
+import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
 import { useEffect, useRef, useState } from 'react';
+import { BottomSheet } from '@/components/glass/BottomSheet';
 import { Button } from '@/components/glass/Button';
+import { Chip } from '@/components/glass/Chip';
 import { Glass } from '@/components/glass/Glass';
 import { Header } from '@/components/glass/Header';
 import { FileList } from '@/components/task/FileList';
 import { ReviewSheet, SubmitSheet } from '@/components/task/WorkSheets';
 import { CenterSpinner, EmptyState, StatusBadge } from '@/components/ui/bits';
+import { FormError, Input } from '@/components/ui/Field';
+import { Card, CardHeader, ListGroup, ListRow } from '@/components/ui/kit';
+import { useToast } from '@/components/ui/Toast';
 
 const ACTIVE = ['in_progress', 'review', 'disputed'];
 
-function Bubble({ m, mine }: { m: Message; mine: boolean }) {
+function Bubble({ m, mine, read }: { m: Message; mine: boolean; read?: boolean }) {
   if (m.kind === 'system') {
     return (
-      <p className="mx-auto max-w-md rounded-pill bg-separator px-4 py-2 text-center text-caption text-text-2">
+      <p className="mx-auto max-w-md rounded-pill bg-fill px-4 py-2 text-center text-caption text-text-2">
         {t(`event.${m.body}` as TranslationKey, { version: String((m.meta?.version as number | undefined) ?? '') })}
+        {typeof m.meta?.amount_cents === 'number' && ` · ${formatMoney(m.meta.amount_cents as number, 'ru-RU', { currency: (m.meta.currency as 'USD' | 'USDT') ?? 'USD' })}`}
       </p>
     );
   }
@@ -50,7 +62,224 @@ function Bubble({ m, mine }: { m: Message; mine: boolean }) {
           <FileList items={m.files} />
         </div>
       )}
-      <span className="px-2 text-caption text-text-2">{formatDateTime(m.created_at)}</span>
+      <span className="inline-flex items-center gap-1 px-2 text-caption text-text-2">
+        {formatDateTime(m.created_at)}
+        {mine && (
+          <span className={clsx('inline-flex items-center gap-0.5', read && 'text-accent-text')}>
+            · <CheckCheck size={14} aria-hidden /> {read ? t('room.read') : t('room.delivered')}
+          </span>
+        )}
+      </span>
+    </div>
+  );
+}
+
+const EXT_MINUTES = [15, 30, 60, 180, 1440] as const;
+
+function ExtensionSheet({ taskId, onClose }: { taskId: string; onClose: () => void }) {
+  const toast = useToast();
+  const [minutes, setMinutes] = useState<number>(60);
+  const [reason, setReason] = useState('');
+  const m = useApiMutation((sb) => work.requestExtension(sb, taskId, minutes, reason), {
+    invalidate: () => [keys.task(taskId), keys.messages(taskId)],
+    onSuccess: () => {
+      toast(t('room.extensionSent'));
+      onClose();
+    },
+  });
+  return (
+    <BottomSheet
+      open
+      onClose={onClose}
+      title={t('room.extensionTitle')}
+      footer={
+        <div className="flex flex-col gap-2">
+          <FormError error={m.error?.key} />
+          <Button size="lg" block onClick={() => m.mutate(undefined)} disabled={m.isPending}>
+            {t('room.extension')}
+          </Button>
+        </div>
+      }
+    >
+      <div className="flex flex-col gap-4">
+        <span className="text-callout font-bold">{t('room.extensionMinutes')}</span>
+        <div className="flex flex-wrap gap-2">
+          {EXT_MINUTES.map((x) => (
+            <Chip key={x} selected={minutes === x} onClick={() => setMinutes(x)}>
+              {t(`room.minutes.${x}`)}
+            </Chip>
+          ))}
+        </div>
+        <Input label={t('room.extensionReason')} value={reason} onChange={(e) => setReason(e.target.value)} maxLength={300} />
+      </div>
+    </BottomSheet>
+  );
+}
+
+function TipSheet({ d, onClose }: { d: TaskDetail; onClose: () => void }) {
+  const toast = useToast();
+  const [preset, setPreset] = useState<number | null>(300);
+  const [custom, setCustom] = useState('');
+  const cents = preset ?? parseDollars(custom) ?? 0;
+  const fmt = (c: number) => formatMoney(c, 'ru-RU', { currency: d.task.currency });
+  const m = useApiMutation((sb) => work.tip(sb, d.task.id, cents), {
+    invalidate: () => [keys.task(d.task.id), keys.messages(d.task.id), keys.me, keys.ledger],
+    onSuccess: () => {
+      toast(t('room.tipSent'));
+      onClose();
+    },
+  });
+  return (
+    <BottomSheet
+      open
+      onClose={onClose}
+      title={t('room.tipTitle')}
+      footer={
+        <div className="flex flex-col gap-2">
+          <FormError error={m.error?.key} />
+          <Button size="lg" block onClick={() => m.mutate(undefined)} disabled={m.isPending || cents < 100}>
+            {t('room.tipSend', { v: fmt(cents) })}
+          </Button>
+        </div>
+      }
+    >
+      <div className="flex flex-col gap-4">
+        <p className="text-callout text-text-2">{t('room.tipHint')}</p>
+        <div className="flex flex-wrap gap-2">
+          {[100, 300, 500, 1000].map((c) => (
+            <Chip key={c} selected={preset === c} onClick={() => setPreset(c)}>
+              {fmt(c)}
+            </Chip>
+          ))}
+          <Chip selected={preset === null} onClick={() => setPreset(null)}>
+            {t('room.tipCustom')}
+          </Chip>
+        </div>
+        {preset === null && <Input label={t('room.tipCustom')} inputMode="decimal" value={custom} onChange={(e) => setCustom(e.target.value)} />}
+      </div>
+    </BottomSheet>
+  );
+}
+
+function Versions({ items, task }: { items: Submission[]; task: TaskDetail['task'] }) {
+  if (!items.length) return null;
+  return (
+    <Card>
+      <CardHeader title={t('room.versions')} />
+      <ol className="flex flex-col gap-3">
+        {items.map((s) => (
+          <li key={s.id} className="tile flex flex-col gap-1.5 px-4 py-3">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <span className="font-bold">
+                {t('task.version', { n: s.version })}
+                {s.stage === 'intermediate' && <span className="ml-2 text-caption text-text-2">{t('room.stageIntermediate')}</span>}
+              </span>
+              <span className="text-caption font-semibold">{t(`submissionStatus.${s.status}`)}</span>
+            </div>
+            {s.comment && <p className="whitespace-pre-line text-callout">{s.comment}</p>}
+            {s.link && (
+              <a href={s.link} target="_blank" rel="noopener noreferrer nofollow" className="inline-flex items-center gap-1 truncate text-callout font-semibold text-accent-text">
+                <ExternalLink size={14} /> {s.link}
+              </a>
+            )}
+            {s.files.length > 0 && <FileList items={s.files} />}
+            {s.note && <p className="text-caption text-text-2">{s.note}</p>}
+            {s.review_comment && (
+              <p className="rounded-md bg-warning/12 px-3 py-2 text-callout">
+                {s.review_comment}
+                {s.revision_items?.length ? ` · ${s.revision_items.map((i) => task.checklist[i]).filter(Boolean).join(', ')}` : ''}
+                {s.revision_due ? ` · ${t('room.revisionDue', { date: formatDateTime(s.revision_due) })}` : ''}
+              </p>
+            )}
+            <span className="text-caption text-text-2">{formatDateTime(s.created_at)}</span>
+          </li>
+        ))}
+      </ol>
+    </Card>
+  );
+}
+
+function InfoPanel({ d, onExtension, onTip }: { d: TaskDetail; onExtension: () => void; onTip: () => void }) {
+  const task = d.task;
+  const status = displayStatus(task);
+  const fmt = (c: number) => formatMoney(c, 'ru-RU', { currency: task.currency });
+  const executor = d.viewer_role === 'executor';
+  const ext = d.extension;
+  const toast = useToast();
+  const decide = useApiMutation((sb, accept: boolean) => work.decideExtension(sb, ext!.id, accept), {
+    invalidate: () => [keys.task(task.id), keys.messages(task.id)],
+    onSuccess: (_r, accept) => toast(accept ? t('event.extension_accepted') : t('event.extension_declined')),
+  });
+  return (
+    <div className="flex flex-col gap-4">
+      <Card className="flex flex-col gap-3">
+        <CardHeader title={t('room.info')} />
+        <ListGroup>
+          <ListRow title={t('task.reward')} value={fmt(task.reward_cents)} />
+          <ListRow title={t('room.reserved')} value={fmt(task.reward_cents)} />
+          {task.due_at && <ListRow title={t('room.deadline')} subtitle={formatDateTime(task.due_at)} value={['in_progress', 'review'].includes(status) ? formatTimeLeft(task.due_at) : undefined} />}
+          <ListRow title={t('task.resultFormat')} value={t(`format.${task.result_format}` as TranslationKey)} />
+        </ListGroup>
+        {task.checklist.length > 0 && (
+          <div className="flex flex-col gap-1.5">
+            <p className="text-callout font-bold">{t('room.whatToSubmit')}</p>
+            <ul className="flex list-disc flex-col gap-1 pl-5 text-callout">
+              {task.checklist.map((c, i) => (
+                <li key={i}>{c}</li>
+              ))}
+            </ul>
+          </div>
+        )}
+        {d.attachments.length > 0 && <FileList items={d.attachments} />}
+        <div className="flex flex-wrap gap-2">
+          {task.kind === 'nearby' && task.lat != null && task.lng != null && (
+            <a
+              href={`https://www.google.com/maps/search/?api=1&query=${task.lat},${task.lng}`}
+              target="_blank"
+              rel="noreferrer"
+              className="inline-flex h-10 items-center gap-1.5 rounded-pill bg-fill px-4 text-callout font-bold"
+            >
+              <Map size={16} /> {t('room.openMaps')}
+            </a>
+          )}
+          <Link href={`/tasks/${task.id}`} className="inline-flex h-10 items-center rounded-pill bg-fill px-4 text-callout font-bold">
+            {t('room.openTask')}
+          </Link>
+        </div>
+      </Card>
+
+      {ext?.status === 'pending' && (
+        <Card className="flex flex-col gap-3 ring-2 ring-warning/40" data-testid="extension-pending">
+          <p className="flex items-center gap-2 font-bold">
+            <Clock size={18} /> {t('room.extensionPending', { m: t(`room.minutes.${ext.minutes}` as TranslationKey) })}
+          </p>
+          {ext.reason && <p className="text-callout text-text-2">{ext.reason}</p>}
+          {!executor && (
+            <div className="flex gap-2">
+              <Button onClick={() => decide.mutate(true)} disabled={decide.isPending}>
+                {t('room.extensionAccept')}
+              </Button>
+              <Button variant="glass" onClick={() => decide.mutate(false)} disabled={decide.isPending}>
+                {t('room.extensionDecline')}
+              </Button>
+            </div>
+          )}
+        </Card>
+      )}
+
+      <div className="flex flex-wrap gap-2">
+        {executor && ['in_progress', 'review'].includes(status) && ext?.status !== 'pending' && (
+          <Button variant="glass" onClick={onExtension}>
+            <Clock size={18} /> {t('room.extension')}
+          </Button>
+        )}
+        {!executor && ['in_progress', 'review', 'completed'].includes(status) && (
+          <Button variant="glass" onClick={onTip}>
+            <Coins size={18} /> {t('room.tip')}
+          </Button>
+        )}
+      </div>
+      <Versions items={d.submissions} task={task} />
     </div>
   );
 }
@@ -75,7 +304,14 @@ export default function RoomPage() {
   }, [participant, detail.data?.task.executor_id, count, sb, id, qc]);
   const [text, setText] = useState('');
   const [pending, setPending] = useState<File[]>([]);
-  const [sheet, setSheet] = useState<null | 'submit' | 'review'>(null);
+  const [sheet, setSheet] = useState<null | 'submit' | 'review' | 'extension' | 'tip'>(null);
+  const counterpart = detail.data ? (detail.data.viewer_role === 'customer' ? detail.data.task.executor_id : detail.data.task.customer_id) : null;
+  const readAt = useQuery({
+    queryKey: ['chat-read', id, counterpart],
+    queryFn: () => chats.counterpartReadAt(sb, id, counterpart!),
+    enabled: !!counterpart && participant,
+    refetchInterval: 5000,
+  }).data;
   const endRef = useRef<HTMLDivElement>(null);
 
   const send = useApiMutation(
@@ -133,7 +369,8 @@ export default function RoomPage() {
           </Button>
         }
       />
-      <main className="mx-auto flex max-w-[860px] flex-col gap-4 px-[var(--p-gutter)] pt-2 md:px-8">
+      <main className="mx-auto grid max-w-[var(--p-content-max)] gap-6 px-[var(--p-gutter)] pt-2 md:px-8 lg:grid-cols-[minmax(0,1fr)_360px]">
+       <div className="flex min-w-0 flex-col gap-4">
         <div className="card flex flex-wrap items-center gap-3 p-4">
           <div className="min-w-0 basis-full sm:basis-0 sm:flex-1">
             <p className="text-caption uppercase tracking-wide text-text-2">{t('room.title')}</p>
@@ -153,14 +390,26 @@ export default function RoomPage() {
           {messages.isLoading ? (
             <CenterSpinner />
           ) : (
-            (messages.data ?? []).map((m) => <Bubble key={m.id} m={m} mine={m.sender_id === uid} />)
+            (messages.data ?? []).map((m) => <Bubble key={m.id} m={m} mine={m.sender_id === uid} read={!!readAt && new Date(readAt) >= new Date(m.created_at)} />)
           )}
           <div ref={endRef} />
         </section>
+       </div>
+        <aside className="order-first lg:order-none">
+          <details className="group lg:hidden">
+            <summary className="card cursor-pointer list-none p-4 font-bold">{t('room.info')}</summary>
+            <div className="pt-3">
+              <InfoPanel d={d} onExtension={() => setSheet('extension')} onTip={() => setSheet('tip')} />
+            </div>
+          </details>
+          <div className="sticky top-24 hidden lg:block">
+            <InfoPanel d={d} onExtension={() => setSheet('extension')} onTip={() => setSheet('tip')} />
+          </div>
+        </aside>
       </main>
 
       <div className="fixed inset-x-0 bottom-[92px] z-30 px-[var(--p-gutter)] md:bottom-4 md:pl-[calc(var(--p-sidebar-width)+16px)]">
-        <div className="mx-auto max-w-[860px]">
+        <div className="mx-auto max-w-[var(--p-content-max)] md:px-8 lg:pr-[392px]">
           {active ? (
             <Glass as="form" radius="2xl" onSubmit={submit} className="flex flex-col gap-2 p-2">
               {pending.length > 0 && (
@@ -216,6 +465,8 @@ export default function RoomPage() {
 
       {sheet === 'submit' && <SubmitSheet open onClose={() => setSheet(null)} task={task} />}
       {sheet === 'review' && latest && <ReviewSheet open onClose={() => setSheet(null)} task={task} submission={latest} />}
+      {sheet === 'extension' && <ExtensionSheet taskId={task.id} onClose={() => setSheet(null)} />}
+      {sheet === 'tip' && <TipSheet d={d} onClose={() => setSheet(null)} />}
     </>
   );
 }
