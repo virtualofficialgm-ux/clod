@@ -7,5 +7,5 @@
     // Edge Functions (Deno) импортируют модули с расширением .ts
     "allowImportingTsExtensions": true
   },
-  "include": ["tests", "functions/ai-compose/handler.ts", "functions/payments/handler.ts", "functions/_shared/stripe.ts"]
+  "include": ["tests", "functions/ai-compose/handler.ts", "functions/payments/handler.ts", "functions/parri-bot/handler.ts", "functions/_shared/stripe.ts"]
 }

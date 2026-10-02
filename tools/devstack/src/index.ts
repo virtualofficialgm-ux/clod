@@ -4,6 +4,8 @@ import { ensureDevstackSchema } from './db.ts';
 import { HttpError, readRequest, send } from './http.ts';
 import { ANON_KEY, SERVICE_KEY } from './jwt.ts';
 import { handleRest } from './rest.ts';
+import { BotError, botAction } from './bot.ts';
+import type { ToolClient } from '../../../supabase/functions/parri-bot/handler.ts';
 import { handleStorage } from './storage.ts';
 import { cryptoWebhook, fakeStripe, nowPaymentsPage, paymentsAction, refreshRates, stripeWebhook } from './payments.ts';
 import { PaymentsError } from '../../../supabase/functions/payments/handler.ts';
@@ -55,6 +57,15 @@ const server = createServer(async (rawReq, res) => {
         return send(res, 200, claude ? await composeTask(claude, input) : offlineDraft(input));
       } catch (e) {
         if (e instanceof ComposeError) return send(res, e.code === 'invalid_input' ? 400 : 502, { error: e.code });
+        throw e;
+      }
+    }
+    if (req.path === '/functions/v1/parri-bot' && req.method === 'POST') {
+      if (req.claims.role !== 'authenticated' || !req.claims.sub) return send(res, 401, { error: 'not_authenticated' });
+      try {
+        return send(res, 200, await botAction(req.claims, req.json(), claude as unknown as ToolClient | null));
+      } catch (e) {
+        if (e instanceof BotError) return send(res, e.code === 'invalid_input' ? 400 : e.code === 'bot_requires_pro' ? 403 : 502, { error: e.code });
         throw e;
       }
     }

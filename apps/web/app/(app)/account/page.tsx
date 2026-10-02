@@ -12,6 +12,8 @@ import {
 import { keys, useApiMutation, useMe, useSession, useSignOut } from '@parri/shared/react';
 import {
   BadgeCheck,
+  Bot,
+  Scale,
   Bookmark,
   Briefcase,
   GraduationCap,
@@ -236,12 +238,10 @@ export default function AccountPage() {
               title={t('profile.sections.settings')}
               href="/settings"
             />
-            <ListRow
-              icon={<LifeBuoy size={18} />}
-              title={t('messages.support')}
-              value={undefined}
-              trailing={<SoonBadge />}
-            />
+            <ListRow icon={<LifeBuoy size={18} />} title={t('messages.support')} href="/support" />
+            <ListRow icon={<Scale size={18} />} title={t('nav.disputes')} href="/disputes" />
+            <ListRow icon={<BadgeCheck size={18} />} title={t('nav.verification')} value={p.verified_at ? t('verify.verified') : undefined} href="/verification" />
+            <ListRow icon={<Bot size={18} />} title={t('nav.bot')} value={p.plan === 'pro' ? undefined : 'Pro'} href="/bot" />
             {staff && (
               <ListRow
                 icon={<Settings size={18} />}

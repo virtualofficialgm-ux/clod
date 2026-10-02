@@ -12,3 +12,4 @@ export * from './moneyApi';
 export * from './qr';
 export { t, createT, type TranslationKey, type Locale } from './i18n';
 export * from './social';
+export * from './service';
