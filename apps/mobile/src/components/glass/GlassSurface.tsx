@@ -43,7 +43,7 @@ function EdgeHighlight({ radius, top, bottom }: { radius: number; top: string; b
             y={0.5}
             width={Math.max(0, size.w - 1)}
             height={Math.max(0, size.h - 1)}
-            rx={Math.min(radius, size.h / 2) - 0.5}
+            rx={Math.max(0, Math.min(radius, size.h / 2) - 0.5)}
             fill="none"
             stroke="url(#edge)"
             strokeWidth={glass.borderWidth}

@@ -1,6 +1,6 @@
 import { t } from '@parri/shared';
 import { motion } from '@parri/ui';
-import { X } from 'lucide-react-native';
+import { X } from '@/components/icons';
 import { useEffect, useState } from 'react';
 import { BackHandler, Pressable, ScrollView, StyleSheet, useWindowDimensions, View } from 'react-native';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';

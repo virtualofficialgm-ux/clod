@@ -1,0 +1,249 @@
+<title>Parri</title>
+<style>
+/* Сцена: на широком экране — панель демо слева и приложение в рамке телефона; на телефоне — приложение на весь экран */
+:root {
+  --bg: #F4F1EC;
+  --panel: rgba(255, 255, 255, 0.72);
+  --panel-solid: #FFFFFF;
+  --fg: #0B0B0F;
+  --muted: #5B5B66;
+  --accent: #FF5428;
+  --accent-text: #C93A14;
+  --line: rgba(11, 11, 15, 0.08);
+  --frame: #0B0B0F;
+  --blob-1: #FF7A45;
+  --blob-2: #FFC4A3;
+  --blob-3: #9CC8FF;
+  --font: 'Manrope_500Medium', 'Manrope', -apple-system, 'Segoe UI', Roboto, sans-serif;
+  --font-bold: 'Manrope_800ExtraBold', 'Manrope', -apple-system, 'Segoe UI', Roboto, sans-serif;
+  --font-semi: 'Manrope_700Bold', 'Manrope', -apple-system, 'Segoe UI', Roboto, sans-serif;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #09090B; --panel: rgba(28, 28, 32, 0.72); --panel-solid: #1C1C20; --fg: #F5F5F7; --muted: #A1A1AA;
+    --accent-text: #FF6A40; --line: rgba(255, 255, 255, 0.1); --frame: #2A2A30;
+    --blob-1: #FF5428; --blob-2: #B85A3C; --blob-3: #2F5D9E; color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #09090B; --panel: rgba(28, 28, 32, 0.72); --panel-solid: #1C1C20; --fg: #F5F5F7; --muted: #A1A1AA;
+  --accent-text: #FF6A40; --line: rgba(255, 255, 255, 0.1); --frame: #2A2A30;
+  --blob-1: #FF5428; --blob-2: #B85A3C; --blob-3: #2F5D9E; color-scheme: dark;
+}
+/*FONTS*/
+html, body { height: 100%; }
+body { overflow: hidden; background: var(--bg); color: var(--fg); font-family: var(--font); }
+#stage { position: fixed; inset: 0; display: flex; align-items: stretch; justify-content: center; }
+#phone { position: relative; flex: 1; display: flex; min-width: 0; }
+#root { display: flex; flex: 1; height: 100%; position: relative; transform: translateZ(0); overflow: hidden; }
+#mesh { display: none; }
+#info { display: none; }
+#info-toggle {
+  position: fixed; top: calc(env(safe-area-inset-top, 0px) + 14px); right: 76px; z-index: 40;
+  height: 34px; padding: 0 14px; border-radius: 999px; border: 1px solid var(--line);
+  background: var(--panel); color: var(--fg); font: 13px/1 var(--font-semi);
+  -webkit-backdrop-filter: blur(20px) saturate(180%); backdrop-filter: blur(20px) saturate(180%); cursor: pointer;
+}
+
+@media (min-width: 900px) {
+  #stage { gap: 48px; align-items: center; padding-block: 24px; padding-inline: 32px; }
+  #mesh { display: block; position: fixed; inset: 0; overflow: hidden; z-index: -1; pointer-events: none; }
+  #mesh i { position: absolute; width: 60vmax; height: 60vmax; border-radius: 50%; filter: blur(90px); opacity: .55; }
+  #mesh i:nth-child(1) { background: var(--blob-1); top: -25vmax; left: -15vmax; }
+  #mesh i:nth-child(2) { background: var(--blob-2); top: 10vmax; right: -25vmax; }
+  #mesh i:nth-child(3) { background: var(--blob-3); bottom: -35vmax; left: 20vmax; }
+  #phone { flex: 0 0 400px; height: min(860px, 100%); border-radius: 44px; border: 10px solid var(--frame); box-shadow: 0 30px 80px rgba(0, 0, 0, .25); overflow: hidden; }
+  #info { display: flex; position: static; width: 380px; max-height: 100%; overflow-y: auto; }
+  #info-toggle, #info-close { display: none; }
+}
+
+.panel {
+  flex-direction: column; gap: 18px; padding: 24px; border-radius: 28px; border: 1px solid var(--line);
+  background: var(--panel); -webkit-backdrop-filter: blur(24px) saturate(180%); backdrop-filter: blur(24px) saturate(180%);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, .12);
+}
+#info.open { display: flex; position: fixed; inset: 12px; z-index: 60; overflow-y: auto; background: var(--panel-solid); }
+.panel h1 { margin: 0; font: 40px/1 var(--font-bold); letter-spacing: -0.03em; text-wrap: balance; }
+.panel h1 b { color: var(--accent); }
+.panel h2 { margin: 0; font: 12px/1.2 var(--font-semi); letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
+.panel p, .panel li { margin: 0; font-size: 15px; line-height: 1.5; color: var(--muted); }
+.panel ul, .panel ol { margin: 0; padding-left: 20px; display: grid; gap: 6px; }
+.panel strong { color: var(--fg); font-family: var(--font-semi); font-weight: normal; }
+.acc { display: grid; gap: 8px; }
+.acc div { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 10px 12px; border-radius: 16px; background: var(--panel-solid); border: 1px solid var(--line); }
+.acc span { min-width: 0; font-size: 14px; color: var(--muted); }
+.acc span b { display: block; color: var(--fg); font: 14px/1.4 var(--font-semi); font-weight: normal; }
+button.chip { flex: none; height: 32px; padding: 0 12px; border-radius: 999px; border: 1px solid var(--line); background: transparent; color: var(--fg); font: 13px/1 var(--font-semi); cursor: pointer; }
+button.chip:hover { border-color: var(--accent); }
+button.primary { height: 44px; border: 0; border-radius: 999px; background: var(--accent); color: #fff; font: 16px/1 var(--font-semi); cursor: pointer; }
+button:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+.mono { font-variant-numeric: tabular-nums; }
+
+#boot { position: fixed; inset: 0; z-index: 80; display: flex; align-items: center; justify-content: center; background: var(--bg); }
+#boot .card { display: grid; gap: 14px; justify-items: center; text-align: center; max-width: 320px; padding-inline: 16px; }
+#boot .logo { font: 56px/1 var(--font-bold); letter-spacing: -0.04em; }
+#boot .logo b { color: var(--accent); }
+#boot p { margin: 0; color: var(--muted); font-size: 15px; }
+#boot .spin { width: 28px; height: 28px; border-radius: 50%; border: 3px solid var(--line); border-top-color: var(--accent); animation: spin .9s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { #boot .spin { animation: none; } }
+
+#otp {
+  position: fixed; left: 50%; top: calc(env(safe-area-inset-top, 0px) + 12px); transform: translateX(-50%); z-index: 70;
+  display: flex; align-items: center; gap: 12px; padding: 10px 10px 10px 18px; max-width: calc(100% - 32px);
+  border-radius: 999px; background: var(--panel-solid); border: 1px solid var(--line); box-shadow: 0 8px 32px rgba(0, 0, 0, .18);
+}
+#otp span { font-size: 14px; color: var(--muted); min-width: 0; }
+#otp b { font: 22px/1 var(--font-bold); letter-spacing: .12em; color: var(--accent-text); }
+
+#preview { position: fixed; inset: 0; z-index: 75; display: flex; align-items: center; justify-content: center; background: rgba(0, 0, 0, .55); padding: 16px; }
+#preview .box { max-width: min(720px, 100%); max-height: 100%; overflow: auto; background: var(--panel-solid); border-radius: 24px; padding: 18px; display: grid; gap: 12px; }
+#preview img { max-width: 100%; border-radius: 12px; }
+#preview pre { white-space: pre-wrap; margin: 0; font-size: 14px; }
+</style>
+
+<div id="mesh" aria-hidden="true"><i></i><i></i><i></i></div>
+<div id="stage">
+  <aside id="info" class="panel" aria-label="О демо">
+    <h1>Parri<b>.</b></h1>
+    <p>Это настоящее мобильное приложение Parri. Postgres с теми же миграциями, правилами доступа и денежной логикой, что в проекте, работает прямо в этой вкладке. Данные видите только вы, они сохраняются в браузере.</p>
+    <h2>Демо-аккаунты · пароль parri-demo-123</h2>
+    <div class="acc">
+      <div><span><b>anna@parri.test</b>Заказчица, $500 на балансе</span><button class="chip" data-copy="anna@parri.test">Копировать</button></div>
+      <div><span><b>ivan@parri.test</b>Исполнитель, тариф Pro</span><button class="chip" data-copy="ivan@parri.test">Копировать</button></div>
+      <div><span><b>maria@parri.test</b>Исполнительница, ВШЭ</span><button class="chip" data-copy="maria@parri.test">Копировать</button></div>
+      <div><span><b>parri-demo-123</b>Пароль для всех</span><button class="chip" data-copy="parri-demo-123">Копировать</button></div>
+    </div>
+    <h2>Что попробовать</h2>
+    <ol>
+      <li><strong>Анна</strong>: «Задачи» → «Мои задачи» → «Собрать таблицу цен конкурентов» на проверке → чек-лист → «Принять и оплатить».</li>
+      <li><strong>Мария</strong>: откликнуться на «Логотип для студенческого клуба» со своей ценой; затем Анна выбирает её в «Откликах» — разница уходит в Сейф.</li>
+      <li><strong>Новый аккаунт</strong>: «Начать бесплатно». Код подтверждения появится вверху экрана вместо письма.</li>
+      <li><strong>«+»</strong>: создать задачу, нажать «Оформить с ИИ» и посмотреть итог с комиссией 10%.</li>
+    </ol>
+    <h2>Что в демо иначе</h2>
+    <ul>
+      <li>Писем нет — код показывается на экране.</li>
+      <li>«Оформить с ИИ» даёт шаблонный черновик: ключ Claude не подключён.</li>
+      <li>Геолокацию просмотрщик не выдаёт, поэтому «Рядом» честно просит доступ.</li>
+      <li>Чат обновляется раз в несколько секунд, без Realtime.</li>
+    </ul>
+    <button class="primary" id="reset" type="button">Сбросить демо-данные</button>
+    <button class="chip" id="info-close" type="button">Закрыть</button>
+  </aside>
+  <div id="phone"><div id="root"></div></div>
+</div>
+<button id="info-toggle" type="button" aria-controls="info">Демо</button>
+
+<div id="boot" role="status" aria-live="polite">
+  <div class="card">
+    <div class="logo">Parri<b>.</b></div>
+    <div class="spin" aria-hidden="true"></div>
+    <p id="boot-text">Загружаем…</p>
+    <p>Первый запуск занимает 10–20 секунд: в браузере поднимается Postgres и применяются миграции. Потом — быстрее.</p>
+  </div>
+</div>
+<div id="otp" hidden role="status" aria-live="polite"><span id="otp-text"></span><b id="otp-code" class="mono"></b><button class="chip" id="otp-copy" type="button">Копировать</button></div>
+<div id="preview" hidden><div class="box" id="preview-box"></div></div>
+
+<script>/*ENGINE*/</script>
+<!--BLOBS-->
+<script>
+(function () {
+  var ORIGINAL = location.href;
+  // Приложение использует маршруты от корня (/feed, /task/…), поэтому адрес вкладки сводим к «/»
+  try { history.replaceState(null, '', '/'); } catch (e) {}
+  var $ = function (id) { return document.getElementById(id); };
+  var status = function (t) { $('boot-text').textContent = t; };
+  function bytes(id) {
+    var el = $(id), bin = atob(el.textContent), u = new Uint8Array(bin.length);
+    for (var i = 0; i < bin.length; i++) u[i] = bin.charCodeAt(i);
+    el.remove();
+    return u;
+  }
+  function gunzip(u) {
+    return new Response(new Blob([u]).stream().pipeThrough(new DecompressionStream('gzip'))).arrayBuffer();
+  }
+  var store = { get: function (k) { try { return localStorage.getItem(k); } catch (e) { return null; } }, set: function (k, v) { try { localStorage.setItem(k, v); } catch (e) {} } };
+  var dbKey = store.get('parri-demo-db') || 'parri-demo-1';
+
+  var ready = (async function () {
+    status('Загружаем Postgres…');
+    var parts = await Promise.all([gunzip(bytes('pg-wasm')), gunzip(bytes('pg-initdb')), gunzip(bytes('pg-data'))]);
+    var mods = await Promise.all([WebAssembly.compile(parts[0]), WebAssembly.compile(parts[1])]);
+    var sql = bytes('pg-sql');
+    var opts = {
+      pgliteWasmModule: mods[0], initdbWasmModule: mods[1], fsBundle: new Blob([parts[2]]),
+      bootstrapSql: async function () { return new TextDecoder().decode(await gunzip(sql)); },
+      onProgress: status,
+    };
+    status('Запускаем базу данных…');
+    try {
+      await ParriEngine.startEngine(Object.assign({ dataDir: 'idb://' + dbKey }, opts));
+    } catch (e) {
+      // Нет IndexedDB (приватное окно) — работаем в памяти, данные сбросятся при перезагрузке
+      console.warn('IndexedDB недоступна, база в памяти', e);
+      await ParriEngine.startEngine(Object.assign({ dataDir: undefined }, opts));
+    }
+    $('boot').hidden = true;
+  })();
+  ready.catch(function (e) { console.error(e); status('Не удалось запустить демо: ' + (e && e.message || e)); });
+  window.__parriFetch = async function (input, init) { await ready; return ParriEngine.demoFetch(input, init); };
+
+  // Код подтверждения вместо письма
+  var otpTimer;
+  window.addEventListener('parri-demo-otp', function (e) {
+    var d = e.detail;
+    $('otp-text').textContent = (d.type === 'recovery' ? 'Код восстановления' : 'Код из письма') + ' для ' + d.email + ':';
+    $('otp-code').textContent = d.code;
+    $('otp').hidden = false;
+    clearTimeout(otpTimer);
+    otpTimer = setTimeout(function () { $('otp').hidden = true; }, 90000);
+  });
+  function copy(text, btn) {
+    var done = function () { var t = btn.textContent; btn.textContent = 'Скопировано'; setTimeout(function () { btn.textContent = t; }, 1500); };
+    if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(text).then(done, function () {});
+  }
+  $('otp-copy').addEventListener('click', function () { copy($('otp-code').textContent, this); });
+  document.querySelectorAll('[data-copy]').forEach(function (b) { b.addEventListener('click', function () { copy(b.getAttribute('data-copy'), b); }); });
+
+  // Панель демо на телефоне
+  $('info-toggle').addEventListener('click', function () { $('info').classList.add('open'); });
+  $('info-close').addEventListener('click', function () { $('info').classList.remove('open'); });
+
+  // Сброс: новая пустая база и выход из аккаунта
+  $('reset').addEventListener('click', async function () {
+    var old = dbKey;
+    store.set('parri-demo-db', 'parri-demo-' + Date.now());
+    try { Object.keys(localStorage).forEach(function (k) { if (k.indexOf('sb-') === 0) localStorage.removeItem(k); }); } catch (e) {}
+    try { var list = await indexedDB.databases(); list.forEach(function (d) { if (d.name && d.name.indexOf(old) !== -1) indexedDB.deleteDatabase(d.name); }); } catch (e) {}
+    location.replace(ORIGINAL);
+  });
+
+  // Файлы задач открываются предпросмотром внутри страницы
+  var nativeOpen = window.open.bind(window);
+  window.open = function (url) {
+    if (typeof url === 'string' && url.indexOf('https://parri.demo/') === 0) { preview(url); return null; }
+    return nativeOpen.apply(window, arguments);
+  };
+  async function preview(url) {
+    var box = $('preview-box');
+    box.textContent = 'Открываем файл…';
+    $('preview').hidden = false;
+    try {
+      var res = await window.__parriFetch(url);
+      var blob = await res.blob();
+      box.textContent = '';
+      var name = decodeURIComponent(url.split('?')[0].split('/').pop() || 'файл').replace(/^[a-z0-9]+-/, '');
+      var title = document.createElement('strong'); title.textContent = name; box.append(title);
+      if (blob.type.indexOf('image/') === 0) { var img = document.createElement('img'); img.alt = name; img.src = URL.createObjectURL(blob); box.append(img); }
+      else if (blob.type.indexOf('text/') === 0 || blob.type.indexOf('json') !== -1) { var pre = document.createElement('pre'); pre.textContent = await blob.text(); box.append(pre); }
+      else { var p = document.createElement('p'); p.textContent = 'Файл загружен (' + Math.round(blob.size / 1024) + ' КБ). В демо открываются только изображения и текст.'; box.append(p); }
+    } catch (e) { box.textContent = 'Не удалось открыть файл.'; }
+    var close = document.createElement('button'); close.className = 'chip'; close.type = 'button'; close.textContent = 'Закрыть';
+    close.addEventListener('click', function () { $('preview').hidden = true; });
+    box.append(close);
+  }
+})();
+</script>
+<script>/*APP*/</script>

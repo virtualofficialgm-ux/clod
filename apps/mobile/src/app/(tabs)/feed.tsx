@@ -2,7 +2,7 @@ import { savedSearches, t, type FeedParams, type TaskKind } from '@parri/shared'
 import { keys, useFeed, useMe, useSavedSearches, useSupabase } from '@parri/shared/react';
 import { useQueryClient } from '@tanstack/react-query';
 import { router } from 'expo-router';
-import { Bookmark, GraduationCap, MapPinOff, Search, SlidersHorizontal, X } from 'lucide-react-native';
+import { Bookmark, GraduationCap, MapPinOff, Search, SlidersHorizontal, X } from '@/components/icons';
 import { useDeferredValue, useState } from 'react';
 import { Pressable, ScrollView, TextInput, View } from 'react-native';
 import { AppText } from '@/components/AppText';

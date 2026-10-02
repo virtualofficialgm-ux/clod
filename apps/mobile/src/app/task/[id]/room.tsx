@@ -1,7 +1,7 @@
 import { displayStatus, formatDateTime, formatTimeLeft, room, t, type Message, type TranslationKey } from '@parri/shared';
 import { keys, useApiMutation, useMe, useRoomMessages, useTaskDetail } from '@parri/shared/react';
 import { useLocalSearchParams } from 'expo-router';
-import { ArrowUp, Paperclip, X } from 'lucide-react-native';
+import { ArrowUp, Paperclip, X } from '@/components/icons';
 import { useEffect, useRef, useState } from 'react';
 import { KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';

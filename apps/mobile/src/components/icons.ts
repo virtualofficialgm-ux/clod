@@ -1,0 +1,28 @@
+// Иконки подключаются по одной: импорт из корня lucide-react-native тянет в бандл всю библиотеку (~1500 иконок).
+export { default as ArrowUp } from 'lucide-react-native/icons/arrow-up';
+export { default as Bell } from 'lucide-react-native/icons/bell';
+export { default as Bookmark } from 'lucide-react-native/icons/bookmark';
+export { default as Check } from 'lucide-react-native/icons/check';
+export { default as ChevronLeft } from 'lucide-react-native/icons/chevron-left';
+export { default as Clock } from 'lucide-react-native/icons/clock';
+export { default as FileText } from 'lucide-react-native/icons/file-text';
+export { default as Globe } from 'lucide-react-native/icons/globe';
+export { default as GraduationCap } from 'lucide-react-native/icons/graduation-cap';
+export { default as House } from 'lucide-react-native/icons/house';
+export { default as ListChecks } from 'lucide-react-native/icons/list-checks';
+export { default as Lock } from 'lucide-react-native/icons/lock';
+export { default as MapPin } from 'lucide-react-native/icons/map-pin';
+export { default as MapPinOff } from 'lucide-react-native/icons/map-pin-off';
+export { default as MessagesSquare } from 'lucide-react-native/icons/messages-square';
+export { default as Paperclip } from 'lucide-react-native/icons/paperclip';
+export { default as Plus } from 'lucide-react-native/icons/plus';
+export { default as Scale } from 'lucide-react-native/icons/scale';
+export { default as Search } from 'lucide-react-native/icons/search';
+export { default as SlidersHorizontal } from 'lucide-react-native/icons/sliders-horizontal';
+export { default as Sparkles } from 'lucide-react-native/icons/sparkles';
+export { default as Trash2 } from 'lucide-react-native/icons/trash';
+export { default as User } from 'lucide-react-native/icons/user';
+export { default as Users } from 'lucide-react-native/icons/users';
+export { default as Wallet } from 'lucide-react-native/icons/wallet';
+export { default as X } from 'lucide-react-native/icons/x';
+export type { LucideIcon } from 'lucide-react-native';

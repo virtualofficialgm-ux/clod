@@ -10,7 +10,7 @@ import {
   type FeedSort,
   type TaskKind,
 } from '@parri/shared';
-import { Bell, ChevronLeft, Search, SlidersHorizontal } from 'lucide-react-native';
+import { Bell, ChevronLeft, Search, SlidersHorizontal } from '@/components/icons';
 import { useState } from 'react';
 import { ScrollView, StyleSheet, View } from 'react-native';
 import Animated, { FadeInDown, useAnimatedScrollHandler, useSharedValue } from 'react-native-reanimated';

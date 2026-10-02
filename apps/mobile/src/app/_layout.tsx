@@ -7,7 +7,7 @@ import { useState } from 'react';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { ToastProvider } from '@/components/ui/bits';
-import { supabase } from '@/lib/supabase';
+import { DEMO, supabase } from '@/lib/supabase';
 import { fontAssets } from '@/theme/fonts';
 import { ThemeProvider, useTheme } from '@/theme/ThemeProvider';
 
@@ -22,7 +22,8 @@ function Navigator() {
 }
 
 export default function RootLayout() {
-  const [loaded] = useFonts(fontAssets);
+  // В демо одной страницей шрифты встроены в саму страницу (@font-face с теми же именами)
+  const [loaded] = useFonts(DEMO ? {} : fontAssets);
   const [queryClient] = useState(
     () => new QueryClient({ defaultOptions: { queries: { retry: 1, refetchOnWindowFocus: false } } }),
   );

@@ -1,6 +1,6 @@
 import { formatMoney, showcaseTasks, t } from '@parri/shared';
 import { router } from 'expo-router';
-import { Lock, ListChecks, Scale } from 'lucide-react-native';
+import { Lock, ListChecks, Scale } from '@/components/icons';
 import { View } from 'react-native';
 import { AppText } from '@/components/AppText';
 import { Button } from '@/components/glass/Button';

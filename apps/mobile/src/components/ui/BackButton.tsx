@@ -1,6 +1,6 @@
 import { t } from '@parri/shared';
 import { router, type Href } from 'expo-router';
-import { ChevronLeft } from 'lucide-react-native';
+import { ChevronLeft } from '@/components/icons';
 import { Button } from '@/components/glass/Button';
 import { useTheme } from '@/theme/ThemeProvider';
 

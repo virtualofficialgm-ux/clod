@@ -1,6 +1,6 @@
 import { t, type TranslationKey } from '@parri/shared';
 import { radii } from '@parri/ui';
-import { House, ListChecks, Plus, User, Wallet, type LucideIcon } from 'lucide-react-native';
+import { House, ListChecks, Plus, User, Wallet, type LucideIcon } from '@/components/icons';
 import { Pressable, StyleSheet, View } from 'react-native';
 import Animated from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';

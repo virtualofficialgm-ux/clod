@@ -1,6 +1,6 @@
 import { formatDistance, formatMoney, t, type ShowcaseTask } from '@parri/shared';
 import { radii } from '@parri/ui';
-import { Clock, Globe, GraduationCap, MapPin } from 'lucide-react-native';
+import { Clock, Globe, GraduationCap, MapPin } from '@/components/icons';
 import { Pressable, StyleSheet, View } from 'react-native';
 import Animated from 'react-native-reanimated';
 import { AppText } from '@/components/AppText';

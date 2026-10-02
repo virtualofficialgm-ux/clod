@@ -1,6 +1,6 @@
 import { files as filesApi, t, type Attachment, type FileRef } from '@parri/shared';
 import { useSupabase } from '@parri/shared/react';
-import { FileText } from 'lucide-react-native';
+import { FileText } from '@/components/icons';
 import { Linking, Pressable, View } from 'react-native';
 import { AppText } from '@/components/AppText';
 import { Card, useToast } from '@/components/ui/bits';

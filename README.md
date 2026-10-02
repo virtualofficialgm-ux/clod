@@ -48,6 +48,17 @@ pnpm --filter @parri/mobile start         # Expo; нативное стекло,
 «Оформить с ИИ» вызывает Edge Function `ai-compose` (Claude). Ключ — только в секретах функций:
 `supabase secrets set ANTHROPIC_API_KEY=...`. Без ключа dev-шлюз отдаёт офлайн-черновик.
 
+## Демо одной страницей
+
+`tools/demo` собирает мобильное приложение и бэкенд в одну HTML-страницу: Postgres (PGlite, WebAssembly)
+с теми же миграциями, RLS и денежными функциями работает прямо во вкладке, данные хранятся в IndexedDB.
+Отличия от настоящего стека: PostGIS и pgcrypto заменены совместимыми обёртками, письма — код на экране,
+ИИ — офлайн-черновик, Realtime — опрос.
+
+```bash
+pnpm --filter @parri/demo build   # → tools/demo/dist/index.html (~12 МБ)
+```
+
 ## Проверки
 
 ```bash

@@ -21,7 +21,7 @@ import {
 import { keys, useMe, useSupabase } from '@parri/shared/react';
 import { useQueryClient } from '@tanstack/react-query';
 import { router } from 'expo-router';
-import { MapPin, Plus, Sparkles, Trash2 } from 'lucide-react-native';
+import { MapPin, Plus, Sparkles, Trash2 } from '@/components/icons';
 import { useState } from 'react';
 import { View } from 'react-native';
 import { AppText } from '@/components/AppText';

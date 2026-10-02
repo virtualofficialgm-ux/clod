@@ -13,7 +13,7 @@ import {
 import { keys, useMe, useSession, useSkills, useSupabase, useUniversitySearch } from '@parri/shared/react';
 import { useQueryClient } from '@tanstack/react-query';
 import { router } from 'expo-router';
-import { X } from 'lucide-react-native';
+import { X } from '@/components/icons';
 import { useMemo, useState } from 'react';
 import { Pressable, View } from 'react-native';
 import { AppText } from '@/components/AppText';

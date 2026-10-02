@@ -12,7 +12,7 @@ import {
 } from '@parri/shared';
 import { keys, useApiMutation, useTaskDetail } from '@parri/shared/react';
 import { router, useLocalSearchParams } from 'expo-router';
-import { Clock, GraduationCap, Globe, MapPin, MessagesSquare, Users } from 'lucide-react-native';
+import { Clock, GraduationCap, Globe, MapPin, MessagesSquare, Users } from '@/components/icons';
 import { useState } from 'react';
 import { Linking, View } from 'react-native';
 import { AppText } from '@/components/AppText';
