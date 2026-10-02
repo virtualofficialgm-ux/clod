@@ -9,13 +9,15 @@ import {
 } from '@parri/shared';
 import { keys, useApiMutation, useMe, useSession, useSignOut } from '@parri/shared/react';
 import { router } from 'expo-router';
-import { View } from 'react-native';
+import { Linking, View } from 'react-native';
 import { AppText } from '@/components/AppText';
 import { Button } from '@/components/glass/Button';
 import { Chip } from '@/components/glass/Chip';
 import { Segmented } from '@/components/glass/Segmented';
 import {
   BadgeCheck,
+  Bot,
+  Scale,
   Bookmark,
   GraduationCap,
   LifeBuoy,
@@ -222,8 +224,36 @@ export default function Account() {
         <ListRow
           icon={(c) => <LifeBuoy size={18} color={c} />}
           title={t('messages.support')}
-          trailing={<SoonBadge />}
+          onPress={() => router.push('/support')}
         />
+        <ListRow
+          icon={(c) => <Scale size={18} color={c} />}
+          title={t('nav.disputes')}
+          onPress={() => router.push('/disputes')}
+        />
+        <ListRow
+          icon={(c) => <BadgeCheck size={18} color={c} />}
+          title={t('nav.verification')}
+          value={p.verified_at ? t('verify.verified') : undefined}
+          onPress={() => router.push('/verification')}
+        />
+        <ListRow
+          icon={(c) => <Bot size={18} color={c} />}
+          title={t('nav.bot')}
+          value={p.plan === 'pro' ? undefined : 'Pro'}
+          onPress={() => router.push('/bot')}
+        />
+        {p.role === 'admin' || p.role === 'moderator' ? (
+          <ListRow
+            icon={(c) => <Shield size={18} color={c} />}
+            title={t('profile.sections.admin')}
+            onPress={() =>
+              Linking.openURL(
+                `${process.env.EXPO_PUBLIC_SITE_URL ?? 'http://localhost:3000'}/admin`,
+              )
+            }
+          />
+        ) : null}
       </ListGroup>
       <Card>
         <Toggle

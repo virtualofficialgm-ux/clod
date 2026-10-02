@@ -42,6 +42,9 @@ test('спор: Pro открывает, модератор решает в по�
   const anna = await asUser(browser, 'anna@parri.test');
   await anna.page.goto('/disputes');
   await expect(anna.page.getByTestId('disputes-pro')).toContainText('доступен на Pro');
+  // Бот тоже только на Pro
+  await anna.page.goto('/bot');
+  await expect(anna.page.getByTestId('bot-pro')).toBeVisible();
   await anna.page.goto('/tasks/new');
   await hydrated(anna.page);
   await anna.page.getByLabel('Название').fill(title);
@@ -98,9 +101,6 @@ test('верификация селфи и решение модератора; 
   await expect(maria.page.getByTestId('verifications')).toContainText('На проверке');
   await shot(maria.page, 'verification');
 
-  // Бот недоступен без Pro
-  await maria.page.goto('/bot');
-  await expect(maria.page.getByTestId('bot-pro')).toBeVisible();
 
   const admin = await asUser(browser, 'admin@parri.test');
   await admin.page.goto('/admin');

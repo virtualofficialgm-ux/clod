@@ -242,6 +242,34 @@ test('настройки на телефоне: приватность и каб
   await anna.ctx.close();
 });
 
+test('сервис на телефоне: поддержка, споры, бот, 404', async ({ browser }) => {
+  const maria = await asUser(browser, 'maria@parri.test');
+  await maria.page.goto('/support');
+  await maria.page.getByText('Что такое Сейф?').click();
+  await expect(maria.page.getByText(/резервируются/)).toBeVisible();
+  await maria.page.getByLabel('Тема').fill('Вопрос по выводу');
+  await maria.page.getByLabel('Описание').fill('Когда придут деньги на карту?');
+  await maria.page.getByRole('button', { name: 'Отправить обращение' }).click();
+  await expect(maria.page.getByTestId('ticket-status')).toHaveText('Открыто');
+  await shot(maria.page, 'support');
+  await maria.page.goto('/disputes');
+  await expect(maria.page.getByTestId('disputes-pro')).toBeVisible();
+  await maria.page.goto('/bot');
+  await expect(maria.page.getByTestId('bot-pro')).toBeVisible();
+  await maria.page.goto('/no-such-screen');
+  await expect(maria.page.getByText('Страница не найдена')).toBeVisible();
+  await maria.ctx.close();
+
+  const ivan = await asUser(browser, 'ivan@parri.test');
+  await ivan.page.goto('/bot');
+  await ivan.page.getByRole('button', { name: 'Как работает Сейф?' }).click();
+  await expect(ivan.page.getByTestId('bot-messages')).toContainText('резерв денег', { timeout: 15_000 });
+  await shot(ivan.page, 'bot');
+  await ivan.page.goto('/disputes');
+  await expect(ivan.page.getByTestId('dispute-form')).toBeVisible();
+  await ivan.ctx.close();
+});
+
 test('пополнение баланса через Stripe (тестовые страницы)', async ({ browser }) => {
   const { ctx, page } = await asUser(browser, 'maria@parri.test');
   await page.goto('/balance');
