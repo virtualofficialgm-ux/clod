@@ -1,0 +1,234 @@
+@import 'tailwindcss';
+@import '@parri/ui/tokens.css';
+
+@custom-variant dark (&:where([data-theme='dark'], [data-theme='dark'] *));
+
+/* Только токены Parri: стандартная палитра Tailwind отключена */
+@theme inline {
+  --color-*: initial;
+  --color-bg: var(--p-background);
+  --color-text: var(--p-text);
+  --color-text-2: var(--p-text-secondary);
+  --color-text-3: var(--p-text-tertiary);
+  --color-accent: var(--p-accent);
+  --color-accent-pressed: var(--p-accent-pressed);
+  --color-on-accent: var(--p-on-accent);
+  --color-accent-text: var(--p-accent-text);
+  --color-card: var(--p-card);
+  --color-card-solid: var(--p-card-solid);
+  --color-card-border: var(--p-card-border);
+  --color-separator: var(--p-separator);
+  --color-success: var(--p-success);
+  --color-warning: var(--p-warning);
+  --color-danger: var(--p-danger);
+  --color-white: #fff;
+  --color-black: #000;
+  --color-transparent: transparent;
+
+  --font-sans: var(--p-font-sans);
+
+  --radius-sm: var(--p-radius-sm);
+  --radius-md: var(--p-radius-md);
+  --radius-lg: var(--p-radius-lg);
+  --radius-xl: var(--p-radius-xl);
+  --radius-2xl: var(--p-radius-xxl);
+  --radius-pill: var(--p-radius-pill);
+
+  --text-display: var(--p-text-display);
+  --text-display--line-height: var(--p-leading-display);
+  --text-display--letter-spacing: var(--p-tracking-display);
+  --text-display--font-weight: var(--p-weight-display);
+  --text-title1: var(--p-text-title1);
+  --text-title1--line-height: var(--p-leading-title1);
+  --text-title1--letter-spacing: var(--p-tracking-title1);
+  --text-title1--font-weight: var(--p-weight-title1);
+  --text-title2: var(--p-text-title2);
+  --text-title2--line-height: var(--p-leading-title2);
+  --text-title2--letter-spacing: var(--p-tracking-title2);
+  --text-title2--font-weight: var(--p-weight-title2);
+  --text-title3: var(--p-text-title3);
+  --text-title3--line-height: var(--p-leading-title3);
+  --text-title3--letter-spacing: var(--p-tracking-title3);
+  --text-title3--font-weight: var(--p-weight-title3);
+  --text-price: var(--p-text-price);
+  --text-price--line-height: var(--p-leading-price);
+  --text-price--letter-spacing: var(--p-tracking-price);
+  --text-price--font-weight: var(--p-weight-price);
+  --text-body: var(--p-text-body);
+  --text-body--line-height: var(--p-leading-body);
+  --text-callout: var(--p-text-callout);
+  --text-callout--line-height: var(--p-leading-callout);
+  --text-caption: var(--p-text-caption);
+  --text-caption--line-height: var(--p-leading-caption);
+  --text-button: var(--p-text-button);
+  --text-button--line-height: var(--p-leading-button);
+  --text-button--letter-spacing: var(--p-tracking-button);
+  --text-button--font-weight: var(--p-weight-button);
+}
+
+/* На телефоне заголовки мельче: 40–56px вместо 64–96px */
+@media (max-width: 767px) {
+  :root {
+    --p-text-display: 52px;
+    --p-leading-display: 54px;
+    --p-text-title1: 40px;
+    --p-leading-title1: 44px;
+    --p-text-title2: 28px;
+    --p-leading-title2: 32px;
+    --p-text-price: 32px;
+    --p-leading-price: 36px;
+  }
+}
+
+@layer base {
+  html {
+    background: var(--p-background);
+    color: var(--p-text);
+    font-family: var(--p-font-sans);
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+  /* Фон только у html: иначе фон body перекроет живой меш (z-index: -1) */
+  body {
+    min-height: 100dvh;
+    font-size: var(--p-text-body);
+    line-height: var(--p-leading-body);
+    overflow-x: hidden;
+  }
+  :focus-visible {
+    outline: 3px solid var(--p-accent);
+    outline-offset: 2px;
+  }
+  .tabular {
+    font-variant-numeric: tabular-nums;
+  }
+}
+
+/* ---------- Liquid Glass ---------- */
+@layer components {
+  .glass {
+    position: relative;
+    isolation: isolate;
+    background: var(--p-glass-fill);
+    -webkit-backdrop-filter: blur(var(--p-glass-blur)) saturate(var(--p-glass-saturate));
+    backdrop-filter: blur(var(--p-glass-blur)) saturate(var(--p-glass-saturate));
+    box-shadow: 0 var(--p-glass-shadow-y) var(--p-glass-shadow-blur) var(--p-glass-shadow);
+  }
+  /* Тонкая обводка-блик: градиент сверху вниз, вырезанный маской в 1px кольцо */
+  .glass::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    padding: 1px;
+    background: linear-gradient(180deg, var(--p-glass-border-top), var(--p-glass-border-bottom));
+    -webkit-mask:
+      linear-gradient(#000 0 0) content-box,
+      linear-gradient(#000 0 0);
+    -webkit-mask-composite: xor;
+    mask-composite: exclude;
+    pointer-events: none;
+    z-index: 1;
+  }
+  /* Мягкий блик сверху */
+  .glass::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    background: radial-gradient(120% 70% at 50% -10%, var(--p-glass-highlight), transparent 60%);
+    pointer-events: none;
+    z-index: -1;
+  }
+
+  .card {
+    background: var(--p-card);
+    border: 1px solid var(--p-card-border);
+    border-radius: var(--p-radius-lg);
+  }
+}
+
+/* «Уменьшить прозрачность»: стекло и карточки становятся сплошными */
+@media (prefers-reduced-transparency: reduce) {
+  :root:not([data-transparency='full']) .glass {
+    background: var(--p-glass-solid);
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+  }
+  :root:not([data-transparency='full']) .glass::after {
+    display: none;
+  }
+  :root:not([data-transparency='full']) .card {
+    background: var(--p-card-solid);
+  }
+}
+:root[data-transparency='reduce'] .glass {
+  background: var(--p-glass-solid);
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+}
+:root[data-transparency='reduce'] .glass::after {
+  display: none;
+}
+:root[data-transparency='reduce'] .card {
+  background: var(--p-card-solid);
+}
+
+/* ---------- Живой фон ---------- */
+.mesh {
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  overflow: hidden;
+  background: var(--p-background);
+  pointer-events: none;
+}
+.mesh__blob {
+  position: absolute;
+  width: 60vmax;
+  height: 60vmax;
+  border-radius: 50%;
+  filter: blur(90px);
+  opacity: var(--p-blob-opacity);
+  will-change: transform;
+  animation: mesh-drift var(--p-blob-cycle) ease-in-out infinite alternate;
+}
+.mesh__blob:nth-child(1) {
+  background: var(--p-blob-1);
+  top: -20vmax;
+  left: -15vmax;
+}
+.mesh__blob:nth-child(2) {
+  background: var(--p-blob-2);
+  top: 10vmax;
+  right: -25vmax;
+  animation-delay: calc(var(--p-blob-cycle) / -3);
+  animation-direction: alternate-reverse;
+}
+.mesh__blob:nth-child(3) {
+  background: var(--p-blob-3);
+  bottom: -30vmax;
+  left: 15vmax;
+  animation-delay: calc(var(--p-blob-cycle) / -1.5);
+}
+@keyframes mesh-drift {
+  0% {
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+  50% {
+    transform: translate3d(8vmax, 6vmax, 0) scale(1.08);
+  }
+  100% {
+    transform: translate3d(-6vmax, 10vmax, 0) scale(0.95);
+  }
+}
+
+/* «Уменьшить движение»: фон замирает */
+@media (prefers-reduced-motion: reduce) {
+  .mesh__blob {
+    animation: none;
+  }
+}
+:root[data-motion='reduce'] .mesh__blob {
+  animation: none;
+}
