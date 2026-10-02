@@ -29,7 +29,7 @@ function EdgeHighlight({ radius, top, bottom }: { radius: number; top: string; b
   const onLayout = (e: LayoutChangeEvent) =>
     setSize({ w: e.nativeEvent.layout.width, h: e.nativeEvent.layout.height });
   return (
-    <View pointerEvents="none" style={StyleSheet.absoluteFill} onLayout={onLayout}>
+    <View pointerEvents="none" style={[StyleSheet.absoluteFill, { zIndex: -1 }]} onLayout={onLayout}>
       {size && (
         <Svg width={size.w} height={size.h}>
           <Defs>
@@ -94,8 +94,10 @@ export function GlassSurface({ radius = radii.xxl, style, children, interactive,
   }
 
   return (
-    <View testID={testID} style={[{ borderRadius: radius }, shadow, style]}>
-      <View pointerEvents="none" style={[StyleSheet.absoluteFill, { borderRadius: radius, overflow: 'hidden' }]}>
+    // zIndex: 0 создаёт собственный контекст наложения, а слои стекла (zIndex: -1) уходят под содержимое.
+    // На вебе иначе абсолютные слои рисуются поверх текста и backdrop-filter размывает его.
+    <View testID={testID} style={[{ borderRadius: radius, zIndex: 0 }, shadow, style]}>
+      <View pointerEvents="none" style={[StyleSheet.absoluteFill, { borderRadius: radius, overflow: 'hidden', zIndex: -1 }]}>
         <BlurView
           intensity={100}
           tint={name === 'dark' ? 'systemUltraThinMaterialDark' : 'systemUltraThinMaterialLight'}

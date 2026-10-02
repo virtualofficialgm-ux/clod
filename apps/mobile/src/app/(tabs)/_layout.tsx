@@ -1,10 +1,11 @@
 import { useMe, useSession } from '@parri/shared/react';
 import { Redirect } from 'expo-router';
+import { Tabs } from 'expo-router/tabs';
 import { View } from 'react-native';
+import { AppTabBar } from '@/components/glass/AppTabBar';
 import { Center } from '@/components/ui/bits';
 
-/** Развилка при запуске: гость → приветствие, незаконченная регистрация → регистрация, иначе лента */
-export default function Index() {
+export default function TabsLayout() {
   const { session, loading } = useSession();
   const me = useMe(!!session);
   if (loading || (session && me.isLoading)) {
@@ -16,5 +17,13 @@ export default function Index() {
   }
   if (!session) return <Redirect href="/welcome" />;
   if (me.data?.profile.onboarding !== 'done') return <Redirect href="/register" />;
-  return <Redirect href="/feed" />;
+  return (
+    <Tabs tabBar={(props) => <AppTabBar {...props} />} screenOptions={{ headerShown: false, sceneStyle: { backgroundColor: 'transparent' } }}>
+      <Tabs.Screen name="feed" />
+      <Tabs.Screen name="tasks" />
+      <Tabs.Screen name="create" />
+      <Tabs.Screen name="balance" />
+      <Tabs.Screen name="account" />
+    </Tabs>
+  );
 }

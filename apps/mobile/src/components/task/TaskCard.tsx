@@ -10,7 +10,7 @@ import { useTheme } from '@/theme/ThemeProvider';
 export type TaskCardData = ShowcaseTask;
 
 /** Карточка задачи: почти непрозрачная (текст читается легко), крупная цена, формат и срок. */
-export function TaskCard({ task, onPress }: { task: TaskCardData; onPress?: () => void }) {
+export function TaskCard({ task, onPress, footer }: { task: TaskCardData; onPress?: () => void; footer?: string }) {
   const { colors, reduceTransparency } = useTheme();
   const press = usePressSpring(0.98);
   const KindIcon = task.kind === 'online' ? Globe : task.kind === 'nearby' ? MapPin : GraduationCap;
@@ -25,6 +25,7 @@ export function TaskCard({ task, onPress }: { task: TaskCardData; onPress?: () =
     <Animated.View style={press.style}>
       <Pressable
         accessibilityRole="button"
+        accessibilityLabel={`${task.title}, ${formatMoney(task.rewardCents)}`}
         onPress={onPress}
         onPressIn={press.onPressIn}
         onPressOut={press.onPressOut}
@@ -54,6 +55,11 @@ export function TaskCard({ task, onPress }: { task: TaskCardData; onPress?: () =
             <AppText variant="callout" color="textSecondary">{t(`deadline.${task.deadline}`)}</AppText>
           </View>
         </View>
+        {footer ? (
+          <AppText variant="caption" color="textSecondary" numberOfLines={4}>
+            {footer}
+          </AppText>
+        ) : null}
       </Pressable>
     </Animated.View>
   );
