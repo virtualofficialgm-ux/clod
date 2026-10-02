@@ -1,6 +1,6 @@
 /** Сводки для дашборда: считаются на клиенте из уже загруженных данных */
 import type { Me } from './api';
-import type { LedgerEntry, MyTask } from './types';
+import { displayStatus, type LedgerEntry, type MyTask } from './types';
 
 export interface CompletenessItem {
   key: 'avatar' | 'name' | 'bio' | 'skills' | 'university' | 'portfolio';
@@ -67,4 +67,51 @@ export function weeklyIncome(ledger: readonly LedgerEntry[], weeks = 7, currency
     }
   }
   return buckets;
+}
+
+// ---------- «Мои задачи»: вкладки и следующее действие ----------
+
+export type MyRole = 'executor' | 'customer';
+export type MyTab = 'active' | 'responses' | 'review' | 'done' | 'archive' | 'choosing' | 'inwork' | 'drafts';
+export const MY_TABS: Record<MyRole, MyTab[]> = {
+  executor: ['active', 'responses', 'review', 'done', 'archive'],
+  customer: ['choosing', 'inwork', 'review', 'done', 'archive', 'drafts'],
+};
+
+export function myTaskTab(task: MyTask, role: MyRole): MyTab {
+  const s = displayStatus(task);
+  if (s === 'review') return 'review';
+  if (s === 'completed') return 'done';
+  if (s === 'archived') return 'archive';
+  if (role === 'executor') return s === 'open' ? 'responses' : 'active';
+  return s === 'open' ? 'choosing' : 'inwork';
+}
+
+export type MyNextAction = 'start' | 'continue' | 'chat' | 'review' | 'open' | 'responses' | 'check' | 'repeat';
+/** Куда ведёт главная кнопка: страница задачи, комната, отклики или «повторить» */
+export type MyNextTarget = 'page' | 'room' | 'responses' | 'repeat';
+
+export function myTaskNext(task: MyTask, role: MyRole): { action: MyNextAction; target: MyNextTarget } {
+  const s = displayStatus(task);
+  if (role === 'executor') {
+    if (s === 'in_progress' && !task.started_at) return { action: 'start', target: 'page' };
+    if (s === 'in_progress' || s === 'disputed') return { action: 'continue', target: 'room' };
+    if (s === 'review') return { action: 'chat', target: 'room' };
+    if (s === 'completed' && !task.reviewed) return { action: 'review', target: 'page' };
+    return { action: 'open', target: 'page' };
+  }
+  if (s === 'open') return { action: 'responses', target: 'responses' };
+  if (s === 'in_progress' || s === 'disputed') return { action: 'chat', target: 'room' };
+  if (s === 'review') return { action: 'check', target: 'room' };
+  if (s === 'completed' && !task.reviewed) return { action: 'review', target: 'page' };
+  return { action: 'repeat', target: 'repeat' };
+}
+
+/** Доля прошедшего срока (0…1) для задач в работе и на проверке */
+export function myTaskProgress(task: Pick<MyTask, 'due_at' | 'assigned_at'>, now = Date.now()): number | null {
+  if (!task.due_at || !task.assigned_at) return null;
+  const a = new Date(task.assigned_at).getTime();
+  const b = new Date(task.due_at).getTime();
+  if (b <= a) return 1;
+  return Math.min(1, Math.max(0, (now - a) / (b - a)));
 }

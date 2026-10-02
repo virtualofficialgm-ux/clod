@@ -34,10 +34,28 @@ import {
   type TaskKind,
   type TranslationKey,
 } from '@parri/shared';
-import { keys, useMe, useRates, useSkills, useSupabase, useTaskDetail, useTaskDrafts } from '@parri/shared/react';
+import {
+  keys,
+  useMe,
+  useRates,
+  useSkills,
+  useSupabase,
+  useTaskDetail,
+  useTaskDrafts,
+} from '@parri/shared/react';
 import { useQueryClient } from '@tanstack/react-query';
 import clsx from 'clsx';
-import { ChevronLeft, ChevronRight, FileText, MapPin, Paperclip, Plus, Sparkles, Trash2, X } from 'lucide-react';
+import {
+  ChevronLeft,
+  ChevronRight,
+  FileText,
+  MapPin,
+  Paperclip,
+  Plus,
+  Sparkles,
+  Trash2,
+  X,
+} from 'lucide-react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Suspense, useEffect, useMemo, useRef, useState } from 'react';
 import { Button } from '@/components/glass/Button';
@@ -104,7 +122,9 @@ function Block({ n, title, children }: { n: number; title: string; children: Rea
   return (
     <Card className="flex flex-col gap-5" aria-labelledby={`block-${n}`}>
       <h2 id={`block-${n}`} className="flex items-center gap-3 text-title3 font-extrabold">
-        <span className="flex size-8 items-center justify-center rounded-full bg-ink text-callout text-on-ink">{n}</span>
+        <span className="flex size-8 items-center justify-center rounded-full bg-ink text-callout text-on-ink">
+          {n}
+        </span>
         {title}
       </h2>
       {children}
@@ -112,7 +132,15 @@ function Block({ n, title, children }: { n: number; title: string; children: Rea
   );
 }
 
-function Group({ title, error, children }: { title: string; error?: string; children: React.ReactNode }) {
+function Group({
+  title,
+  error,
+  children,
+}: {
+  title: string;
+  error?: string;
+  children: React.ReactNode;
+}) {
   return (
     <div className="flex flex-col gap-2">
       <SectionTitle>{title}</SectionTitle>
@@ -203,7 +231,14 @@ function NewTaskForm() {
   const rub = rates.data?.RUB;
   const paidIn: MoneyCurrency = f.inputCurrency === 'USDT' ? 'USDT' : 'USD';
   const entered = parseDollars(f.reward);
-  const rewardCents = entered && entered > 0 ? (f.inputCurrency === 'RUB' ? (rub ? rubToUsdCents(entered, rub.per_usd) : null) : entered) : null;
+  const rewardCents =
+    entered && entered > 0
+      ? f.inputCurrency === 'RUB'
+        ? rub
+          ? rubToUsdCents(entered, rub.per_usd)
+          : null
+        : entered
+      : null;
   const price = rewardCents && rewardCents > 0 ? priceBreakdown(rewardCents) : null;
   const w = me.data?.wallet;
   const available = (paidIn === 'USDT' ? w?.usdt_available_cents : w?.available_cents) ?? 0;
@@ -217,14 +252,25 @@ function NewTaskForm() {
   const otherDrafts = (drafts.data ?? []).filter((d) => d.id !== draftId);
 
   const applyAi = (r: ComposeResult) =>
-    setF((s) => ({ ...s, description: r.description, category: r.category, resultFormat: r.result_format, checklist: r.checklist.length ? r.checklist : s.checklist }));
+    setF((s) => ({
+      ...s,
+      description: r.description,
+      category: r.category,
+      resultFormat: r.result_format,
+      checklist: r.checklist.length ? r.checklist : s.checklist,
+    }));
 
   const compose = async () => {
     if (f.title.trim().length < 3 || !f.brief.trim()) return setFormError('create.aiNeedInput');
     setAiBusy(true);
     setFormError(null);
     try {
-      const r = await tasks.composeWithAI(sb, { title: f.title, brief: f.brief, kind: f.kind, category: f.category });
+      const r = await tasks.composeWithAI(sb, {
+        title: f.title,
+        brief: f.brief,
+        kind: f.kind,
+        category: f.category,
+      });
       setAiVersions((v) => [...v, r]);
       setAiIdx(aiVersions.length);
       applyAi(r);
@@ -251,7 +297,12 @@ function NewTaskForm() {
   };
 
   const publish = async (rate = rub) => {
-    const cents = f.inputCurrency === 'RUB' ? (rate && entered ? rubToUsdCents(entered, rate.per_usd) : NaN) : (entered ?? NaN);
+    const cents =
+      f.inputCurrency === 'RUB'
+        ? rate && entered
+          ? rubToUsdCents(entered, rate.per_usd)
+          : NaN
+        : (entered ?? NaN);
     const parsed = taskDraftSchema.safeParse({
       title: f.title,
       brief: f.brief,
@@ -283,7 +334,12 @@ function NewTaskForm() {
       for (const file of attachments) {
         const path = filesApi.path(uid, id, 'brief', file.name, crypto.randomUUID());
         await filesApi.upload(sb, path, file, file.type || 'application/octet-stream');
-        refs.push({ path, name: file.name, size: file.size, mime: file.type || 'application/octet-stream' });
+        refs.push({
+          path,
+          name: file.name,
+          size: file.size,
+          mime: file.type || 'application/octet-stream',
+        });
       }
       await tasks.publish(
         sb,
@@ -291,7 +347,12 @@ function NewTaskForm() {
         parsed.data,
         refs,
         f.inputCurrency === 'RUB'
-          ? { currency: 'USD', inputCurrency: 'RUB', inputAmount: entered, rateFetchedAt: rate?.fetched_at ?? null }
+          ? {
+              currency: 'USD',
+              inputCurrency: 'RUB',
+              inputAmount: entered,
+              rateFetchedAt: rate?.fetched_at ?? null,
+            }
           : { currency: paidIn },
         {
           language: f.language || null,
@@ -336,7 +397,13 @@ function NewTaskForm() {
           campusName: f.kind === 'campus' ? uniName : undefined,
         }}
         priceLabel={fmt(rewardCents ?? 0)}
-        footer={(f.description || f.brief) && <p className="line-clamp-4 whitespace-pre-line text-callout text-text-2">{f.description || f.brief}</p>}
+        footer={
+          (f.description || f.brief) && (
+            <p className="line-clamp-4 whitespace-pre-line text-callout text-text-2">
+              {f.description || f.brief}
+            </p>
+          )
+        }
       />
       {otherDrafts.length > 0 && (
         <Card className="flex flex-col gap-2">
@@ -353,14 +420,20 @@ function NewTaskForm() {
                   router.replace(`/tasks/new?draft=${d.id}`);
                 }}
               >
-                <span className="block truncate text-callout font-semibold">{String(d.data.title || '') || t('create.untitled')}</span>
+                <span className="block truncate text-callout font-semibold">
+                  {String(d.data.title || '') || t('create.untitled')}
+                </span>
                 <span className="text-caption text-text-2">{formatDateTime(d.updated_at)}</span>
               </button>
               <Button
                 variant="plain"
                 size="icon"
                 aria-label={t('create.draftDelete')}
-                onClick={() => taskExtras.deleteDraft(sb, d.id).then(() => qc.invalidateQueries({ queryKey: keys.drafts }))}
+                onClick={() =>
+                  taskExtras
+                    .deleteDraft(sb, d.id)
+                    .then(() => qc.invalidateQueries({ queryKey: keys.drafts }))
+                }
               >
                 <Trash2 size={16} />
               </Button>
@@ -376,13 +449,25 @@ function NewTaskForm() {
       <Header title={t('create.title')} />
       <main className="mx-auto grid max-w-[var(--p-content-max)] gap-8 px-[var(--p-gutter)] pt-2 md:px-8 lg:grid-cols-[minmax(0,1fr)_380px]">
         <div className="flex min-w-0 flex-col gap-6">
-          <PageTitle subtitle={repeat ? t('create.repeatFrom', { title: repeat.task.title }) : t('create.draftAuto')}>{t('create.title')}</PageTitle>
+          <PageTitle
+            subtitle={
+              repeat ? t('create.repeatFrom', { title: repeat.task.title }) : t('create.draftAuto')
+            }
+          >
+            {t('create.title')}
+          </PageTitle>
 
           <Block n={1} title={t('create.block1')}>
             <Segmented<TaskKind>
               label={t('create.kind')}
               value={f.kind}
-              onChange={(k) => setF((s) => ({ ...s, kind: k, resultFormat: k === 'nearby' ? (s.resultFormat ?? 'photo') : s.resultFormat }))}
+              onChange={(k) =>
+                setF((s) => ({
+                  ...s,
+                  kind: k,
+                  resultFormat: k === 'nearby' ? (s.resultFormat ?? 'photo') : s.resultFormat,
+                }))
+              }
               options={[
                 { value: 'online', label: t('kind.online') },
                 { value: 'nearby', label: t('kind.nearby') },
@@ -390,8 +475,15 @@ function NewTaskForm() {
               ]}
             />
             {f.kind === 'campus' && (
-              <p className={clsx('text-callout font-semibold', uniName ? 'text-text-2' : 'text-danger')}>
-                {uniName ? t('create.campusFor', { name: uniName }) : t('errors.university_required')}
+              <p
+                className={clsx(
+                  'text-callout font-semibold',
+                  uniName ? 'text-text-2' : 'text-danger',
+                )}
+              >
+                {uniName
+                  ? t('create.campusFor', { name: uniName })
+                  : t('errors.university_required')}
               </p>
             )}
             <Input
@@ -420,11 +512,25 @@ function NewTaskForm() {
               </Button>
               {aiVersions.length > 1 && (
                 <div className="flex items-center gap-1">
-                  <Button variant="plain" size="icon" aria-label={t('create.aiPrev')} disabled={aiIdx === 0} onClick={() => switchAi(aiIdx - 1)}>
+                  <Button
+                    variant="plain"
+                    size="icon"
+                    aria-label={t('create.aiPrev')}
+                    disabled={aiIdx === 0}
+                    onClick={() => switchAi(aiIdx - 1)}
+                  >
                     <ChevronLeft size={18} />
                   </Button>
-                  <span className="tabular text-callout font-semibold">{t('create.aiVersion', { n: aiIdx + 1, m: aiVersions.length })}</span>
-                  <Button variant="plain" size="icon" aria-label={t('create.aiNext')} disabled={aiIdx === aiVersions.length - 1} onClick={() => switchAi(aiIdx + 1)}>
+                  <span className="tabular text-callout font-semibold">
+                    {t('create.aiVersion', { n: aiIdx + 1, m: aiVersions.length })}
+                  </span>
+                  <Button
+                    variant="plain"
+                    size="icon"
+                    aria-label={t('create.aiNext')}
+                    disabled={aiIdx === aiVersions.length - 1}
+                    onClick={() => switchAi(aiIdx + 1)}
+                  >
                     <ChevronRight size={18} />
                   </Button>
                 </div>
@@ -448,7 +554,11 @@ function NewTaskForm() {
             </Group>
             <Group title={t('create.resultFormat')} error={errors.resultFormat}>
               {RESULT_FORMATS.map((x) => (
-                <Chip key={x} selected={f.resultFormat === x} onClick={() => set('resultFormat', x)}>
+                <Chip
+                  key={x}
+                  selected={f.resultFormat === x}
+                  onClick={() => set('resultFormat', x)}
+                >
                   {t(`format.${x}`)}
                 </Chip>
               ))}
@@ -469,10 +579,25 @@ function NewTaskForm() {
                       placeholder={t('create.checklistPlaceholder')}
                       value={item}
                       maxLength={200}
-                      onChange={(e) => set('checklist', f.checklist.map((c, j) => (j === i ? e.target.value : c)))}
+                      onChange={(e) =>
+                        set(
+                          'checklist',
+                          f.checklist.map((c, j) => (j === i ? e.target.value : c)),
+                        )
+                      }
                     />
                   </div>
-                  <Button variant="glass" size="icon" aria-label={t('common.remove')} onClick={() => set('checklist', f.checklist.filter((_, j) => j !== i))}>
+                  <Button
+                    variant="glass"
+                    size="icon"
+                    aria-label={t('common.remove')}
+                    onClick={() =>
+                      set(
+                        'checklist',
+                        f.checklist.filter((_, j) => j !== i),
+                      )
+                    }
+                  >
                     <Trash2 size={18} />
                   </Button>
                 </div>
@@ -505,12 +630,19 @@ function NewTaskForm() {
                   </Button>
                   {geo.coords && (
                     <span className="tabular text-callout font-semibold text-text-2">
-                      {t('create.locationSet', { lat: geo.coords.lat.toFixed(5), lng: geo.coords.lng.toFixed(5) })}
+                      {t('create.locationSet', {
+                        lat: geo.coords.lat.toFixed(5),
+                        lng: geo.coords.lng.toFixed(5),
+                      })}
                     </span>
                   )}
                 </div>
-                {(geo.state === 'denied' || geo.state === 'unavailable') && <p className="text-callout font-semibold text-danger">{t('feed.geoDenied')}</p>}
-                {errors.lat && <p className="text-callout font-semibold text-danger">{errorText(errors.lat)}</p>}
+                {(geo.state === 'denied' || geo.state === 'unavailable') && (
+                  <p className="text-callout font-semibold text-danger">{t('feed.geoDenied')}</p>
+                )}
+                {errors.lat && (
+                  <p className="text-callout font-semibold text-danger">{errorText(errors.lat)}</p>
+                )}
                 <Group title={t('create.radius')}>
                   {NEARBY_RADII_M.map((r) => (
                     <Chip key={r} selected={f.radiusM === r} onClick={() => set('radiusM', r)}>
@@ -518,10 +650,24 @@ function NewTaskForm() {
                     </Chip>
                   ))}
                 </Group>
-                <Input label={t('create.placeName')} value={f.placeName} onChange={(e) => set('placeName', e.target.value)} maxLength={120} />
+                <Input
+                  label={t('create.placeName')}
+                  value={f.placeName}
+                  onChange={(e) => set('placeName', e.target.value)}
+                  maxLength={120}
+                />
                 <Group title={t('create.proofsTitle')}>
                   {PROOFS.map((p) => (
-                    <Chip key={p} selected={f.proofs.includes(p)} onClick={() => set('proofs', f.proofs.includes(p) ? f.proofs.filter((x) => x !== p) : [...f.proofs, p])}>
+                    <Chip
+                      key={p}
+                      selected={f.proofs.includes(p)}
+                      onClick={() =>
+                        set(
+                          'proofs',
+                          f.proofs.includes(p) ? f.proofs.filter((x) => x !== p) : [...f.proofs, p],
+                        )
+                      }
+                    >
                       {t(`create.proofs.${p}`)}
                     </Chip>
                   ))}
@@ -529,7 +675,12 @@ function NewTaskForm() {
               </div>
             )}
             {f.kind === 'campus' && (
-              <Input label={t('create.building')} value={f.building} onChange={(e) => set('building', e.target.value)} maxLength={120} />
+              <Input
+                label={t('create.building')}
+                value={f.building}
+                onChange={(e) => set('building', e.target.value)}
+                maxLength={120}
+              />
             )}
             {f.kind !== 'online' && (
               <Input
@@ -563,7 +714,14 @@ function NewTaskForm() {
                   <Chip
                     key={s}
                     selected={f.skills.includes(s)}
-                    onClick={() => set('skills', f.skills.includes(s) ? f.skills.filter((x) => x !== s) : [...f.skills, s].slice(0, 10))}
+                    onClick={() =>
+                      set(
+                        'skills',
+                        f.skills.includes(s)
+                          ? f.skills.filter((x) => x !== s)
+                          : [...f.skills, s].slice(0, 10),
+                      )
+                    }
                   >
                     {t(`skill.${s}` as TranslationKey)}
                   </Chip>
@@ -578,7 +736,11 @@ function NewTaskForm() {
                   {attachments.map((file, i) => (
                     <li key={i} className="tile flex items-center justify-between gap-3 px-4 py-3">
                       <span className="truncate font-semibold">{file.name}</span>
-                      <button type="button" aria-label={t('common.remove')} onClick={() => setAttachments(attachments.filter((_, j) => j !== i))}>
+                      <button
+                        type="button"
+                        aria-label={t('common.remove')}
+                        onClick={() => setAttachments(attachments.filter((_, j) => j !== i))}
+                      >
                         <X size={18} />
                       </button>
                     </li>
@@ -627,18 +789,25 @@ function NewTaskForm() {
             {f.inputCurrency === 'RUB' &&
               (rub ? (
                 <p className="text-callout text-text-2">
-                  {t('create.rubHint', { rate: rub.per_usd.toFixed(2), date: formatDateTime(rub.fetched_at) })}
+                  {t('create.rubHint', {
+                    rate: rub.per_usd.toFixed(2),
+                    date: formatDateTime(rub.fetched_at),
+                  })}
                   {rewardCents ? (
                     <>
                       <br />
-                      <span className="font-semibold text-text">{t('create.rubEquals', { v: formatMoney(rewardCents) })}</span>
+                      <span className="font-semibold text-text">
+                        {t('create.rubEquals', { v: formatMoney(rewardCents) })}
+                      </span>
                     </>
                   ) : null}
                 </p>
               ) : (
                 <p className="text-callout font-semibold text-danger">{t('create.noRate')}</p>
               ))}
-            {f.inputCurrency === 'USDT' && <p className="text-callout text-text-2">{t('create.usdtHint')}</p>}
+            {f.inputCurrency === 'USDT' && (
+              <p className="text-callout text-text-2">{t('create.usdtHint')}</p>
+            )}
             <dl className="flex flex-col gap-2 text-body">
               <div className="flex justify-between">
                 <dt className="text-text-2">{t('create.reward')}</dt>
@@ -653,7 +822,10 @@ function NewTaskForm() {
               </div>
               <div className="flex items-baseline justify-between border-t border-separator pt-3">
                 <dt className="text-title3 font-bold">{t('create.total')}</dt>
-                <dd className="tabular text-price font-extrabold text-accent-text" data-testid="total">
+                <dd
+                  className="tabular text-price font-extrabold text-accent-text"
+                  data-testid="total"
+                >
                   {fmt(price?.total ?? 0)}
                 </dd>
               </div>
@@ -665,7 +837,10 @@ function NewTaskForm() {
             <p className="text-callout text-text-2">{t('fees.rule')}</p>
             <p className="text-callout text-text-2">{t('create.safeHint')}</p>
             {shortBy > 0 && (
-              <p role="alert" className="rounded-md bg-warning/12 px-4 py-3 text-callout font-semibold text-warning">
+              <p
+                role="alert"
+                className="rounded-md bg-warning/12 px-4 py-3 text-callout font-semibold text-warning"
+              >
                 {t('create.notEnough', { v: fmt(shortBy) })}
               </p>
             )}
@@ -675,7 +850,12 @@ function NewTaskForm() {
             <div className="lg:hidden">{preview}</div>
             <FormError error={formError} />
             <div className="flex flex-col gap-2 sm:flex-row">
-              <Button size="lg" block onClick={() => publish()} disabled={busy || shortBy > 0 || (f.inputCurrency === 'RUB' && !rub)}>
+              <Button
+                size="lg"
+                block
+                onClick={() => publish()}
+                disabled={busy || shortBy > 0 || (f.inputCurrency === 'RUB' && !rub)}
+              >
                 {t('create.publish', { v: fmt(price?.total ?? 0) })}
               </Button>
               <Button size="lg" variant="glass" onClick={saveDraft} disabled={!f.title.trim()}>
@@ -695,7 +875,10 @@ function NewTaskForm() {
         title={t('create.rateChangedTitle')}
         text={
           rub && entered
-            ? t('create.rateChangedText', { rate: rub.per_usd.toFixed(2), v: formatMoney(rubToUsdCents(entered, rub.per_usd)) })
+            ? t('create.rateChangedText', {
+                rate: rub.per_usd.toFixed(2),
+                v: formatMoney(rubToUsdCents(entered, rub.per_usd)),
+              })
             : t('errors.rate_changed')
         }
         confirmLabel={t('create.rateConfirm')}
@@ -716,4 +899,3 @@ export default function NewTaskPage() {
     </Suspense>
   );
 }
-

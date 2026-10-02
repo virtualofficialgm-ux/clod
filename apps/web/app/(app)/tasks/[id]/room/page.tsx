@@ -17,10 +17,27 @@ import {
   type TranslationKey,
 } from '@parri/shared';
 import { chats } from '@parri/shared';
-import { keys, useApiMutation, useMe, useRoomMessages, useSupabase, useTaskDetail } from '@parri/shared/react';
+import {
+  keys,
+  useApiMutation,
+  useMe,
+  useRoomMessages,
+  useSupabase,
+  useTaskDetail,
+} from '@parri/shared/react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import clsx from 'clsx';
-import { ArrowUp, CheckCheck, ChevronLeft, Clock, Coins, ExternalLink, Map, Paperclip, X } from 'lucide-react';
+import {
+  ArrowUp,
+  CheckCheck,
+  ChevronLeft,
+  Clock,
+  Coins,
+  ExternalLink,
+  Map,
+  Paperclip,
+  X,
+} from 'lucide-react';
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
 import { useEffect, useRef, useState } from 'react';
@@ -42,8 +59,11 @@ function Bubble({ m, mine, read }: { m: Message; mine: boolean; read?: boolean }
   if (m.kind === 'system') {
     return (
       <p className="mx-auto max-w-md rounded-pill bg-fill px-4 py-2 text-center text-caption text-text-2">
-        {t(`event.${m.body}` as TranslationKey, { version: String((m.meta?.version as number | undefined) ?? '') })}
-        {typeof m.meta?.amount_cents === 'number' && ` · ${formatMoney(m.meta.amount_cents as number, 'ru-RU', { currency: (m.meta.currency as 'USD' | 'USDT') ?? 'USD' })}`}
+        {t(`event.${m.body}` as TranslationKey, {
+          version: String((m.meta?.version as number | undefined) ?? ''),
+        })}
+        {typeof m.meta?.amount_cents === 'number' &&
+          ` · ${formatMoney(m.meta.amount_cents as number, 'ru-RU', { currency: (m.meta.currency as 'USD' | 'USDT') ?? 'USD' })}`}
       </p>
     );
   }
@@ -110,7 +130,12 @@ function ExtensionSheet({ taskId, onClose }: { taskId: string; onClose: () => vo
             </Chip>
           ))}
         </div>
-        <Input label={t('room.extensionReason')} value={reason} onChange={(e) => setReason(e.target.value)} maxLength={300} />
+        <Input
+          label={t('room.extensionReason')}
+          value={reason}
+          onChange={(e) => setReason(e.target.value)}
+          maxLength={300}
+        />
       </div>
     </BottomSheet>
   );
@@ -137,7 +162,12 @@ function TipSheet({ d, onClose }: { d: TaskDetail; onClose: () => void }) {
       footer={
         <div className="flex flex-col gap-2">
           <FormError error={m.error?.key} />
-          <Button size="lg" block onClick={() => m.mutate(undefined)} disabled={m.isPending || cents < 100}>
+          <Button
+            size="lg"
+            block
+            onClick={() => m.mutate(undefined)}
+            disabled={m.isPending || cents < 100}
+          >
             {t('room.tipSend', { v: fmt(cents) })}
           </Button>
         </div>
@@ -155,7 +185,14 @@ function TipSheet({ d, onClose }: { d: TaskDetail; onClose: () => void }) {
             {t('room.tipCustom')}
           </Chip>
         </div>
-        {preset === null && <Input label={t('room.tipCustom')} inputMode="decimal" value={custom} onChange={(e) => setCustom(e.target.value)} />}
+        {preset === null && (
+          <Input
+            label={t('room.tipCustom')}
+            inputMode="decimal"
+            value={custom}
+            onChange={(e) => setCustom(e.target.value)}
+          />
+        )}
       </div>
     </BottomSheet>
   );
@@ -172,13 +209,24 @@ function Versions({ items, task }: { items: Submission[]; task: TaskDetail['task
             <div className="flex flex-wrap items-center justify-between gap-2">
               <span className="font-bold">
                 {t('task.version', { n: s.version })}
-                {s.stage === 'intermediate' && <span className="ml-2 text-caption text-text-2">{t('room.stageIntermediate')}</span>}
+                {s.stage === 'intermediate' && (
+                  <span className="ml-2 text-caption text-text-2">
+                    {t('room.stageIntermediate')}
+                  </span>
+                )}
               </span>
-              <span className="text-caption font-semibold">{t(`submissionStatus.${s.status}`)}</span>
+              <span className="text-caption font-semibold">
+                {t(`submissionStatus.${s.status}`)}
+              </span>
             </div>
             {s.comment && <p className="whitespace-pre-line text-callout">{s.comment}</p>}
             {s.link && (
-              <a href={s.link} target="_blank" rel="noopener noreferrer nofollow" className="inline-flex items-center gap-1 truncate text-callout font-semibold text-accent-text">
+              <a
+                href={s.link}
+                target="_blank"
+                rel="noopener noreferrer nofollow"
+                className="inline-flex items-center gap-1 truncate text-callout font-semibold text-accent-text"
+              >
                 <ExternalLink size={14} /> {s.link}
               </a>
             )}
@@ -187,8 +235,15 @@ function Versions({ items, task }: { items: Submission[]; task: TaskDetail['task
             {s.review_comment && (
               <p className="rounded-md bg-warning/12 px-3 py-2 text-callout">
                 {s.review_comment}
-                {s.revision_items?.length ? ` · ${s.revision_items.map((i) => task.checklist[i]).filter(Boolean).join(', ')}` : ''}
-                {s.revision_due ? ` · ${t('room.revisionDue', { date: formatDateTime(s.revision_due) })}` : ''}
+                {s.revision_items?.length
+                  ? ` · ${s.revision_items
+                      .map((i) => task.checklist[i])
+                      .filter(Boolean)
+                      .join(', ')}`
+                  : ''}
+                {s.revision_due
+                  ? ` · ${t('room.revisionDue', { date: formatDateTime(s.revision_due) })}`
+                  : ''}
               </p>
             )}
             <span className="text-caption text-text-2">{formatDateTime(s.created_at)}</span>
@@ -199,17 +254,29 @@ function Versions({ items, task }: { items: Submission[]; task: TaskDetail['task
   );
 }
 
-function InfoPanel({ d, onExtension, onTip }: { d: TaskDetail; onExtension: () => void; onTip: () => void }) {
+function InfoPanel({
+  d,
+  onExtension,
+  onTip,
+}: {
+  d: TaskDetail;
+  onExtension: () => void;
+  onTip: () => void;
+}) {
   const task = d.task;
   const status = displayStatus(task);
   const fmt = (c: number) => formatMoney(c, 'ru-RU', { currency: task.currency });
   const executor = d.viewer_role === 'executor';
   const ext = d.extension;
   const toast = useToast();
-  const decide = useApiMutation((sb, accept: boolean) => work.decideExtension(sb, ext!.id, accept), {
-    invalidate: () => [keys.task(task.id), keys.messages(task.id)],
-    onSuccess: (_r, accept) => toast(accept ? t('event.extension_accepted') : t('event.extension_declined')),
-  });
+  const decide = useApiMutation(
+    (sb, accept: boolean) => work.decideExtension(sb, ext!.id, accept),
+    {
+      invalidate: () => [keys.task(task.id), keys.messages(task.id)],
+      onSuccess: (_r, accept) =>
+        toast(accept ? t('event.extension_accepted') : t('event.extension_declined')),
+    },
+  );
   return (
     <div className="flex flex-col gap-4">
       <Card className="flex flex-col gap-3">
@@ -217,8 +284,19 @@ function InfoPanel({ d, onExtension, onTip }: { d: TaskDetail; onExtension: () =
         <ListGroup>
           <ListRow title={t('task.reward')} value={fmt(task.reward_cents)} />
           <ListRow title={t('room.reserved')} value={fmt(task.reward_cents)} />
-          {task.due_at && <ListRow title={t('room.deadline')} subtitle={formatDateTime(task.due_at)} value={['in_progress', 'review'].includes(status) ? formatTimeLeft(task.due_at) : undefined} />}
-          <ListRow title={t('task.resultFormat')} value={t(`format.${task.result_format}` as TranslationKey)} />
+          {task.due_at && (
+            <ListRow
+              title={t('room.deadline')}
+              subtitle={formatDateTime(task.due_at)}
+              value={
+                ['in_progress', 'review'].includes(status) ? formatTimeLeft(task.due_at) : undefined
+              }
+            />
+          )}
+          <ListRow
+            title={t('task.resultFormat')}
+            value={t(`format.${task.result_format}` as TranslationKey)}
+          />
         </ListGroup>
         {task.checklist.length > 0 && (
           <div className="flex flex-col gap-1.5">
@@ -242,16 +320,23 @@ function InfoPanel({ d, onExtension, onTip }: { d: TaskDetail; onExtension: () =
               <Map size={16} /> {t('room.openMaps')}
             </a>
           )}
-          <Link href={`/tasks/${task.id}`} className="inline-flex h-10 items-center rounded-pill bg-fill px-4 text-callout font-bold">
+          <Link
+            href={`/tasks/${task.id}`}
+            className="inline-flex h-10 items-center rounded-pill bg-fill px-4 text-callout font-bold"
+          >
             {t('room.openTask')}
           </Link>
         </div>
       </Card>
 
       {ext?.status === 'pending' && (
-        <Card className="flex flex-col gap-3 ring-2 ring-warning/40" data-testid="extension-pending">
+        <Card
+          className="flex flex-col gap-3 ring-2 ring-warning/40"
+          data-testid="extension-pending"
+        >
           <p className="flex items-center gap-2 font-bold">
-            <Clock size={18} /> {t('room.extensionPending', { m: t(`room.minutes.${ext.minutes}` as TranslationKey) })}
+            <Clock size={18} />{' '}
+            {t('room.extensionPending', { m: t(`room.minutes.${ext.minutes}` as TranslationKey) })}
           </p>
           {ext.reason && <p className="text-callout text-text-2">{ext.reason}</p>}
           {!executor && (
@@ -259,7 +344,11 @@ function InfoPanel({ d, onExtension, onTip }: { d: TaskDetail; onExtension: () =
               <Button onClick={() => decide.mutate(true)} disabled={decide.isPending}>
                 {t('room.extensionAccept')}
               </Button>
-              <Button variant="glass" onClick={() => decide.mutate(false)} disabled={decide.isPending}>
+              <Button
+                variant="glass"
+                onClick={() => decide.mutate(false)}
+                disabled={decide.isPending}
+              >
                 {t('room.extensionDecline')}
               </Button>
             </div>
@@ -292,7 +381,8 @@ export default function RoomPage() {
   const messages = useRoomMessages(id);
   const sb = useSupabase();
   const qc = useQueryClient();
-  const participant = detail.data?.viewer_role === 'customer' || detail.data?.viewer_role === 'executor';
+  const participant =
+    detail.data?.viewer_role === 'customer' || detail.data?.viewer_role === 'executor';
   const count = messages.data?.length ?? 0;
   // Открытый чат = прочитанный: обновляем отметку при каждом новом сообщении
   useEffect(() => {
@@ -305,7 +395,11 @@ export default function RoomPage() {
   const [text, setText] = useState('');
   const [pending, setPending] = useState<File[]>([]);
   const [sheet, setSheet] = useState<null | 'submit' | 'review' | 'extension' | 'tip'>(null);
-  const counterpart = detail.data ? (detail.data.viewer_role === 'customer' ? detail.data.task.executor_id : detail.data.task.customer_id) : null;
+  const counterpart = detail.data
+    ? detail.data.viewer_role === 'customer'
+      ? detail.data.task.executor_id
+      : detail.data.task.customer_id
+    : null;
   const readAt = useQuery({
     queryKey: ['chat-read', id, counterpart],
     queryFn: () => chats.counterpartReadAt(sb, id, counterpart!),
@@ -339,7 +433,11 @@ export default function RoomPage() {
 
   if (detail.isLoading) return <CenterSpinner />;
   const d = detail.data;
-  if (!d || !(d.viewer_role === 'customer' || d.viewer_role === 'executor') || !d.task.executor_id) {
+  if (
+    !d ||
+    !(d.viewer_role === 'customer' || d.viewer_role === 'executor') ||
+    !d.task.executor_id
+  ) {
     return (
       <main className="mx-auto max-w-[var(--p-content-max)] px-[var(--p-gutter)] pt-8 md:px-8">
         <EmptyState title={t('task.notFound')} />
@@ -364,46 +462,77 @@ export default function RoomPage() {
       <Header
         title={task.title}
         leading={
-          <Button variant="glass" size="icon" aria-label={t('common.back')} onClick={() => router.push(`/tasks/${id}`)}>
+          <Button
+            variant="glass"
+            size="icon"
+            aria-label={t('common.back')}
+            onClick={() => router.push(`/tasks/${id}`)}
+          >
             <ChevronLeft size={22} strokeWidth={2.6} />
           </Button>
         }
       />
       <main className="mx-auto grid max-w-[var(--p-content-max)] gap-6 px-[var(--p-gutter)] pt-2 md:px-8 lg:grid-cols-[minmax(0,1fr)_360px]">
-       <div className="flex min-w-0 flex-col gap-4">
-        <div className="card flex flex-wrap items-center gap-3 p-4">
-          <div className="min-w-0 basis-full sm:basis-0 sm:flex-1">
-            <p className="text-caption uppercase tracking-wide text-text-2">{t('room.title')}</p>
-            <h1 className="truncate text-title3 font-bold">{task.title}</h1>
-            {task.due_at && active && (
-              <p className="text-callout font-semibold text-text-2">
-                {t('room.deadline')}: {formatDateTime(task.due_at)} · {formatTimeLeft(task.due_at)}
-              </p>
+        <div className="flex min-w-0 flex-col gap-4">
+          <div className="card flex flex-wrap items-center gap-3 p-4">
+            <div className="min-w-0 basis-full sm:basis-0 sm:flex-1">
+              <p className="text-caption uppercase tracking-wide text-text-2">{t('room.title')}</p>
+              <h1 className="truncate text-title3 font-bold">{task.title}</h1>
+              {task.due_at && active && (
+                <p className="text-callout font-semibold text-text-2">
+                  {t('room.deadline')}: {formatDateTime(task.due_at)} ·{' '}
+                  {formatTimeLeft(task.due_at)}
+                </p>
+              )}
+            </div>
+            <StatusBadge status={status} />
+            {d.viewer_role === 'executor' && status === 'in_progress' && (
+              <Button onClick={() => setSheet('submit')}>{t('task.submitWork')}</Button>
+            )}
+            {d.viewer_role === 'customer' && status === 'review' && latest && (
+              <Button onClick={() => setSheet('review')}>{t('task.review')}</Button>
             )}
           </div>
-          <StatusBadge status={status} />
-          {d.viewer_role === 'executor' && status === 'in_progress' && <Button onClick={() => setSheet('submit')}>{t('task.submitWork')}</Button>}
-          {d.viewer_role === 'customer' && status === 'review' && latest && <Button onClick={() => setSheet('review')}>{t('task.review')}</Button>}
-        </div>
 
-        <section aria-label={t('room.title')} aria-live="polite" className="flex min-h-[40vh] flex-col gap-3 pb-40 md:pb-28">
-          {messages.isLoading ? (
-            <CenterSpinner />
-          ) : (
-            (messages.data ?? []).map((m) => <Bubble key={m.id} m={m} mine={m.sender_id === uid} read={!!readAt && new Date(readAt) >= new Date(m.created_at)} />)
-          )}
-          <div ref={endRef} />
-        </section>
-       </div>
+          <section
+            aria-label={t('room.title')}
+            aria-live="polite"
+            className="flex min-h-[40vh] flex-col gap-3 pb-40 md:pb-28"
+          >
+            {messages.isLoading ? (
+              <CenterSpinner />
+            ) : (
+              (messages.data ?? []).map((m) => (
+                <Bubble
+                  key={m.id}
+                  m={m}
+                  mine={m.sender_id === uid}
+                  read={!!readAt && new Date(readAt) >= new Date(m.created_at)}
+                />
+              ))
+            )}
+            <div ref={endRef} />
+          </section>
+        </div>
         <aside className="order-first lg:order-none">
           <details className="group lg:hidden">
-            <summary className="card cursor-pointer list-none p-4 font-bold">{t('room.info')}</summary>
+            <summary className="card cursor-pointer list-none p-4 font-bold">
+              {t('room.info')}
+            </summary>
             <div className="pt-3">
-              <InfoPanel d={d} onExtension={() => setSheet('extension')} onTip={() => setSheet('tip')} />
+              <InfoPanel
+                d={d}
+                onExtension={() => setSheet('extension')}
+                onTip={() => setSheet('tip')}
+              />
             </div>
           </details>
           <div className="sticky top-24 hidden lg:block">
-            <InfoPanel d={d} onExtension={() => setSheet('extension')} onTip={() => setSheet('tip')} />
+            <InfoPanel
+              d={d}
+              onExtension={() => setSheet('extension')}
+              onTip={() => setSheet('tip')}
+            />
           </div>
         </aside>
       </main>
@@ -415,9 +544,16 @@ export default function RoomPage() {
               {pending.length > 0 && (
                 <div className="flex flex-wrap gap-2 px-2 pt-1">
                   {pending.map((f, i) => (
-                    <span key={i} className="inline-flex items-center gap-1 rounded-pill bg-separator px-3 py-1 text-caption">
+                    <span
+                      key={i}
+                      className="inline-flex items-center gap-1 rounded-pill bg-separator px-3 py-1 text-caption"
+                    >
                       {f.name}
-                      <button type="button" aria-label={t('common.remove')} onClick={() => setPending(pending.filter((_, j) => j !== i))}>
+                      <button
+                        type="button"
+                        aria-label={t('common.remove')}
+                        onClick={() => setPending(pending.filter((_, j) => j !== i))}
+                      >
                         <X size={14} />
                       </button>
                     </span>
@@ -425,7 +561,10 @@ export default function RoomPage() {
                 </div>
               )}
               <div className="flex items-end gap-2">
-                <label className="flex size-11 shrink-0 cursor-pointer items-center justify-center rounded-pill text-text hover:bg-separator" aria-label={t('room.attach')}>
+                <label
+                  className="flex size-11 shrink-0 cursor-pointer items-center justify-center rounded-pill text-text hover:bg-separator"
+                  aria-label={t('room.attach')}
+                >
                   <Paperclip size={20} strokeWidth={2.4} />
                   <input
                     type="file"
@@ -449,14 +588,26 @@ export default function RoomPage() {
                   }}
                   className="max-h-40 min-h-11 flex-1 resize-none bg-transparent px-1 py-2.5 text-body outline-none placeholder:text-text-2"
                 />
-                <Button type="submit" size="icon" aria-label={t('common.send')} disabled={send.isPending || (!text.trim() && !pending.length)}>
+                <Button
+                  type="submit"
+                  size="icon"
+                  aria-label={t('common.send')}
+                  disabled={send.isPending || (!text.trim() && !pending.length)}
+                >
                   <ArrowUp size={20} strokeWidth={2.8} />
                 </Button>
               </div>
-              {send.error && <p className="px-3 text-callout font-semibold text-danger">{t(send.error.key as TranslationKey)}</p>}
+              {send.error && (
+                <p className="px-3 text-callout font-semibold text-danger">
+                  {t(send.error.key as TranslationKey)}
+                </p>
+              )}
             </Glass>
           ) : (
-            <Glass radius="pill" className="px-5 py-3 text-center text-callout font-semibold text-text-2">
+            <Glass
+              radius="pill"
+              className="px-5 py-3 text-center text-callout font-semibold text-text-2"
+            >
               {t('room.readonly')}
             </Glass>
           )}
@@ -464,7 +615,9 @@ export default function RoomPage() {
       </div>
 
       {sheet === 'submit' && <SubmitSheet open onClose={() => setSheet(null)} task={task} />}
-      {sheet === 'review' && latest && <ReviewSheet open onClose={() => setSheet(null)} task={task} submission={latest} />}
+      {sheet === 'review' && latest && (
+        <ReviewSheet open onClose={() => setSheet(null)} task={task} submission={latest} />
+      )}
       {sheet === 'extension' && <ExtensionSheet taskId={task.id} onClose={() => setSheet(null)} />}
       {sheet === 'tip' && <TipSheet d={d} onClose={() => setSheet(null)} />}
     </>

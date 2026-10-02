@@ -1,7 +1,13 @@
 'use client';
 
 import {
+  MY_TABS,
   displayStatus,
+  myTaskNext,
+  myTaskProgress,
+  myTaskTab,
+  type MyRole,
+  type MyTab,
   formatDateTime,
   formatMoney,
   formatTimeLeft,
@@ -26,45 +32,18 @@ import { CenterSpinner, EmptyState, PageTitle, StatusBadge } from '@/components/
 import { StatTile } from '@/components/ui/kit';
 import { useToast } from '@/components/ui/Toast';
 
-type Role = 'executor' | 'customer';
-type Tab =
-  'active' | 'responses' | 'review' | 'done' | 'archive' | 'choosing' | 'inwork' | 'drafts';
+type Role = MyRole;
+type Tab = MyTab;
 type Sort = 'new' | 'deadline' | 'pay';
-
-const TABS: Record<Role, Tab[]> = {
-  executor: ['active', 'responses', 'review', 'done', 'archive'],
-  customer: ['choosing', 'inwork', 'review', 'done', 'archive', 'drafts'],
-};
-
-function tabOf(task: MyTask, role: Role): Tab {
-  const s = displayStatus(task);
-  if (s === 'review') return 'review';
-  if (s === 'completed') return 'done';
-  if (s === 'archived') return 'archive';
-  if (role === 'executor') return s === 'open' ? 'responses' : 'active';
-  return s === 'open' ? 'choosing' : 'inwork';
-}
+const TABS = MY_TABS;
+const tabOf = myTaskTab;
 
 /** Следующее действие по задаче: куда ведёт главная кнопка */
-function nextAction(task: MyTask, role: Role): { label: TranslationKey; href: string } | null {
-  const s = displayStatus(task);
+function nextAction(task: MyTask, role: Role): { label: TranslationKey; href: string } {
+  const { action, target } = myTaskNext(task, role);
   const page = `/tasks/${task.id}`;
-  const roomHref = `${page}/room`;
-  if (role === 'executor') {
-    if (s === 'in_progress' && !task.started_at) return { label: 'my.actions.start', href: page };
-    if (s === 'in_progress' || s === 'disputed')
-      return { label: 'my.actions.continue', href: roomHref };
-    if (s === 'review') return { label: 'my.actions.chat', href: roomHref };
-    if (s === 'completed' && !task.reviewed) return { label: 'my.actions.review', href: page };
-    return { label: 'my.actions.open', href: page };
-  }
-  if (s === 'open') return { label: 'my.actions.responses', href: `${page}/responses` };
-  if (s === 'in_progress' || s === 'disputed') return { label: 'my.actions.chat', href: roomHref };
-  if (s === 'review') return { label: 'my.actions.check', href: roomHref };
-  if (s === 'completed' && !task.reviewed) return { label: 'my.actions.review', href: page };
-  if (s === 'completed' || s === 'archived')
-    return { label: 'my.actions.repeat', href: `/tasks/new?repeat=${task.id}` };
-  return null;
+  const href = { page, room: `${page}/room`, responses: `${page}/responses`, repeat: `/tasks/new?repeat=${task.id}` }[target];
+  return { label: `my.actions.${action}`, href };
 }
 
 function Row({ task, role }: { task: MyTask; role: Role }) {
@@ -78,17 +57,7 @@ function Row({ task, role }: { task: MyTask; role: Role }) {
   });
   const expired = task.expired || task.archive_reason === 'expired';
   const next = nextAction(task, role);
-  const progress =
-    task.due_at && task.assigned_at && ['in_progress', 'review'].includes(status)
-      ? Math.min(
-          1,
-          Math.max(
-            0,
-            (Date.now() - new Date(task.assigned_at).getTime()) /
-              (new Date(task.due_at).getTime() - new Date(task.assigned_at).getTime()),
-          ),
-        )
-      : null;
+  const progress = ['in_progress', 'review'].includes(status) ? myTaskProgress(task) : null;
 
   return (
     <li className="card flex flex-col gap-3 p-5 md:grid md:grid-cols-[minmax(0,2fr)_minmax(0,1fr)_auto] md:items-center md:gap-6">

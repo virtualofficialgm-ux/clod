@@ -56,7 +56,8 @@ import { Avatar, CenterSpinner, EmptyState, StatusBadge } from '@/components/ui/
 import { BigNumber, Card, CardHeader, ProgressBar } from '@/components/ui/kit';
 import { useToast } from '@/components/ui/Toast';
 
-const fmt = (d: TaskDetail, cents: number) => formatMoney(cents, 'ru-RU', { currency: d.task.currency });
+const fmt = (d: TaskDetail, cents: number) =>
+  formatMoney(cents, 'ru-RU', { currency: d.task.currency });
 
 /** Секундомер для «начать за 25 минут» */
 function useNow(ms = 1000) {
@@ -78,7 +79,9 @@ function YoursPanel({ d }: { d: TaskDetail }) {
   const status = displayStatus(task);
   const stage = status === 'completed' ? 3 : status === 'review' ? 2 : task.started_at ? 1 : 0;
   const startLeft = d.start_deadline ? new Date(d.start_deadline).getTime() - now : null;
-  const start = useApiMutation((sb) => work.start(sb, task.id), { invalidate: () => [keys.task(task.id), ['my-tasks']] });
+  const start = useApiMutation((sb) => work.start(sb, task.id), {
+    invalidate: () => [keys.task(task.id), ['my-tasks']],
+  });
   const refuseM = useApiMutation((sb) => work.refuse(sb, task.id), {
     invalidate: () => [keys.task(task.id), ['my-tasks'], ['feed']],
     onSuccess: () => {
@@ -96,7 +99,9 @@ function YoursPanel({ d }: { d: TaskDetail }) {
         <div>
           <h2 className="text-title3 font-extrabold">{t('task.yoursTitle')}</h2>
           <p className="text-callout text-text-2">
-            {task.started_at ? t('task.yoursStarted', { date: task.due_at ? formatDateTime(task.due_at) : '—' }) : t('task.yoursText', { m: 25 })}
+            {task.started_at
+              ? t('task.yoursStarted', { date: task.due_at ? formatDateTime(task.due_at) : '—' })
+              : t('task.yoursText', { m: 25 })}
           </p>
         </div>
       </div>
@@ -104,16 +109,26 @@ function YoursPanel({ d }: { d: TaskDetail }) {
         {stages.map((s, i) => (
           <li key={s} className="flex flex-col gap-1.5">
             <span className={clsx('h-1.5 rounded-pill', i <= stage ? 'bg-accent' : 'bg-fill')} />
-            <span className={clsx('text-caption', i <= stage ? 'text-text' : 'text-text-2')}>{t(`task.stages.${s}`)}</span>
+            <span className={clsx('text-caption', i <= stage ? 'text-text' : 'text-text-2')}>
+              {t(`task.stages.${s}`)}
+            </span>
           </li>
         ))}
       </ol>
       <div className="flex flex-wrap gap-2">
         {status === 'in_progress' && !task.started_at && (
-          <Button size="lg" disabled={start.isPending || (startLeft != null && startLeft <= 0)} onClick={() => start.mutate(undefined)}>
+          <Button
+            size="lg"
+            disabled={start.isPending || (startLeft != null && startLeft <= 0)}
+            onClick={() => start.mutate(undefined)}
+          >
             <Play size={18} strokeWidth={2.6} />
             {t('task.start')}
-            {startLeft != null && startLeft > 0 && <span className="tabular opacity-80">· {t('task.startLeft', { left: formatDuration(startLeft) })}</span>}
+            {startLeft != null && startLeft > 0 && (
+              <span className="tabular opacity-80">
+                · {t('task.startLeft', { left: formatDuration(startLeft) })}
+              </span>
+            )}
           </Button>
         )}
         <LinkButton href={`/tasks/${task.id}/room`} variant={task.started_at ? 'primary' : 'glass'}>
@@ -126,7 +141,11 @@ function YoursPanel({ d }: { d: TaskDetail }) {
           </Button>
         )}
       </div>
-      {(start.error || refuseM.error) && <p className="text-callout font-semibold text-danger">{t((start.error ?? refuseM.error)!.key as TranslationKey)}</p>}
+      {(start.error || refuseM.error) && (
+        <p className="text-callout font-semibold text-danger">
+          {t((start.error ?? refuseM.error)!.key as TranslationKey)}
+        </p>
+      )}
       <ConfirmSheet
         open={refuse}
         onClose={() => setRefuse(false)}
@@ -145,7 +164,10 @@ function YoursPanel({ d }: { d: TaskDetail }) {
 function CompletedPanel({ d, onRate }: { d: TaskDetail; onRate: () => void }) {
   const task = d.task;
   const executor = d.viewer_role === 'executor';
-  const spent = task.completed_at && task.assigned_at ? new Date(task.completed_at).getTime() - new Date(task.assigned_at).getTime() : null;
+  const spent =
+    task.completed_at && task.assigned_at
+      ? new Date(task.completed_at).getTime() - new Date(task.assigned_at).getTime()
+      : null;
   return (
     <Card className="flex flex-col gap-4">
       <div className="flex items-center gap-3">
@@ -154,7 +176,13 @@ function CompletedPanel({ d, onRate }: { d: TaskDetail; onRate: () => void }) {
         </span>
         <h2 className="text-title3 font-extrabold">{t('task.completedTitle')}</h2>
       </div>
-      {executor && <BigNumber value={`+${fmt(d, task.reward_cents)}`} label={t('task.completedText', { sum: fmt(d, task.reward_cents) })} accent />}
+      {executor && (
+        <BigNumber
+          value={`+${fmt(d, task.reward_cents)}`}
+          label={t('task.completedText', { sum: fmt(d, task.reward_cents) })}
+          accent
+        />
+      )}
       <div className="grid grid-cols-2 gap-2">
         {spent != null && (
           <div className="tile px-4 py-3">
@@ -196,7 +224,15 @@ function CompletedPanel({ d, onRate }: { d: TaskDetail; onRate: () => void }) {
   );
 }
 
-function Actions({ d, onRespond, onTake }: { d: TaskDetail; onRespond: () => void; onTake: () => void }) {
+function Actions({
+  d,
+  onRespond,
+  onTake,
+}: {
+  d: TaskDetail;
+  onRespond: () => void;
+  onTake: () => void;
+}) {
   const toast = useToast();
   const [sheet, setSheet] = useState<null | 'cancel' | 'withdraw'>(null);
   const task = d.task;
@@ -253,11 +289,16 @@ function Actions({ d, onRespond, onTake }: { d: TaskDetail; onRespond: () => voi
     const r = d.my_response;
     content = (
       <div className="flex w-full flex-col gap-3">
-        <Link href={`/responses/${r.id}`} className="tile flex items-center justify-between gap-3 px-4 py-3">
+        <Link
+          href={`/responses/${r.id}`}
+          className="tile flex items-center justify-between gap-3 px-4 py-3"
+        >
           <span className="font-semibold">
             {t('task.yourResponse')}: {fmt(d, r.price_cents)} · {t(`deadline.${r.deadline}`)}
           </span>
-          <span className="text-callout font-bold text-accent-text">{t('task.viewResponse')} →</span>
+          <span className="text-callout font-bold text-accent-text">
+            {t('task.viewResponse')} →
+          </span>
         </Link>
         {status === 'open' && r.status === 'pending' && (
           <div className="flex flex-wrap gap-2">
@@ -269,7 +310,9 @@ function Actions({ d, onRespond, onTake }: { d: TaskDetail; onRespond: () => voi
             </Button>
           </div>
         )}
-        {status === 'open' && r.status === 'withdrawn' && <Button onClick={onRespond}>{t('task.respond')}</Button>}
+        {status === 'open' && r.status === 'withdrawn' && (
+          <Button onClick={onRespond}>{t('task.respond')}</Button>
+        )}
       </div>
     );
   } else if (status === 'open') {
@@ -313,7 +356,11 @@ function Actions({ d, onRespond, onTake }: { d: TaskDetail; onRespond: () => voi
         busy={withdraw.isPending}
         error={withdraw.error?.key}
       />
-      {(republish.error || cancel.error) && <p className="text-callout font-semibold text-danger">{t((republish.error ?? cancel.error)!.key as TranslationKey)}</p>}
+      {(republish.error || cancel.error) && (
+        <p className="text-callout font-semibold text-danger">
+          {t((republish.error ?? cancel.error)!.key as TranslationKey)}
+        </p>
+      )}
     </>
   );
 }
@@ -324,7 +371,10 @@ function History({ d }: { d: TaskDetail }) {
     [t('task.h_published'), task.published_at],
     [t('task.h_reserved'), task.published_at],
     [t('task.h_assigned'), task.assigned_at],
-    [t('task.h_submitted'), d.submissions.length ? d.submissions[d.submissions.length - 1]!.created_at : null],
+    [
+      t('task.h_submitted'),
+      d.submissions.length ? d.submissions[d.submissions.length - 1]!.created_at : null,
+    ],
     [t('task.h_completed'), task.completed_at],
   ];
   return (
@@ -382,19 +432,37 @@ export default function TaskPage() {
   const CatIcon = categoryIcon(task.category);
   const kindLabel =
     task.kind === 'nearby'
-      ? [t('kind.nearby'), task.place_name, task.radius_m ? `${task.radius_m} м` : null].filter(Boolean).join(' · ')
+      ? [t('kind.nearby'), task.place_name, task.radius_m ? `${task.radius_m} м` : null]
+          .filter(Boolean)
+          .join(' · ')
       : task.kind === 'campus'
         ? [d.university?.name ?? t('kind.campus'), task.campus_building].filter(Boolean).join(' · ')
         : t('kind.online');
   const isParticipant = d.viewer_role === 'customer' || d.viewer_role === 'executor';
   const customerName = shortName(d.customer.first_name, d.customer.last_name);
-  const left = task.due_at && ['in_progress', 'review'].includes(status) ? formatTimeLeft(task.due_at) : status === 'open' ? formatTimeLeft(task.expires_at) : null;
+  const left =
+    task.due_at && ['in_progress', 'review'].includes(status)
+      ? formatTimeLeft(task.due_at)
+      : status === 'open'
+        ? formatTimeLeft(task.expires_at)
+        : null;
   const details: [string, React.ReactNode][] = [
     [t('task.resultFormat'), t(`format.${task.result_format}` as TranslationKey)],
     [t('create.deadline'), t(`deadline.${task.deadline}`)],
-    ...(task.language ? [[t('task.language'), languageName(task.language)] as [string, string]] : []),
-    ...(task.required_level ? [[t('task.level'), t(`onb.exp.${task.required_level}`)] as [string, string]] : []),
-    ...(task.proofs.length ? [[t('task.proofs'), task.proofs.map((p) => t(`create.proofs.${p}` as TranslationKey)).join(', ')] as [string, string]] : []),
+    ...(task.language
+      ? [[t('task.language'), languageName(task.language)] as [string, string]]
+      : []),
+    ...(task.required_level
+      ? [[t('task.level'), t(`onb.exp.${task.required_level}`)] as [string, string]]
+      : []),
+    ...(task.proofs.length
+      ? [
+          [
+            t('task.proofs'),
+            task.proofs.map((p) => t(`create.proofs.${p}` as TranslationKey)).join(', '),
+          ] as [string, string],
+        ]
+      : []),
     ...(task.visit_window ? [[t('task.visitWindow'), task.visit_window] as [string, string]] : []),
   ];
 
@@ -403,20 +471,45 @@ export default function TaskPage() {
       <Header
         title={task.title}
         leading={
-          <Button variant="glass" size="icon" aria-label={t('task.backToFeed')} onClick={() => router.back()}>
+          <Button
+            variant="glass"
+            size="icon"
+            aria-label={t('task.backToFeed')}
+            onClick={() => router.back()}
+          >
             <ChevronLeft size={22} strokeWidth={2.6} />
           </Button>
         }
         actions={
           <>
-            <Button variant="glass" size="icon" aria-label={d.bookmarked ? t('feed.unsave') : t('task.save')} aria-pressed={d.bookmarked} onClick={() => bookmark.mutate(!d.bookmarked)}>
-              {d.bookmarked ? <BookmarkCheck size={20} className="text-accent" /> : <Bookmark size={20} />}
+            <Button
+              variant="glass"
+              size="icon"
+              aria-label={d.bookmarked ? t('feed.unsave') : t('task.save')}
+              aria-pressed={d.bookmarked}
+              onClick={() => bookmark.mutate(!d.bookmarked)}
+            >
+              {d.bookmarked ? (
+                <BookmarkCheck size={20} className="text-accent" />
+              ) : (
+                <Bookmark size={20} />
+              )}
             </Button>
-            <Button variant="glass" size="icon" aria-label={t('task.share')} onClick={() => setSheet('share')}>
+            <Button
+              variant="glass"
+              size="icon"
+              aria-label={t('task.share')}
+              onClick={() => setSheet('share')}
+            >
               <Share2 size={20} />
             </Button>
             {d.viewer_role !== 'customer' && (
-              <Button variant="glass" size="icon" aria-label={t('task.report')} onClick={() => setSheet('report')}>
+              <Button
+                variant="glass"
+                size="icon"
+                aria-label={t('task.report')}
+                onClick={() => setSheet('report')}
+              >
                 <Flag size={20} />
               </Button>
             )}
@@ -437,11 +530,16 @@ export default function TaskPage() {
           </div>
           <h1 className="text-title2 font-extrabold">{task.title}</h1>
           <p className="text-caption text-text-2">
-            {t('task.id')}: <span className="font-mono">{task.id.slice(0, 8)}</span> · {t('task.posted')} {formatDateTime(task.published_at)}
+            {t('task.id')}: <span className="font-mono">{task.id.slice(0, 8)}</span> ·{' '}
+            {t('task.posted')} {formatDateTime(task.published_at)}
           </p>
 
-          {d.viewer_role === 'executor' && ['in_progress', 'review'].includes(status) && <YoursPanel d={d} />}
-          {status === 'completed' && isParticipant && <CompletedPanel d={d} onRate={() => setSheet('rate')} />}
+          {d.viewer_role === 'executor' && ['in_progress', 'review'].includes(status) && (
+            <YoursPanel d={d} />
+          )}
+          {status === 'completed' && isParticipant && (
+            <CompletedPanel d={d} onRate={() => setSheet('rate')} />
+          )}
 
           <Actions d={d} onRespond={() => setSheet('respond')} onTake={() => setSheet('take')} />
 
@@ -476,7 +574,9 @@ export default function TaskPage() {
               <ol className="flex flex-col gap-2">
                 {task.checklist.map((c, i) => (
                   <li key={i} className="flex items-start gap-3">
-                    <span className="flex size-6 shrink-0 items-center justify-center rounded-full bg-ink text-caption text-on-ink">{i + 1}</span>
+                    <span className="flex size-6 shrink-0 items-center justify-center rounded-full bg-ink text-caption text-on-ink">
+                      {i + 1}
+                    </span>
                     <span className="text-body">{c}</span>
                   </li>
                 ))}
@@ -491,11 +591,16 @@ export default function TaskPage() {
             </Card>
           )}
 
-          <Link href={`/tasks/${task.id}/questions`} className="card flex items-center gap-3 p-5 transition-colors hover:bg-fill/40">
+          <Link
+            href={`/tasks/${task.id}/questions`}
+            className="card flex items-center gap-3 p-5 transition-colors hover:bg-fill/40"
+          >
             <span className="flex size-10 items-center justify-center rounded-full bg-fill">
               <HelpCircle size={20} />
             </span>
-            <span className="flex-1 font-bold">{t('task.questionsN', { n: d.questions_count })}</span>
+            <span className="flex-1 font-bold">
+              {t('task.questionsN', { n: d.questions_count })}
+            </span>
             <span className="text-callout font-bold text-accent-text">→</span>
           </Link>
         </article>
@@ -514,13 +619,18 @@ export default function TaskPage() {
                 </p>
                 {task.due_at && task.assigned_at && (
                   <ProgressBar
-                    value={(Date.now() - new Date(task.assigned_at).getTime()) / (new Date(task.due_at).getTime() - new Date(task.assigned_at).getTime())}
+                    value={
+                      (Date.now() - new Date(task.assigned_at).getTime()) /
+                      (new Date(task.due_at).getTime() - new Date(task.assigned_at).getTime())
+                    }
                     label={t('create.deadline')}
                   />
                 )}
               </div>
             )}
-            <p className="text-callout text-text-2">{t('task.proposals', { n: task.response_count })}</p>
+            <p className="text-callout text-text-2">
+              {t('task.proposals', { n: task.response_count })}
+            </p>
           </Card>
 
           <Card className="flex flex-col gap-3">
@@ -530,27 +640,48 @@ export default function TaskPage() {
                 <p className="text-caption text-text-2">{t('task.customer')}</p>
                 <p className="truncate font-bold">{customerName}</p>
                 <p className="text-callout text-text-2">
-                  {d.customer.rating_avg ? `★ ${Number(d.customer.rating_avg).toFixed(1)} · ${d.customer.rating_count}` : t('responses.noRating')}
+                  {d.customer.rating_avg
+                    ? `★ ${Number(d.customer.rating_avg).toFixed(1)} · ${d.customer.rating_count}`
+                    : t('responses.noRating')}
                 </p>
               </div>
             </div>
             <p className="text-callout text-text-2">
-              {t('task.customerStats', { done: d.customer.customer_completed, open: d.customer.customer_open })}
+              {t('task.customerStats', {
+                done: d.customer.customer_completed,
+                open: d.customer.customer_open,
+              })}
               <br />
-              {t('task.customerSince', { date: new Intl.DateTimeFormat('ru-RU', { month: 'long', year: 'numeric' }).format(new Date(d.customer.created_at)) })}
+              {t('task.customerSince', {
+                date: new Intl.DateTimeFormat('ru-RU', { month: 'long', year: 'numeric' }).format(
+                  new Date(d.customer.created_at),
+                ),
+              })}
             </p>
-            <LinkButton href={`/u/${d.customer.username ?? d.customer.id}`} variant="glass" size="md">
+            <LinkButton
+              href={`/u/${d.customer.username ?? d.customer.id}`}
+              variant="glass"
+              size="md"
+            >
               {t('task.openProfile')}
             </LinkButton>
           </Card>
 
           {d.executor && (
             <Card className="flex items-center gap-3">
-              <Avatar name={shortName(d.executor.first_name, d.executor.last_name)} url={d.executor.avatar_url} size={48} />
+              <Avatar
+                name={shortName(d.executor.first_name, d.executor.last_name)}
+                url={d.executor.avatar_url}
+                size={48}
+              />
               <div className="min-w-0">
                 <p className="text-caption text-text-2">{t('task.executor')}</p>
-                <p className="truncate font-bold">{shortName(d.executor.first_name, d.executor.last_name)}</p>
-                <p className="text-callout text-text-2">{t('responses.completed', { n: d.executor.completed_count })}</p>
+                <p className="truncate font-bold">
+                  {shortName(d.executor.first_name, d.executor.last_name)}
+                </p>
+                <p className="text-callout text-text-2">
+                  {t('responses.completed', { n: d.executor.completed_count })}
+                </p>
               </div>
             </Card>
           )}
@@ -572,14 +703,30 @@ export default function TaskPage() {
         </aside>
       </main>
 
-      {sheet === 'respond' && <RespondSheet open onClose={() => setSheet(null)} task={task} existing={d.my_response} />}
+      {sheet === 'respond' && (
+        <RespondSheet open onClose={() => setSheet(null)} task={task} existing={d.my_response} />
+      )}
       <TakeSheet
-        task={sheet === 'take' ? { id: task.id, title: task.title, reward_cents: task.reward_cents, currency: task.currency } : null}
+        task={
+          sheet === 'take'
+            ? {
+                id: task.id,
+                title: task.title,
+                reward_cents: task.reward_cents,
+                currency: task.currency,
+              }
+            : null
+        }
         takesLeft={d.takes_left}
         pro={me.data?.profile.plan === 'pro'}
         onClose={() => setSheet(null)}
       />
-      <ShareSheet open={sheet === 'share'} onClose={() => setSheet(null)} taskId={task.id} title={task.title} />
+      <ShareSheet
+        open={sheet === 'share'}
+        onClose={() => setSheet(null)}
+        taskId={task.id}
+        title={task.title}
+      />
       <ReportSheet open={sheet === 'report'} onClose={() => setSheet(null)} taskId={task.id} />
       {sheet === 'rate' && <RateSheet d={d} onClose={() => setSheet(null)} />}
     </>

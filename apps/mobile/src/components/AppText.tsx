@@ -4,7 +4,7 @@ import { familyByWeight } from '@/theme/fonts';
 import { useTheme } from '@/theme/ThemeProvider';
 
 export type TextVariant = keyof typeof typeScaleMobile;
-type ColorKey = 'text' | 'textSecondary' | 'textTertiary' | 'accentText' | 'onAccent' | 'background';
+type ColorKey = 'text' | 'textSecondary' | 'textTertiary' | 'accentText' | 'onAccent' | 'background' | 'danger' | 'success' | 'warning';
 
 interface AppTextProps extends TextProps {
   variant?: TextVariant;

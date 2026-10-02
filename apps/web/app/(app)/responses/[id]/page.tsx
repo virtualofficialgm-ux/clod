@@ -36,9 +36,22 @@ export default function ResponsePage() {
   });
 
   if (q.isLoading) return <CenterSpinner />;
-  if (!r) return <EmptyState title={t('task.notAvailable')} action={<LinkButton href="/feed">{t('task.backToFeed')}</LinkButton>} />;
+  if (!r)
+    return (
+      <EmptyState
+        title={t('task.notAvailable')}
+        action={<LinkButton href="/feed">{t('task.backToFeed')}</LinkButton>}
+      />
+    );
 
-  const shown: Shown = r.status === 'pending' ? (r.compared ? 'comparing' : r.viewed_at ? 'viewed' : 'pending') : (r.status as Shown);
+  const shown: Shown =
+    r.status === 'pending'
+      ? r.compared
+        ? 'comparing'
+        : r.viewed_at
+          ? 'viewed'
+          : 'pending'
+      : (r.status as Shown);
   const cur = r.tasks.currency;
   const steps: Shown[] = ['pending', 'viewed', 'comparing', 'accepted'];
   const stepIdx = steps.indexOf(shown);
@@ -49,7 +62,12 @@ export default function ResponsePage() {
       <Header
         title={t('respond.statusTitle')}
         leading={
-          <Button variant="glass" size="icon" aria-label={t('common.back')} onClick={() => router.back()}>
+          <Button
+            variant="glass"
+            size="icon"
+            aria-label={t('common.back')}
+            onClick={() => router.back()}
+          >
             <ChevronLeft size={22} strokeWidth={2.6} />
           </Button>
         }
@@ -64,14 +82,22 @@ export default function ResponsePage() {
             <ol className="grid grid-cols-4 gap-2">
               {steps.map((s, i) => (
                 <li key={s} className="flex flex-col gap-1.5">
-                  <span className={clsx('h-1.5 rounded-pill', i <= stepIdx ? 'bg-accent' : 'bg-fill')} />
-                  <span className={clsx('text-caption', i <= stepIdx ? 'text-text' : 'text-text-2')}>{t(`respond.st.${s}`)}</span>
+                  <span
+                    className={clsx('h-1.5 rounded-pill', i <= stepIdx ? 'bg-accent' : 'bg-fill')}
+                  />
+                  <span
+                    className={clsx('text-caption', i <= stepIdx ? 'text-text' : 'text-text-2')}
+                  >
+                    {t(`respond.st.${s}`)}
+                  </span>
                 </li>
               ))}
             </ol>
           )}
           {shown === 'accepted' && <p className="text-callout">{t('respond.chosenText')}</p>}
-          {shown === 'rejected' && <p className="text-callout text-text-2">{t('respond.rejectedWhy')}</p>}
+          {shown === 'rejected' && (
+            <p className="text-callout text-text-2">{t('respond.rejectedWhy')}</p>
+          )}
           <div className="flex flex-wrap gap-2">
             {shown === 'accepted' ? (
               <LinkButton href={`/tasks/${r.task_id}/room`}>{t('task.openRoom')}</LinkButton>
@@ -85,7 +111,11 @@ export default function ResponsePage() {
                 <Button variant="glass" onClick={() => setSheet('edit')}>
                   {t('respond.edit')}
                 </Button>
-                <Button variant="plain" className="text-danger" onClick={() => setSheet('withdraw')}>
+                <Button
+                  variant="plain"
+                  className="text-danger"
+                  onClick={() => setSheet('withdraw')}
+                >
                   {t('task.withdraw')}
                 </Button>
               </>
@@ -104,7 +134,10 @@ export default function ResponsePage() {
           <CardHeader title={t('respond.title')} />
           <ListGroup>
             <ListRow title={t('respond.responseId')} value={r.id.slice(0, 8)} />
-            <ListRow title={t('respond.price')} value={formatMoney(r.price_cents, 'ru-RU', { currency: cur })} />
+            <ListRow
+              title={t('respond.price')}
+              value={formatMoney(r.price_cents, 'ru-RU', { currency: cur })}
+            />
             <ListRow title={t('respond.deadline')} value={t(`deadline.${r.deadline}`)} />
             <ListRow title={t('respond.ready')} value={t(`ready.${r.ready}`)} />
             <ListRow title={t('balance.date')} value={formatDateTime(r.created_at)} />
@@ -120,7 +153,13 @@ export default function ResponsePage() {
             </div>
           )}
           {[...r.portfolio_links, ...(r.video_url ? [r.video_url] : [])].map((l) => (
-            <a key={l} href={l} target="_blank" rel="noreferrer" className="mt-2 block truncate text-callout font-semibold text-accent-text">
+            <a
+              key={l}
+              href={l}
+              target="_blank"
+              rel="noreferrer"
+              className="mt-2 block truncate text-callout font-semibold text-accent-text"
+            >
               {l}
             </a>
           ))}

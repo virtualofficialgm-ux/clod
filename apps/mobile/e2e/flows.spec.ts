@@ -96,7 +96,7 @@ for (const scheme of ['light', 'dark'] as const) {
     await expect(page.getByText('Клуб настольных игр', { exact: false })).toBeVisible();
     await shot(page, `task-${scheme}`);
     await page.goto('/task/new');
-    await expect(page.getByText('Бюджет и защита')).toBeVisible();
+    await expect(page.getByText('Бюджет', { exact: true })).toBeVisible();
     await shot(page, `create-${scheme}`);
     await page.goto('/task/b0000000-0000-4000-8000-000000000002/room');
     await expect(page.getByText('Исполнитель выбран. Удачной работы!')).toBeVisible();
@@ -122,12 +122,20 @@ test('«Рядом» по реальной геолокации', async ({ brows
 test('полный цикл на мобильном: отклик → выбор → чат → сдача → приёмка', async ({ browser }) => {
   const maria = await asUser(browser, 'maria@parri.test');
   await maria.page.getByRole('button', { name: /Логотип для студенческого клуба/ }).click();
-  await maria.page.getByRole('button', { name: 'Откликнуться' }).click();
-  await maria.page.getByLabel('Сопроводительное сообщение').fill('Нарисую три варианта логотипа в векторе, есть портфолио.');
-  await maria.page.getByLabel('Ваша цена').fill('60');
+  await maria.page.getByRole('link', { name: /Вопросы · / }).or(maria.page.getByRole('button', { name: /Вопросы · / })).first().click();
+  await maria.page.getByLabel('Задать вопрос').fill('Какие цвета клуба?');
+  await maria.page.getByRole('button', { name: 'Опубликовать' }).click();
+  await expect(maria.page.getByTestId('question').first()).toContainText('Какие цвета клуба?');
+  await maria.page.goBack();
+  await maria.page.getByRole('button', { name: 'Откликнуться со своими условиями' }).click();
+  await maria.page.getByLabel('Сопроводительное письмо').fill('Нарисую три варианта логотипа в векторе, есть портфолио.');
+  await maria.page.getByLabel('Стоимость').fill('60');
+  await maria.page.getByRole('checkbox', { name: 'Я ознакомился с описанием' }).click();
   await shot(maria.page, 'respond');
   await maria.page.getByRole('button', { name: 'Отправить отклик' }).click();
-  await expect(maria.page.getByText(/Ваш отклик: 60/)).toBeVisible();
+  await expect(maria.page.getByTestId('response-sent')).toBeVisible();
+  await maria.page.getByRole('button', { name: 'Посмотреть отклик' }).click();
+  await expect(maria.page.getByTestId('response-status')).toHaveText('Ожидает просмотра');
 
   const anna = await asUser(browser, 'anna@parri.test');
   await anna.page.goto('/task/b0000000-0000-4000-8000-000000000006/responses');
@@ -146,8 +154,9 @@ test('полный цикл на мобильном: отклик → выбор
   await maria.page.goto('/task/b0000000-0000-4000-8000-000000000006/room');
   await expect(maria.page.getByText('Жду эскизы!')).toBeVisible();
   await maria.page.getByRole('button', { name: 'Сдать работу' }).click();
-  await maria.page.getByLabel('Ссылка на результат').fill('https://example.com/logo.svg');
-  await maria.page.getByRole('button', { name: 'Сдать на проверку' }).click();
+  await maria.page.getByLabel('Ссылка на результат или прототип').fill('https://example.com/logo.svg');
+  await maria.page.getByRole('checkbox', { name: 'Соответствует заданию' }).click();
+  await maria.page.getByRole('button', { name: 'Отправить на проверку' }).click();
   await expect(maria.page.getByText('Работа сдана на проверку (версия 1)')).toBeVisible();
   await shot(maria.page, 'room-submitted');
 
@@ -155,14 +164,38 @@ test('полный цикл на мобильном: отклик → выбор
   await anna.page.getByRole('button', { name: 'Проверить работу' }).click();
   for (const item of ['3 варианта', 'SVG и PNG']) await anna.page.getByRole('checkbox', { name: item }).click();
   await shot(anna.page, 'review');
-  await anna.page.getByRole('button', { name: 'Принять и оплатить' }).click();
+  await anna.page.getByRole('button', { name: /Принять и оплатить/ }).click();
   await expect(anna.page.getByText('Работа принята, награда выплачена')).toBeVisible();
+  await anna.page.getByRole('button', { name: 'Чаевые' }).click();
+  await anna.page.getByTestId('sheet').getByRole('button', { name: /Отправить 3/ }).click();
+  await expect(anna.page.getByText(/Заказчик отправил чаевые/).first()).toBeVisible();
+  await anna.page.goto('/task/b0000000-0000-4000-8000-000000000006');
+  await anna.page.getByRole('button', { name: 'Оставить отзыв' }).click();
+  await anna.page.getByRole('radiogroup', { name: 'Общая оценка' }).getByRole('radio', { name: '5' }).click();
+  await anna.page.getByRole('button', { name: 'Опубликовать отзыв' }).click();
+  await expect(anna.page.getByText('Спасибо за отзыв!')).toBeVisible();
 
   await maria.page.goto('/balance');
   await expect(maria.page.getByText('+60 $').first()).toBeVisible();
+  await expect(maria.page.getByText('+3 $').first()).toBeVisible();
   await shot(maria.page, 'balance');
   await anna.ctx.close();
   await maria.ctx.close();
+});
+
+test('взять задачу сразу и начать', async ({ browser }) => {
+  const ivan = await asUser(browser, 'ivan@parri.test');
+  await expect(ivan.page.getByTestId('feed-list')).toBeVisible();
+  await ivan.page.getByTestId('feed-list').getByRole('button', { name: 'Взять задачу' }).first().click();
+  await ivan.page.getByTestId('take-confirm').click();
+  await expect(ivan.page.getByTestId('yours-panel')).toBeVisible();
+  await shot(ivan.page, 'task-yours');
+  await ivan.page.getByRole('button', { name: /Начать выполнение/ }).click();
+  await expect(ivan.page.getByRole('button', { name: 'Начать выполнение' })).toHaveCount(0);
+  await ivan.page.goto('/tasks');
+  await expect(ivan.page.getByTestId('my-tasks')).toBeVisible();
+  await expect(ivan.page.getByRole('button', { name: 'Продолжить работу' }).first()).toBeVisible();
+  await ivan.ctx.close();
 });
 
 test('пополнение баланса через Stripe (тестовые страницы)', async ({ browser }) => {

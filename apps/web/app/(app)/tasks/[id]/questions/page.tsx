@@ -18,10 +18,16 @@ function Message({ q, mine, onDelete }: { q: TaskQuestion; mine: boolean; onDele
       <div className="flex min-w-0 flex-1 flex-col gap-1">
         <p className="flex flex-wrap items-center gap-2 text-callout">
           <span className="font-bold">{q.author_name}</span>
-          {q.is_customer && <span className="rounded-pill bg-accent-soft px-2 py-0.5 text-caption text-accent-text">{t('questions.customer')}</span>}
+          {q.is_customer && (
+            <span className="rounded-pill bg-accent-soft px-2 py-0.5 text-caption text-accent-text">
+              {t('questions.customer')}
+            </span>
+          )}
           <span className="text-caption text-text-2">{formatDateTime(q.created_at)}</span>
         </p>
-        <p className={q.deleted ? 'italic text-text-2' : 'whitespace-pre-line'}>{q.deleted ? t('questions.deleted') : q.body}</p>
+        <p className={q.deleted ? 'italic text-text-2' : 'whitespace-pre-line'}>
+          {q.deleted ? t('questions.deleted') : q.body}
+        </p>
       </div>
       {mine && !q.deleted && (
         <Button variant="plain" size="icon" aria-label={t('questions.delete')} onClick={onDelete}>
@@ -32,7 +38,19 @@ function Message({ q, mine, onDelete }: { q: TaskQuestion; mine: boolean; onDele
   );
 }
 
-function Composer({ taskId, parentId, placeholder, label, onDone }: { taskId: string; parentId?: string; placeholder: string; label: string; onDone?: () => void }) {
+function Composer({
+  taskId,
+  parentId,
+  placeholder,
+  label,
+  onDone,
+}: {
+  taskId: string;
+  parentId?: string;
+  placeholder: string;
+  label: string;
+  onDone?: () => void;
+}) {
   const [body, setBody] = useState('');
   const send = useApiMutation((sb) => taskExtras.ask(sb, taskId, body, parentId), {
     invalidate: () => [keys.questions(taskId), keys.task(taskId)],
@@ -43,10 +61,20 @@ function Composer({ taskId, parentId, placeholder, label, onDone }: { taskId: st
   });
   return (
     <div className="flex flex-col gap-2">
-      <TextArea label={label} placeholder={placeholder} value={body} onChange={(e) => setBody(e.target.value)} rows={2} counterMax={1000} />
+      <TextArea
+        label={label}
+        placeholder={placeholder}
+        value={body}
+        onChange={(e) => setBody(e.target.value)}
+        rows={2}
+        counterMax={1000}
+      />
       <FormError error={send.error?.key} />
       <div>
-        <Button disabled={body.trim().length < 2 || send.isPending} onClick={() => send.mutate(undefined)}>
+        <Button
+          disabled={body.trim().length < 2 || send.isPending}
+          onClick={() => send.mutate(undefined)}
+        >
           {t('questions.publish')}
         </Button>
       </div>
@@ -61,7 +89,9 @@ export default function QuestionsPage() {
   const d = useTaskDetail(id).data;
   const { data, isLoading } = useTaskQuestions(id);
   const [replyTo, setReplyTo] = useState<string | null>(null);
-  const del = useApiMutation((sb, qid: string) => taskExtras.deleteQuestion(sb, qid), { invalidate: () => [keys.questions(id), keys.task(id)] });
+  const del = useApiMutation((sb, qid: string) => taskExtras.deleteQuestion(sb, qid), {
+    invalidate: () => [keys.questions(id), keys.task(id)],
+  });
   const uid = me.data?.profile.id;
   const roots = (data ?? []).filter((q) => !q.parent_id);
   const replies = (pid: string) => (data ?? []).filter((q) => q.parent_id === pid);
@@ -72,7 +102,12 @@ export default function QuestionsPage() {
       <Header
         title={t('questions.title')}
         leading={
-          <Button variant="glass" size="icon" aria-label={t('common.back')} onClick={() => router.back()}>
+          <Button
+            variant="glass"
+            size="icon"
+            aria-label={t('common.back')}
+            onClick={() => router.back()}
+          >
             <ChevronLeft size={22} strokeWidth={2.6} />
           </Button>
         }
@@ -81,7 +116,11 @@ export default function QuestionsPage() {
         {d && <p className="text-callout text-text-2">{d.task.title}</p>}
         {!isCustomer && (
           <Card>
-            <Composer taskId={id} label={t('questions.ask')} placeholder={t('questions.askPlaceholder')} />
+            <Composer
+              taskId={id}
+              label={t('questions.ask')}
+              placeholder={t('questions.askPlaceholder')}
+            />
           </Card>
         )}
         {isLoading ? (
@@ -101,7 +140,13 @@ export default function QuestionsPage() {
                 !q.deleted &&
                 (replyTo === q.id ? (
                   <div className="ml-6 flex flex-col gap-2">
-                    <Composer taskId={id} parentId={q.id} label={t('questions.answer')} placeholder={t('questions.answerPlaceholder')} onDone={() => setReplyTo(null)} />
+                    <Composer
+                      taskId={id}
+                      parentId={q.id}
+                      label={t('questions.answer')}
+                      placeholder={t('questions.answerPlaceholder')}
+                      onDone={() => setReplyTo(null)}
+                    />
                     <Button variant="plain" onClick={() => setReplyTo(null)}>
                       {t('questions.cancelAnswer')}
                     </Button>

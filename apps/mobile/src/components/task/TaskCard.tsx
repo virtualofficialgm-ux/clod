@@ -20,11 +20,16 @@ export function TaskCard({
   onPress,
   footer,
   actions,
+  priceLabel,
+  badges,
 }: {
   task: TaskCardData;
   onPress?: () => void;
   footer?: string;
   actions?: React.ReactNode;
+  /** Цена в нужной валюте (USDT, «≈ ₽»); по умолчанию — доллары */
+  priceLabel?: string;
+  badges?: React.ReactNode;
 }) {
   const { colors, reduceTransparency } = useTheme();
   const press = usePressSpring(0.98);
@@ -51,7 +56,7 @@ export function TaskCard({
     >
       <Pressable
         accessibilityRole="button"
-        accessibilityLabel={`${task.title}, ${formatMoney(task.rewardCents)}`}
+        accessibilityLabel={`${task.title}, ${priceLabel ?? formatMoney(task.rewardCents)}`}
         onPress={onPress}
         onPressIn={press.onPressIn}
         onPressOut={press.onPressOut}
@@ -82,13 +87,14 @@ export function TaskCard({
         </AppText>
         <View style={styles.bottom}>
           <AppText variant="price" tabular>
-            {formatMoney(task.rewardCents)}
+            {priceLabel ?? formatMoney(task.rewardCents)}
           </AppText>
           <View style={[styles.deadline, { backgroundColor: colors.fill }]}>
             <Clock size={14} strokeWidth={2.6} color={colors.text} />
             <AppText variant="caption">{t(`deadline.${task.deadline}`)}</AppText>
           </View>
         </View>
+        {badges ? <View style={styles.badges}>{badges}</View> : null}
         {footer ? (
           <AppText variant="caption" color="textSecondary" numberOfLines={4}>
             {footer}
@@ -120,4 +126,5 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   actions: { flexDirection: 'row', gap: 8 },
+  badges: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
 });

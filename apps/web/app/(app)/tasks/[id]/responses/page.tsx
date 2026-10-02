@@ -41,7 +41,9 @@ export default function ResponsesPage() {
 
   // Открытие списка = заказчик просмотрел отклики
   const viewed = useRef(false);
-  const markViewed = useApiMutation((sb) => responses.markViewed(sb, id), { invalidate: () => [keys.responses(id), ['my-tasks']] });
+  const markViewed = useApiMutation((sb) => responses.markViewed(sb, id), {
+    invalidate: () => [keys.responses(id), ['my-tasks']],
+  });
   const newCount = (list.data ?? []).filter((r) => !r.viewed_at && r.status === 'pending').length;
   useEffect(() => {
     if (isCustomer && newCount > 0 && !viewed.current) {
@@ -49,17 +51,27 @@ export default function ResponsesPage() {
       markViewed.mutate(undefined);
     }
   }, [isCustomer, newCount, markViewed]);
-  const compare = useApiMutation((sb, v: { id: string; on: boolean }) => responses.setCompared(sb, v.id, v.on), { invalidate: () => [keys.responses(id)] });
+  const compare = useApiMutation(
+    (sb, v: { id: string; on: boolean }) => responses.setCompared(sb, v.id, v.on),
+    { invalidate: () => [keys.responses(id)] },
+  );
 
   const items = useMemo(() => {
     const needle = q.trim().toLowerCase();
     const all = (list.data ?? []).filter(
-      (r) => (!needle || `${r.first_name ?? ''} ${r.last_name ?? ''} ${r.username ?? ''} ${r.cover_letter}`.toLowerCase().includes(needle)) && (!onlyCompared || r.compared),
+      (r) =>
+        (!needle ||
+          `${r.first_name ?? ''} ${r.last_name ?? ''} ${r.username ?? ''} ${r.cover_letter}`
+            .toLowerCase()
+            .includes(needle)) &&
+        (!onlyCompared || r.compared),
     );
     const by = {
-      match: (a: ResponseWithExecutor, b: ResponseWithExecutor) => b.match - a.match || (b.rating_avg ?? 0) - (a.rating_avg ?? 0),
+      match: (a: ResponseWithExecutor, b: ResponseWithExecutor) =>
+        b.match - a.match || (b.rating_avg ?? 0) - (a.rating_avg ?? 0),
       cheap: (a: ResponseWithExecutor, b: ResponseWithExecutor) => a.price_cents - b.price_cents,
-      new: (a: ResponseWithExecutor, b: ResponseWithExecutor) => b.created_at.localeCompare(a.created_at),
+      new: (a: ResponseWithExecutor, b: ResponseWithExecutor) =>
+        b.created_at.localeCompare(a.created_at),
     }[sort];
     return [...all].sort(by);
   }, [list.data, q, sort, onlyCompared]);
@@ -83,7 +95,8 @@ export default function ResponsesPage() {
 
   const all = list.data ?? [];
   const comparedCount = all.filter((r) => r.compared).length;
-  const delta = (r: ResponseWithExecutor) => r.price_cents + calcFee(r.price_cents) - (task.reward_cents + task.fee_cents);
+  const delta = (r: ResponseWithExecutor) =>
+    r.price_cents + calcFee(r.price_cents) - (task.reward_cents + task.fee_cents);
   const canChoose = task.status === 'open' && !task.expired;
 
   return (
@@ -91,13 +104,20 @@ export default function ResponsesPage() {
       <Header
         title={t('responses.title')}
         leading={
-          <Button variant="glass" size="icon" aria-label={t('common.back')} onClick={() => router.push(`/tasks/${id}`)}>
+          <Button
+            variant="glass"
+            size="icon"
+            aria-label={t('common.back')}
+            onClick={() => router.push(`/tasks/${id}`)}
+          >
             <ChevronLeft size={22} strokeWidth={2.6} />
           </Button>
         }
       />
       <main className="mx-auto flex max-w-[var(--p-content-max)] flex-col gap-6 px-[var(--p-gutter)] pt-2 md:px-8">
-        <PageTitle subtitle={`${task.title} · ${fmt(task.reward_cents)}`}>{t('responses.title')}</PageTitle>
+        <PageTitle subtitle={`${task.title} · ${fmt(task.reward_cents)}`}>
+          {t('responses.title')}
+        </PageTitle>
         <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
           <StatTile value={all.length} label={t('responses.counters.total')} />
           <StatTile value={newCount} label={t('responses.counters.new')} />
@@ -107,15 +127,27 @@ export default function ResponsesPage() {
         {all.length > 0 && (
           <div className="flex flex-col gap-3 md:flex-row md:items-end">
             <div className="flex-1">
-              <Input label={t('responses.search')} value={q} onChange={(e) => setQ(e.target.value)} type="search" />
+              <Input
+                label={t('responses.search')}
+                value={q}
+                onChange={(e) => setQ(e.target.value)}
+                type="search"
+              />
             </div>
             <Segmented
               label={t('feed.sort')}
               value={sort}
               onChange={setSort}
-              options={(['match', 'cheap', 'new'] as const).map((v) => ({ value: v, label: t(`responses.sort.${v}`) }))}
+              options={(['match', 'cheap', 'new'] as const).map((v) => ({
+                value: v,
+                label: t(`responses.sort.${v}`),
+              }))}
             />
-            <Button variant={onlyCompared ? 'primary' : 'glass'} aria-pressed={onlyCompared} onClick={() => setOnlyCompared((v) => !v)}>
+            <Button
+              variant={onlyCompared ? 'primary' : 'glass'}
+              aria-pressed={onlyCompared}
+              onClick={() => setOnlyCompared((v) => !v)}
+            >
               {t('responses.compare')} · {comparedCount}
             </Button>
           </div>
@@ -161,21 +193,34 @@ export default function ResponsesPage() {
                     <div className="min-w-0 flex-1">
                       <p className="flex items-center gap-2 truncate text-body font-bold">
                         {name}
-                        {!r.viewed_at && r.status === 'pending' && <span className="rounded-pill bg-accent px-2 py-0.5 text-caption text-on-accent">{t('responses.new')}</span>}
+                        {!r.viewed_at && r.status === 'pending' && (
+                          <span className="rounded-pill bg-accent px-2 py-0.5 text-caption text-on-accent">
+                            {t('responses.new')}
+                          </span>
+                        )}
                       </p>
                       <p className="text-callout text-text-2">
-                        {r.rating_avg ? `★ ${Number(r.rating_avg).toFixed(1)} · ` : `${t('responses.noRating')} · `}
+                        {r.rating_avg
+                          ? `★ ${Number(r.rating_avg).toFixed(1)} · `
+                          : `${t('responses.noRating')} · `}
                         {t('responses.completed', { n: r.completed_count })}
                       </p>
                     </div>
-                    <span className={clsx('shrink-0 rounded-pill px-2.5 py-1 text-caption font-bold', r.match >= 70 ? 'bg-success/15 text-success' : 'bg-fill text-text-2')}>
+                    <span
+                      className={clsx(
+                        'shrink-0 rounded-pill px-2.5 py-1 text-caption font-bold',
+                        r.match >= 70 ? 'bg-success/15 text-success' : 'bg-fill text-text-2',
+                      )}
+                    >
                       {t('responses.match', { n: r.match })}
                     </span>
                   </div>
                   <dl className="grid grid-cols-3 gap-2 rounded-md bg-fill p-3 text-center">
                     <div>
                       <dt className="text-caption text-text-2">{t('respond.price')}</dt>
-                      <dd className="tabular text-title3 font-extrabold text-accent-text">{fmt(r.price_cents)}</dd>
+                      <dd className="tabular text-title3 font-extrabold text-accent-text">
+                        {fmt(r.price_cents)}
+                      </dd>
                       {diff !== 0 && (
                         <dd className="tabular text-caption text-text-2">
                           {diff > 0 ? '+' : '−'}
@@ -196,24 +241,41 @@ export default function ResponsesPage() {
                   {r.skills.length > 0 && (
                     <div className="flex flex-wrap gap-1.5">
                       {r.skills.map((s) => (
-                        <span key={s} className="rounded-pill bg-fill px-3 py-1 text-caption text-text-2">
+                        <span
+                          key={s}
+                          className="rounded-pill bg-fill px-3 py-1 text-caption text-text-2"
+                        >
                           {t(`skill.${s}` as TranslationKey)}
                         </span>
                       ))}
                     </div>
                   )}
                   {r.portfolio_links.map((l) => (
-                    <a key={l} href={l} target="_blank" rel="noopener noreferrer nofollow" className="inline-flex items-center gap-1.5 break-all text-callout font-semibold text-accent-text">
+                    <a
+                      key={l}
+                      href={l}
+                      target="_blank"
+                      rel="noopener noreferrer nofollow"
+                      className="inline-flex items-center gap-1.5 break-all text-callout font-semibold text-accent-text"
+                    >
                       <ExternalLink size={14} aria-hidden /> {l}
                     </a>
                   ))}
                   {r.video_url && (
-                    <a href={r.video_url} target="_blank" rel="noopener noreferrer nofollow" className="inline-flex items-center gap-1.5 text-callout font-semibold text-accent-text">
+                    <a
+                      href={r.video_url}
+                      target="_blank"
+                      rel="noopener noreferrer nofollow"
+                      className="inline-flex items-center gap-1.5 text-callout font-semibold text-accent-text"
+                    >
                       <Video size={14} aria-hidden /> {t('responses.video')}
                     </a>
                   )}
                   <div className="flex flex-wrap gap-2">
-                    <Link href={`/u/${r.username ?? r.executor_id}`} className="text-callout font-bold text-accent-text">
+                    <Link
+                      href={`/u/${r.username ?? r.executor_id}`}
+                      className="text-callout font-bold text-accent-text"
+                    >
                       {t('responses.openProfile')}
                     </Link>
                     {r.status === 'pending' && (
@@ -232,7 +294,9 @@ export default function ResponsesPage() {
                     {r.status === 'pending' && canChoose ? (
                       <Button onClick={() => setPicked(r)}>{t('responses.choose')}</Button>
                     ) : (
-                      <span className="text-callout font-bold">{t(`responseStatus.${r.status}` as TranslationKey)}</span>
+                      <span className="text-callout font-bold">
+                        {t(`responseStatus.${r.status}` as TranslationKey)}
+                      </span>
                     )}
                   </div>
                 </article>
@@ -255,8 +319,16 @@ export default function ResponsesPage() {
                   deadline: t(`deadline.${picked.deadline}`),
                 })}
               </p>
-              {delta(picked) > 0 && <p className="font-semibold text-text">{t('responses.diffUp', { v: fmt(delta(picked)) })}</p>}
-              {delta(picked) < 0 && <p className="font-semibold text-text">{t('responses.diffDown', { v: fmt(-delta(picked)) })}</p>}
+              {delta(picked) > 0 && (
+                <p className="font-semibold text-text">
+                  {t('responses.diffUp', { v: fmt(delta(picked)) })}
+                </p>
+              )}
+              {delta(picked) < 0 && (
+                <p className="font-semibold text-text">
+                  {t('responses.diffDown', { v: fmt(-delta(picked)) })}
+                </p>
+              )}
             </div>
           )
         }
