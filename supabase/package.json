@@ -1,0 +1,20 @@
+{
+  "name": "@parri/db",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "db:start": "bash local/db.sh start",
+    "db:reset": "bash local/db.sh reset",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "@parri/shared": "workspace:*",
+    "@types/node": "^22.15.0",
+    "@types/pg": "^8.15.0",
+    "pg": "^8.16.0",
+    "typescript": "~6.0.3",
+    "vitest": "^5.0.3"
+  }
+}

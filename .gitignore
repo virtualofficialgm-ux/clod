@@ -14,3 +14,4 @@ playwright-report/
 screenshots/
 supabase/.temp/
 apps/web/test-results/
+apps/mobile/dist-web/

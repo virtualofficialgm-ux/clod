@@ -1,0 +1,23 @@
+{
+  "name": "@parri/devstack",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "\u0422\u043e\u043b\u044c\u043a\u043e \u0434\u043b\u044f \u043b\u043e\u043a\u0430\u043b\u044c\u043d\u043e\u0439 \u043f\u0440\u043e\u0432\u0435\u0440\u043a\u0438 \u0431\u0435\u0437 Docker: \u043f\u043e\u0434\u043c\u043d\u043e\u0436\u0435\u0441\u0442\u0432\u043e Supabase (auth, rest, storage, functions) \u043f\u043e\u0432\u0435\u0440\u0445 \u043d\u0430\u0441\u0442\u043e\u044f\u0449\u0435\u0433\u043e Postgres",
+  "scripts": {
+    "start": "tsx src/index.ts",
+    "typecheck": "tsc --noEmit",
+    "smoke": "tsx src/smoke.ts"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.131.0",
+    "@supabase/supabase-js": "^2.117.2",
+    "pg": "^8.16.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.15.0",
+    "@types/pg": "^8.15.0",
+    "tsx": "^4.20.0",
+    "typescript": "~6.0.3"
+  }
+}

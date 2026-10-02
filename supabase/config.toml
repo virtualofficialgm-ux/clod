@@ -1,0 +1,62 @@
+# Конфигурация Supabase CLI (supabase start / supabase db reset)
+project_id = "parri"
+
+[api]
+enabled = true
+port = 54321
+schemas = ["public", "graphql_public"]
+extra_search_path = ["public", "extensions"]
+max_rows = 1000
+
+[db]
+port = 54322
+major_version = 16
+
+[db.seed]
+enabled = true
+# Сначала справочник вузов, затем демо-данные
+sql_paths = ["./seed/universities.sql", "./seed.sql"]
+
+[realtime]
+enabled = true
+
+[storage]
+enabled = true
+file_size_limit = "50MiB"
+
+[auth]
+enabled = true
+site_url = "http://localhost:3000"
+additional_redirect_urls = ["http://localhost:3000", "parri://"]
+jwt_expiry = 3600
+enable_refresh_token_rotation = true
+enable_signup = true
+minimum_password_length = 8
+
+[auth.email]
+enable_signup = true
+double_confirm_changes = true
+# Подтверждение email кодом из 6 цифр (шаблоны ниже используют {{ .Token }})
+enable_confirmations = true
+otp_length = 6
+otp_expiry = 3600
+max_frequency = "60s"
+
+[auth.email.template.confirmation]
+subject = "Код подтверждения Parri"
+content_path = "./templates/confirmation.html"
+
+[auth.email.template.magic_link]
+subject = "Код входа Parri"
+content_path = "./templates/magic_link.html"
+
+[auth.email.template.recovery]
+subject = "Код для восстановления пароля Parri"
+content_path = "./templates/recovery.html"
+
+[edge_runtime]
+enabled = true
+policy = "per_worker"
+
+[functions.ai-compose]
+verify_jwt = true
