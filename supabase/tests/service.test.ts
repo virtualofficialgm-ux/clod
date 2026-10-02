@@ -167,3 +167,54 @@ describe('Модерация', () => {
     await assertLedgerInvariants(db);
   });
 });
+
+describe('Рядом, чек-ин, аналитика, push', () => {
+  it('чек-ин засчитывается в радиусе задачи и пишет событие в чат', async () => {
+    const c = await createUser(db, { balance: 10_000 });
+    const e = await createUser(db);
+    const task = await publish(db, c.id, { kind: 'nearby' });
+    await db.as(e.id, `select public.take_task($1)`, [task]);
+    const far = await db.as<{ r: { within: boolean; distance_m: number } }>(e.id, `select public.task_checkin($1, 55.76, 37.61, 20) as r`, [task]);
+    expect(far.rows[0]!.r.within).toBe(false);
+    expect(far.rows[0]!.r.distance_m).toBeGreaterThan(1000);
+    const near = await db.as<{ r: { within: boolean } }>(e.id, `select public.task_checkin($1, 55.7501, 37.6101, 10) as r`, [task]);
+    expect(near.rows[0]!.r.within).toBe(true);
+    await db.fails(db.as(c.id, `select public.task_checkin($1, 55.75, 37.61)`, [task]), 'forbidden');
+    const ev = await db.sys<{ body: string }>(`select body from public.messages where task_id = $1 and kind = 'system' order by created_at`, [task]);
+    expect(ev.rows.map((r) => r.body)).toEqual(expect.arrayContaining(['checkin_far', 'checked_in']));
+  });
+
+  it('до принятия задачи в ленте и карточке — приблизительная точка', async () => {
+    const c = await createUser(db, { balance: 10_000 });
+    const v = await createUser(db);
+    const task = await publish(db, c.id, { kind: 'nearby' });
+    await db.sys(`update public.tasks set location = extensions.st_setsrid(extensions.st_makepoint(37.612345, 55.751234), 4326)::extensions.geography where id = $1`, [task]);
+    const feed = await db.as<{ lat: number; lng: number }>(v.id, `select lat, lng from public.feed_tasks(p_kind => 'nearby', p_lat => 55.75, p_lng => 37.61, p_limit => 200) where id = $1`, [task]);
+    expect(feed.rows[0]).toEqual({ lat: 55.751, lng: 37.612 });
+    const d = await db.as<{ d: { task: { lat: number } } }>(v.id, `select public.task_detail($1) as d`, [task]);
+    expect(d.rows[0]!.d.task.lat).toBe(55.751);
+    const own = await db.as<{ d: { task: { lat: number } } }>(c.id, `select public.task_detail($1) as d`, [task]);
+    expect(own.rows[0]!.d.task.lat).toBeCloseTo(55.751234, 5);
+  });
+
+  it('аналитика считает созданные, взятые и воронку', async () => {
+    const c = await createUser(db, { balance: 10_000 });
+    await publish(db, c.id);
+    const a = await db.as<{ a: { created: number; funnel: { open: number }; weeks: unknown[] } }>(c.id, `select public.my_analytics() as a`);
+    expect(a.rows[0]!.a).toMatchObject({ created: 1, funnel: { open: 1 } });
+    expect(a.rows[0]!.a.weeks).toHaveLength(8);
+  });
+
+  it('push: пачка уходит один раз и только тем, у кого есть токен', async () => {
+    const a = await createUser(db);
+    const b = await createUser(db);
+    await db.as(b.id, `select public.register_push_token('ExponentPushToken[test-${b.id.slice(0, 6)}]', 'ios')`);
+    await db.as(a.id, `select public.follow_user($1, true)`, [b.id]);
+    const first = await db.sys<{ user_id: string; tokens: string[] }>(`select user_id, tokens from public.svc_push_batch(500) where user_id = $1`, [b.id]);
+    expect(first.rows).toHaveLength(1);
+    expect(first.rows[0]!.tokens[0]).toMatch(/^ExponentPushToken/);
+    const again = await db.sys(`select * from public.svc_push_batch(500) where user_id = $1`, [b.id]);
+    expect(again.rows).toHaveLength(0);
+    await db.fails(db.as(a.id, `select public.svc_push_batch(10)`), 'permission denied');
+  });
+});

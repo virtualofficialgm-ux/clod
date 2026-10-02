@@ -286,3 +286,28 @@ test('пополнение баланса через Stripe (тестовые с
   await expect(page.getByTestId('ledger-row').first()).toContainText('Пополнение');
   await ctx.close();
 });
+
+test('«Рядом» списком: маршрут, взять, чек-ин в комнате; аналитика', async ({ browser }) => {
+  const { ctx, page } = await asUser(browser, 'ivan@parri.test', 'dark', {
+    geolocation: { latitude: 55.758, longitude: 37.66 },
+    permissions: ['geolocation'],
+  });
+  await page.goto('/nearby');
+  const list = page.getByTestId('nearby-list');
+  await expect(list).toContainText('мин пешком', { timeout: 15_000 });
+  await expect(list.getByText('Открыть маршрут').first()).toBeVisible();
+  await shot(page, 'nearby-list');
+  await list.getByRole('button', { name: 'Взять задачу' }).first().click();
+  await page.getByTestId('take-confirm').click();
+  await expect(page.getByTestId('yours-panel')).toBeVisible();
+  const id = page.url().match(/task\/([0-9a-f-]{36})/)![1];
+  await page.goto(`/task/${id}/room`);
+  await page.getByRole('button', { name: 'Отметиться на месте' }).click();
+  await expect(page.getByTestId('checkin-result')).toBeVisible({ timeout: 15_000 });
+  await expect(page.getByText('Отметки на месте')).toBeVisible();
+  await shot(page, 'checkin');
+  await page.goto('/analytics');
+  await expect(page.getByTestId('analytics')).toContainText('Взято в работу');
+  await shot(page, 'analytics');
+  await ctx.close();
+});

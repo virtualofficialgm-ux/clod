@@ -482,3 +482,96 @@ export const admin = {
     );
   },
 };
+
+// ---------- Перевод, аналитика, чек-ин, задачи рядом ----------
+
+export const translator = {
+  async translate(sb: Client, text: string, to = 'ru') {
+    const { data, error } = await sb.functions.invoke<{ text: string }>('translate', { body: { text, to } });
+    if (error) {
+      const ctx = (error as { context?: Response }).context;
+      const status = ctx?.status;
+      throw new ApiError(status === 503 ? 'errors.translate_unavailable' : 'errors.ai_failed', error.message);
+    }
+    return data!.text;
+  },
+};
+
+export interface Analytics {
+  created: number;
+  taken: number;
+  avg_budget_cents: number;
+  success_rate: number;
+  weeks: { start: string; created: number; completed: number }[];
+  kinds: Partial<Record<TaskKind, number>>;
+  categories: { category: string; n: number }[];
+  income_usd_cents: number;
+  income_usdt_cents: number;
+  review: number;
+  funnel: { open: number; in_progress: number; review: number; completed: number };
+  recent: { id: string; title: string; status: FullTaskStatus; reward_cents: number; currency: MoneyCurrency }[];
+}
+
+export const analytics = {
+  mine(sb: Client) {
+    return unwrap<Analytics>(sb.rpc('my_analytics'));
+  },
+};
+
+export interface CheckinRow {
+  id: number;
+  task_id: string;
+  user_id: string;
+  accuracy_m: number | null;
+  distance_m: number;
+  within: boolean;
+  created_at: string;
+}
+
+export const nearby = {
+  checkin(sb: Client, taskId: string, lat: number, lng: number, accuracyM?: number | null) {
+    return unwrap<{ distance_m: number; within: boolean }>(
+      sb.rpc('task_checkin', { p_task: taskId, p_lat: lat, p_lng: lng, p_accuracy_m: accuracyM == null ? null : Math.round(accuracyM) }),
+    );
+  },
+  checkins(sb: Client, taskId: string) {
+    return unwrap<CheckinRow[]>(sb.from('task_checkins').select('id,task_id,user_id,accuracy_m,distance_m,within,created_at').eq('task_id', taskId).order('created_at'));
+  },
+  setMeta(sb: Client, taskId: string, safe: boolean, durationMin: number | null) {
+    return unwrap<null>(sb.rpc('set_nearby_meta', { p_task: taskId, p_safe: safe, p_duration_min: durationMin }));
+  },
+  /** Безопасное место и длительность для набора задач (для фильтров «Рядом») */
+  meta(sb: Client, ids: string[]) {
+    if (!ids.length) return Promise.resolve([] as { id: string; safe_place: boolean; duration_min: number | null }[]);
+    return unwrap<{ id: string; safe_place: boolean; duration_min: number | null }[]>(sb.from('tasks').select('id,safe_place,duration_min').in('id', ids));
+  },
+};
+
+/** Расстояние по прямой, м (формула гаверсинусов) */
+export function distanceM(a: { lat: number; lng: number }, b: { lat: number; lng: number }): number {
+  const R = 6371000;
+  const toRad = (x: number) => (x * Math.PI) / 180;
+  const dLat = toRad(b.lat - a.lat);
+  const dLng = toRad(b.lng - a.lng);
+  const h = Math.sin(dLat / 2) ** 2 + Math.cos(toRad(a.lat)) * Math.cos(toRad(b.lat)) * Math.sin(dLng / 2) ** 2;
+  return Math.round(2 * R * Math.asin(Math.sqrt(h)));
+}
+
+/** Время пешком, мин (5 км/ч, коэффициент извилистости улиц 1,3) */
+export function walkMinutes(meters: number): number {
+  return Math.max(1, Math.round((meters * 1.3) / (5000 / 60)));
+}
+
+export const DURATIONS = ['short', 'mid', 'long'] as const;
+export type DurationBucket = (typeof DURATIONS)[number];
+/** До 15 минут, 15–30, 30+ */
+export function durationBucket(min: number | null | undefined): DurationBucket | null {
+  if (min == null) return null;
+  return min <= 15 ? 'short' : min <= 30 ? 'mid' : 'long';
+}
+
+/** Ссылка на маршрут пешком в картах */
+export function routeUrl(to: { lat: number; lng: number }, from?: { lat: number; lng: number } | null): string {
+  const origin = from ? `&origin=${from.lat},${from.lng}` : '';
+  return `https://www.google.com/maps/dir/?api=1&destination=${to.lat},${to.lng}${origin}&travelmode=walking`;
+}

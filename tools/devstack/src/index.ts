@@ -5,6 +5,7 @@ import { HttpError, readRequest, send } from './http.ts';
 import { ANON_KEY, SERVICE_KEY } from './jwt.ts';
 import { handleRest } from './rest.ts';
 import { BotError, botAction } from './bot.ts';
+import { TranslateError, translate, type TextClient } from '../../../supabase/functions/translate/handler.ts';
 import type { ToolClient } from '../../../supabase/functions/parri-bot/handler.ts';
 import { handleStorage } from './storage.ts';
 import { cryptoWebhook, fakeStripe, nowPaymentsPage, paymentsAction, refreshRates, stripeWebhook } from './payments.ts';
@@ -57,6 +58,15 @@ const server = createServer(async (rawReq, res) => {
         return send(res, 200, claude ? await composeTask(claude, input) : offlineDraft(input));
       } catch (e) {
         if (e instanceof ComposeError) return send(res, e.code === 'invalid_input' ? 400 : 502, { error: e.code });
+        throw e;
+      }
+    }
+    if (req.path === '/functions/v1/translate' && req.method === 'POST') {
+      if (req.claims.role !== 'authenticated') return send(res, 401, { error: 'unauthorized' });
+      try {
+        return send(res, 200, await translate(claude as unknown as TextClient | null, req.json()));
+      } catch (e) {
+        if (e instanceof TranslateError) return send(res, e.code === 'invalid_input' ? 400 : e.code === 'unavailable' ? 503 : 502, { error: e.code });
         throw e;
       }
     }

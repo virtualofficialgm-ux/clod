@@ -12,6 +12,7 @@ import {
   formatDistance,
   formatMoney,
   languageName,
+  nearby,
   parseDollars,
   priceBreakdown,
   rubToUsdCents,
@@ -62,6 +63,7 @@ import { BackButton } from '@/components/ui/BackButton';
 import { Screen } from '@/components/ui/Screen';
 import { FormError, TextField, errorText } from '@/components/ui/TextField';
 import { Label, PageTitle, Row, SectionTitle, useToast } from '@/components/ui/bits';
+import { Checkbox } from '@/components/ui/Checkbox';
 import { Card, ListGroup, ListRow } from '@/components/ui/kit';
 import type { PickedFile } from '@/lib/files';
 import { MAX_FILE_BYTES } from '@/lib/files';
@@ -92,6 +94,8 @@ interface FormState {
   proofs: Proof[];
   visitWindow: string;
   building: string;
+  safePlace: boolean;
+  durationMin: number | null;
 }
 
 const EMPTY: FormState = {
@@ -113,6 +117,8 @@ const EMPTY: FormState = {
   proofs: [],
   visitWindow: '',
   building: '',
+  safePlace: false,
+  durationMin: null,
 };
 
 function uuid(): string {
@@ -344,6 +350,8 @@ export default function NewTask() {
           skills: f.skills,
         },
       );
+      if (f.kind === 'nearby' && (f.safePlace || f.durationMin))
+        await nearby.setMeta(sb, id, f.safePlace, f.durationMin).catch(() => undefined);
       await taskExtras.deleteDraft(sb, draftId).catch(() => undefined);
       await Promise.all([
         qc.invalidateQueries({ queryKey: keys.me }),
@@ -637,6 +645,27 @@ export default function NewTask() {
                       f.proofs.includes(p) ? f.proofs.filter((x) => x !== p) : [...f.proofs, p],
                     )
                   }
+                />
+              ))}
+            </Row>
+            <Checkbox
+              checked={f.safePlace}
+              onChange={(v) => set('safePlace', v)}
+              label={t('create.safePlace')}
+            >
+              <AppText variant="bodyStrong">{t('create.safePlace')}</AppText>
+              <AppText variant="caption" color="textSecondary">
+                {t('create.safePlaceHint')}
+              </AppText>
+            </Checkbox>
+            <Label>{t('create.duration')}</Label>
+            <Row>
+              {([15, 30, 60] as const).map((m, k) => (
+                <Chip
+                  key={m}
+                  label={t(`create.durations.${(['short', 'mid', 'long'] as const)[k]!}`)}
+                  selected={f.durationMin === m}
+                  onPress={() => set('durationMin', f.durationMin === m ? null : m)}
                 />
               ))}
             </Row>

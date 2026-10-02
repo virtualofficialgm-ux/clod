@@ -75,3 +75,9 @@ verify_jwt = false
 
 [functions.parri-bot]
 verify_jwt = true
+
+[functions.translate]
+verify_jwt = true
+
+[functions.push-dispatch]
+verify_jwt = true

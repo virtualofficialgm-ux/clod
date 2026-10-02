@@ -1,6 +1,7 @@
 import {
   Bell,
   Home,
+  MapPin,
   LayoutGrid,
   ListChecks,
   MessageCircle,
@@ -26,6 +27,7 @@ export interface NavItem {
 export const SIDEBAR_ITEMS: NavItem[] = [
   { href: '/dashboard', label: 'nav.dashboard', icon: Home },
   { href: '/feed', label: 'nav.feed', icon: LayoutGrid },
+  { href: '/nearby', label: 'nav.nearby', icon: MapPin },
   { href: '/my-tasks', label: 'nav.myTasks', icon: ListChecks },
   { href: '/messages', label: 'nav.messages', icon: MessageCircle, badge: 'messages' },
   { href: '/notifications', label: 'nav.notifications', icon: Bell, badge: 'notifications' },

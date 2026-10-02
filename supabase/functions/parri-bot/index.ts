@@ -1,7 +1,7 @@
 // Supabase Edge Function (Deno): бот PARRI. Ключ ANTHROPIC_API_KEY — в секретах функций.
 // Запросы к базе идут от имени пользователя (его JWT), поэтому RLS и проверка Pro работают как в приложении.
 import Anthropic from 'npm:@anthropic-ai/sdk@^0.131.0';
-import { createClient } from 'npm:@supabase/supabase-js@^2';
+import { createClient } from 'npm:@supabase/supabase-js@^2.117.2';
 import { corsHeaders } from '../_shared/cors.ts';
 import { BotError, handleBot, type BotTask, type ToolClient } from './handler.ts';
 

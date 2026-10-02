@@ -15,6 +15,7 @@ import {
   formatMoney,
   formatBps,
   languageName,
+  nearby,
   parseDollars,
   priceBreakdown,
   rubToUsdCents,
@@ -64,7 +65,7 @@ import { Header } from '@/components/glass/Header';
 import { Segmented } from '@/components/glass/Segmented';
 import { ConfirmSheet } from '@/components/task/ConfirmSheet';
 import { TaskCard } from '@/components/task/TaskCard';
-import { FormError, Input, Select, TextArea, errorText } from '@/components/ui/Field';
+import { Checkbox, FormError, Input, Select, TextArea, errorText } from '@/components/ui/Field';
 import { CenterSpinner, PageTitle, SectionTitle } from '@/components/ui/bits';
 import { Card } from '@/components/ui/kit';
 import { useToast } from '@/components/ui/Toast';
@@ -95,6 +96,8 @@ interface FormState {
   proofs: Proof[];
   visitWindow: string;
   building: string;
+  safePlace: boolean;
+  durationMin: number | null;
 }
 
 const EMPTY: FormState = {
@@ -116,6 +119,8 @@ const EMPTY: FormState = {
   proofs: [],
   visitWindow: '',
   building: '',
+  safePlace: false,
+  durationMin: null,
 };
 
 function Block({ n, title, children }: { n: number; title: string; children: React.ReactNode }) {
@@ -363,6 +368,7 @@ function NewTaskForm() {
           skills: f.skills,
         },
       );
+      if (f.kind === 'nearby' && (f.safePlace || f.durationMin)) await nearby.setMeta(sb, id, f.safePlace, f.durationMin);
       await taskExtras.deleteDraft(sb, draftId).catch(() => undefined);
       await Promise.all([
         qc.invalidateQueries({ queryKey: keys.me }),
@@ -669,6 +675,17 @@ function NewTaskForm() {
                       }
                     >
                       {t(`create.proofs.${p}`)}
+                    </Chip>
+                  ))}
+                </Group>
+                <Checkbox checked={f.safePlace} onChange={(v) => set('safePlace', v)}>
+                  <span className="font-semibold">{t('create.safePlace')}</span>
+                  <span className="block text-caption text-text-2">{t('create.safePlaceHint')}</span>
+                </Checkbox>
+                <Group title={t('create.duration')}>
+                  {([15, 30, 60] as const).map((m, k) => (
+                    <Chip key={m} selected={f.durationMin === m} onClick={() => set('durationMin', f.durationMin === m ? null : m)}>
+                      {t(`create.durations.${(['short', 'mid', 'long'] as const)[k]!}`)}
                     </Chip>
                   ))}
                 </Group>

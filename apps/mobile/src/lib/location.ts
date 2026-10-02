@@ -7,6 +7,7 @@ export type GeoState = 'idle' | 'locating' | 'granted' | 'denied' | 'unavailable
 export function useDeviceLocation(auto = false) {
   const [state, setState] = useState<GeoState>('idle');
   const [coords, setCoords] = useState<{ lat: number; lng: number } | null>(null);
+  const [accuracy, setAccuracy] = useState<number | null>(null);
 
   const locate = useCallback(async () => {
     setState('locating');
@@ -14,13 +15,16 @@ export function useDeviceLocation(auto = false) {
       const perm = await Location.requestForegroundPermissionsAsync();
       if (perm.status !== 'granted') {
         setState('denied');
-        return;
+        return null;
       }
       const pos = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
       setCoords({ lat: pos.coords.latitude, lng: pos.coords.longitude });
+      setAccuracy(pos.coords.accuracy == null ? null : Math.round(pos.coords.accuracy));
       setState('granted');
+      return { lat: pos.coords.latitude, lng: pos.coords.longitude, accuracy: pos.coords.accuracy };
     } catch {
       setState('unavailable');
+      return null;
     }
   }, []);
 
@@ -34,5 +38,5 @@ export function useDeviceLocation(auto = false) {
       .catch(() => {});
   }, [auto, locate]);
 
-  return { state, coords, locate };
+  return { state, coords, accuracy, locate };
 }

@@ -2,6 +2,10 @@
 
 import {
   displayStatus,
+  formatDistance,
+  nearby,
+  toApiError,
+  translator,
   files as filesApi,
   formatDateTime,
   formatMoney,
@@ -27,7 +31,7 @@ import {
   useTaskDetail,
   useTypingPing,
 } from '@parri/shared/react';
-import { useQueryClient } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import clsx from 'clsx';
 import {
   ArrowUp,
@@ -37,6 +41,7 @@ import {
   Coins,
   ExternalLink,
   Map,
+  MapPin,
   Paperclip,
   X,
 } from 'lucide-react';
@@ -54,16 +59,22 @@ import { CenterSpinner, EmptyState, StatusBadge } from '@/components/ui/bits';
 import { FormError, Input } from '@/components/ui/Field';
 import { Card, CardHeader, ListGroup, ListRow } from '@/components/ui/kit';
 import { useToast } from '@/components/ui/Toast';
+import { useGeolocation } from '@/lib/useGeolocation';
 
 const ACTIVE = ['in_progress', 'review', 'disputed'];
 
 function Bubble({ m, mine, read }: { m: Message; mine: boolean; read?: boolean }) {
+  const sb = useSupabase();
+  const [translated, setTranslated] = useState<string | null>(null);
+  const [showOriginal, setShowOriginal] = useState(false);
+  const [trError, setTrError] = useState<string | null>(null);
   if (m.kind === 'system') {
     return (
       <p className="mx-auto max-w-md rounded-pill bg-fill px-4 py-2 text-center text-caption text-text-2">
         {t(`event.${m.body}` as TranslationKey, {
           version: String((m.meta?.version as number | undefined) ?? ''),
         })}
+        {typeof m.meta?.distance_m === 'number' && ` · ${formatDistance(m.meta.distance_m as number)}`}
         {typeof m.meta?.amount_cents === 'number' &&
           ` · ${formatMoney(m.meta.amount_cents as number, 'ru-RU', { currency: (m.meta.currency as 'USD' | 'USDT') ?? 'USD' })}`}
       </p>
@@ -77,8 +88,26 @@ function Bubble({ m, mine, read }: { m: Message; mine: boolean; read?: boolean }
           mine ? 'rounded-br-md bg-accent text-on-accent' : 'card rounded-bl-md',
         )}
       >
-        {m.body && <p className="whitespace-pre-line break-words">{m.body}</p>}
+        {m.body && <p className="whitespace-pre-line break-words">{translated && !showOriginal ? translated : m.body}</p>}
       </div>
+      {!mine && m.body && (
+        <button
+          type="button"
+          className="px-2 text-caption font-bold text-accent-text"
+          onClick={async () => {
+            if (translated) return setShowOriginal((v) => !v);
+            try {
+              setTranslated(await translator.translate(sb, m.body, 'ru'));
+              setTrError(null);
+            } catch (e) {
+              setTrError(toApiError(e).key);
+            }
+          }}
+        >
+          {translated && !showOriginal ? t('room.original') : t('room.translate')}
+        </button>
+      )}
+      {trError && <span className="px-2 text-caption text-danger">{t(trError as TranslationKey)}</span>}
       {m.files.length > 0 && (
         <div className="w-full max-w-[85%]">
           <FileList items={m.files} />
@@ -269,6 +298,21 @@ function InfoPanel({
   const status = displayStatus(task);
   const fmt = (c: number) => formatMoney(c, 'ru-RU', { currency: task.currency });
   const executor = d.viewer_role === 'executor';
+  const sbc = useSupabase();
+  const geo = useGeolocation();
+  const checkins = useQuery({ queryKey: ['checkins', task.id], queryFn: () => nearby.checkins(sbc, task.id), enabled: task.kind === 'nearby' });
+  const [checkinMsg, setCheckinMsg] = useState<string | null>(null);
+  const checkin = useApiMutation((s, c: { lat: number; lng: number }) => nearby.checkin(s, task.id, c.lat, c.lng, geo.accuracy), {
+    invalidate: () => [['checkins', task.id], keys.messages(task.id)],
+    onSuccess: (r) => setCheckinMsg(r.within ? t('room.checkinOk') : t('room.checkinFar', { d: formatDistance(r.distance_m) })),
+  });
+  useEffect(() => {
+    if (geo.coords && checkin.isIdle && geo.state === 'granted' && checkinRequested.current) {
+      checkinRequested.current = false;
+      checkin.mutate(geo.coords);
+    }
+  }, [geo.coords, geo.state, checkin]);
+  const checkinRequested = useRef(false);
   const ext = d.extension;
   const toast = useToast();
   const decide = useApiMutation(
@@ -328,7 +372,34 @@ function InfoPanel({
           >
             {t('room.openTask')}
           </Link>
+          {executor && task.kind === 'nearby' && ['in_progress', 'review'].includes(status) && (
+            <Button
+              size="md"
+              onClick={() => {
+                if (geo.coords) checkin.mutate(geo.coords);
+                else {
+                  checkinRequested.current = true;
+                  geo.request();
+                }
+              }}
+              disabled={checkin.isPending || geo.state === 'locating'}
+            >
+              <MapPin size={16} /> {t('room.checkin')}
+            </Button>
+          )}
         </div>
+        {checkinMsg && <p className="text-callout font-semibold" data-testid="checkin-result">{checkinMsg}</p>}
+        {checkin.error && <p className="text-callout font-semibold text-danger">{t(checkin.error.key as TranslationKey)}</p>}
+        {(checkins.data ?? []).length > 0 && (
+          <div className="flex flex-col gap-1">
+            <p className="text-callout font-bold">{t('room.checkins')}</p>
+            {checkins.data!.map((c) => (
+              <p key={c.id} className={clsx('text-caption', c.within ? 'text-success' : 'text-danger')}>
+                {formatDateTime(c.created_at)} · {formatDistance(c.distance_m)}
+              </p>
+            ))}
+          </div>
+        )}
       </Card>
 
       {ext?.status === 'pending' && (

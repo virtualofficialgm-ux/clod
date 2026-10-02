@@ -16,6 +16,7 @@ import { Chip } from '@/components/glass/Chip';
 import { Segmented } from '@/components/glass/Segmented';
 import {
   BadgeCheck,
+  ChartColumn,
   Bot,
   Scale,
   Bookmark,
@@ -32,6 +33,7 @@ import {
   User,
   Users,
   Wallet,
+  MapPin,
 } from '@/components/icons';
 import { NotificationBell } from '@/components/social/NotificationBell';
 import { Screen } from '@/components/ui/Screen';
@@ -220,6 +222,16 @@ export default function Account() {
           icon={(c) => <Settings size={18} color={c} />}
           title={t('profile.sections.settings')}
           onPress={() => router.push('/settings')}
+        />
+        <ListRow
+          icon={(c) => <MapPin size={18} color={c} />}
+          title={t('nav.nearby')}
+          onPress={() => router.push('/nearby')}
+        />
+        <ListRow
+          icon={(c) => <ChartColumn size={18} color={c} />}
+          title={t('nav.analytics')}
+          onPress={() => router.push('/analytics')}
         />
         <ListRow
           icon={(c) => <LifeBuoy size={18} color={c} />}

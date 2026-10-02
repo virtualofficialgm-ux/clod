@@ -4,7 +4,7 @@ import { SUPABASE_ANON_KEY, SUPABASE_URL } from '@/lib/env';
 
 /** Разделы приложения, куда без входа нельзя */
 const PROTECTED = [
-  '/dashboard', '/feed', '/nearby', '/tasks', '/my-tasks', '/messages', '/balance', '/account', '/people', '/saved', '/receipt', '/responses', '/notifications', '/connections', '/settings', '/u', '/support', '/disputes', '/verification', '/bot', '/admin',
+  '/dashboard', '/feed', '/nearby', '/tasks', '/my-tasks', '/messages', '/balance', '/account', '/people', '/saved', '/receipt', '/responses', '/notifications', '/connections', '/settings', '/u', '/support', '/disputes', '/verification', '/bot', '/admin', '/analytics',
   '/u', '/notifications', '/settings', '/support', '/disputes', '/verification', '/subscription', '/assistant', '/admin',
 ];
 /** Страницы входа: вошедшего пользователя отправляем в ленту */

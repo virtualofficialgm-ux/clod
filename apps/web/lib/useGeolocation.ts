@@ -11,6 +11,7 @@ export type GeoState = 'idle' | 'locating' | 'granted' | 'denied' | 'unavailable
 export function useGeolocation(auto = false) {
   const [state, setState] = useState<GeoState>('idle');
   const [coords, setCoords] = useState<{ lat: number; lng: number } | null>(null);
+  const [accuracy, setAccuracy] = useState<number | null>(null);
 
   const request = useCallback(() => {
     if (typeof navigator === 'undefined' || !navigator.geolocation) {
@@ -21,6 +22,7 @@ export function useGeolocation(auto = false) {
     navigator.geolocation.getCurrentPosition(
       (pos) => {
         setCoords({ lat: pos.coords.latitude, lng: pos.coords.longitude });
+        setAccuracy(Math.round(pos.coords.accuracy));
         setState('granted');
       },
       (err) => setState(err.code === err.PERMISSION_DENIED ? 'denied' : 'unavailable'),
@@ -40,5 +42,5 @@ export function useGeolocation(auto = false) {
       .catch(() => {});
   }, [auto, request]);
 
-  return { state, coords, request };
+  return { state, coords, accuracy, request };
 }

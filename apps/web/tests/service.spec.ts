@@ -145,3 +145,37 @@ test('верификация селфи и решение модератора; 
   await expect(ivan.page.getByRole('heading', { name: 'Нет доступа' })).toBeVisible();
   await ivan.ctx.close();
 });
+
+test('«Рядом» на карте: маршрут, взять задачу, чек-ин; аналитика', async ({ browser }, info) => {
+  test.skip(info.project.name !== 'desktop', 'один раз');
+  const ctx = await browser.newContext({ geolocation: { latitude: 55.758, longitude: 37.66 }, permissions: ['geolocation'] });
+  const page = await ctx.newPage();
+  const { login } = await import('./helpers');
+  await login(page, 'ivan@parri.test');
+  await page.goto('/nearby');
+  await hydrated(page);
+  await expect(page.getByTestId('nearby-map')).toBeVisible();
+  await expect(page.getByTestId('nearby-list')).toBeVisible({ timeout: 15_000 });
+  await page.getByTestId('nearby-list').locator('li').first().locator('button').first().click();
+  await expect(page.getByTestId('route-preview')).toContainText('мин пешком');
+  await shot(page, 'nearby-route');
+  await page.getByTestId('route-preview').getByRole('button', { name: /Взять задачу/ }).click();
+  await page.getByRole('dialog').getByRole('button', { name: /Взять задачу/ }).click();
+  await page.waitForURL(/\/tasks\/[0-9a-f-]{36}$/);
+  await page.getByRole('link', { name: 'Открыть рабочую комнату' }).click();
+  await page.waitForURL(/\/room$/);
+  await page.locator('aside .lg\\:block').getByRole('button', { name: 'Отметиться на месте' }).click();
+  await expect(page.locator('aside .lg\\:block').getByTestId('checkin-result')).toBeVisible({ timeout: 15_000 });
+  await expect(page.getByText(/Исполнитель отметился/).first()).toBeVisible();
+  await shot(page, 'checkin');
+  // Возвращаем задачу в ленту: её используют другие сценарии «Рядом»
+  await page.getByRole('link', { name: 'Открыть задачу' }).first().click();
+  await page.getByRole('button', { name: 'Отказаться' }).click();
+  await page.getByRole('dialog').getByRole('button', { name: 'Отказаться' }).click();
+  await page.waitForURL(/\/feed$/);
+
+  await page.goto('/analytics');
+  await expect(page.getByTestId('analytics')).toContainText('Взято в работу');
+  await shot(page, 'analytics');
+  await ctx.close();
+});

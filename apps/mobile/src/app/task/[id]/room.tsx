@@ -1,7 +1,10 @@
 import {
   displayStatus,
   formatDateTime,
+  formatDistance,
   formatMoney,
+  nearby,
+  translator,
   formatTimeLeft,
   room,
   t,
@@ -21,7 +24,7 @@ import {
   useTaskDetail,
   useTypingPing,
 } from '@parri/shared/react';
-import { useQueryClient } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { router, useLocalSearchParams } from 'expo-router';
 import {
   ArrowUp,
@@ -30,6 +33,7 @@ import {
   Clock,
   Coins,
   Map,
+  MapPin,
   Paperclip,
   X,
 } from '@/components/icons';
@@ -58,11 +62,17 @@ import { useToast } from '@/components/ui/bits';
 import { BackButton } from '@/components/ui/BackButton';
 import { Card, Center, EmptyState, StatusBadge } from '@/components/ui/bits';
 import { pickFiles, type PickedFile } from '@/lib/files';
+import { useDeviceLocation } from '@/lib/location';
 import { familyByWeight } from '@/theme/fonts';
 import { useTheme } from '@/theme/ThemeProvider';
 
 function Bubble({ m, mine, read }: { m: Message; mine: boolean; read?: boolean }) {
   const { colors, reduceTransparency } = useTheme();
+  const sb = useSupabase();
+  const toast = useToast();
+  const [translated, setTranslated] = useState<string | null>(null);
+  const [showOriginal, setShowOriginal] = useState(false);
+  const [translating, setTranslating] = useState(false);
   if (m.kind === 'system') {
     return (
       <View style={[styles.system, { backgroundColor: colors.fill }]}>
@@ -94,9 +104,31 @@ function Bubble({ m, mine, read }: { m: Message; mine: boolean; read?: boolean }
           ]}
         >
           <AppText variant="body" color={mine ? 'onAccent' : 'text'}>
-            {m.body}
+            {translated && !showOriginal ? translated : m.body}
           </AppText>
         </View>
+      ) : null}
+      {m.body && !mine ? (
+        <Pressable
+          accessibilityRole="button"
+          disabled={translating}
+          style={{ paddingHorizontal: 8 }}
+          onPress={async () => {
+            if (translated) return setShowOriginal((v) => !v);
+            setTranslating(true);
+            try {
+              setTranslated(await translator.translate(sb, m.body!, 'ru'));
+            } catch (e) {
+              toast(t(((e as { key?: string }).key ?? 'errors.ai_failed') as TranslationKey));
+            } finally {
+              setTranslating(false);
+            }
+          }}
+        >
+          <AppText variant="caption" color="accentText">
+            {translated && !showOriginal ? t('room.original') : t('room.translate')}
+          </AppText>
+        </Pressable>
       ) : null}
       {m.files.length > 0 && (
         <View style={{ maxWidth: '85%', width: '100%' }}>
@@ -117,6 +149,71 @@ function Bubble({ m, mine, read }: { m: Message; mine: boolean; read?: boolean }
         ) : null}
       </View>
     </View>
+  );
+}
+
+/** Чек-ин исполнителя на месте задачи «Рядом» и история отметок */
+function CheckinCard({ d }: { d: TaskDetail }) {
+  const sb = useSupabase();
+  const task = d.task;
+  const status = displayStatus(task);
+  const geo = useDeviceLocation();
+  const [msg, setMsg] = useState<string | null>(null);
+  const checkins = useQuery({
+    queryKey: ['checkins', task.id],
+    queryFn: () => nearby.checkins(sb, task.id),
+  });
+  const checkin = useApiMutation(
+    (s, c: { lat: number; lng: number; accuracy?: number | null }) =>
+      nearby.checkin(s, task.id, c.lat, c.lng, c.accuracy),
+    {
+      invalidate: () => [['checkins', task.id], keys.messages(task.id)],
+      onSuccess: (r) =>
+        setMsg(
+          r.within
+            ? t('room.checkinOk')
+            : t('room.checkinFar', { d: formatDistance(r.distance_m) }),
+        ),
+    },
+  );
+  const canCheckin = d.viewer_role === 'executor' && ['in_progress', 'review'].includes(status);
+  const list = checkins.data ?? [];
+  if (!canCheckin && list.length === 0) return null;
+  return (
+    <Card testID="checkin">
+      {canCheckin && (
+        <Button
+          icon={<MapPin size={16} color="#fff" />}
+          label={t('room.checkin')}
+          disabled={checkin.isPending || geo.state === 'locating'}
+          onPress={async () => {
+            const c = await geo.locate();
+            if (c) checkin.mutate(c);
+          }}
+        />
+      )}
+      {geo.state === 'denied' || geo.state === 'unavailable' ? (
+        <AppText color="danger">{t('feed.geoDenied')}</AppText>
+      ) : null}
+      {msg ? (
+        <AppText variant="bodyStrong" testID="checkin-result">
+          {msg}
+        </AppText>
+      ) : null}
+      {checkin.error ? (
+        <AppText color="danger">{t(checkin.error.key as TranslationKey)}</AppText>
+      ) : null}
+      {list.length > 0 && (
+        <View style={{ gap: 2 }}>
+          <AppText variant="bodyStrong">{t('room.checkins')}</AppText>
+          {list.map((c) => (
+            <AppText key={c.id} variant="caption" color={c.within ? 'success' : 'danger'}>
+              {formatDateTime(c.created_at)} · {formatDistance(c.distance_m)}
+            </AppText>
+          ))}
+        </View>
+      )}
+    </Card>
   );
 }
 
@@ -276,6 +373,7 @@ function InfoCard({
           ))}
         </Card>
       ) : null}
+      {task.kind === 'nearby' && <CheckinCard d={d} />}
       <View style={{ flexDirection: 'row', gap: 8, flexWrap: 'wrap' }}>
         {executor && ['in_progress', 'review'].includes(status) && ext?.status !== 'pending' && (
           <Button

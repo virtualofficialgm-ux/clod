@@ -21,3 +21,18 @@ describe('уведомления и присутствие', () => {
     expect(withDefaults({ city: 'me' })).toEqual({ ...DEFAULT_PRIVACY, city: 'me' });
   });
 });
+
+describe('рядом: расстояние, время, длительность', () => {
+  it('считает расстояние и время пешком', async () => {
+    const { distanceM, walkMinutes, durationBucket, routeUrl } = await import('./service');
+    const d = distanceM({ lat: 55.75, lng: 37.61 }, { lat: 55.76, lng: 37.61 });
+    expect(d).toBeGreaterThan(1100);
+    expect(d).toBeLessThan(1120);
+    expect(walkMinutes(1000)).toBe(16);
+    expect(durationBucket(10)).toBe('short');
+    expect(durationBucket(20)).toBe('mid');
+    expect(durationBucket(45)).toBe('long');
+    expect(durationBucket(null)).toBeNull();
+    expect(routeUrl({ lat: 1, lng: 2 })).toContain('destination=1,2');
+  });
+});

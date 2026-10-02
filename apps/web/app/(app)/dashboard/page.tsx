@@ -109,7 +109,7 @@ export default function DashboardPage() {
               ring={Math.min(1, (me.data?.profile.completed_count ?? 0) / 10)}
               color="var(--p-chart-3)"
               icon={<CheckCircle2 size={20} strokeWidth={2.4} />}
-              href="/my-tasks?tab=done"
+              href="/analytics"
             />
             <StatTile
               value={formatMoney(earned, 'ru-RU', { compact: true })}
