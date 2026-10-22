@@ -238,7 +238,7 @@ body.is-loaded .hero__title .tri path { stroke-dashoffset: 0; }
 .event:hover .event__btn { background: var(--bg); color: var(--fg); border-color: var(--bg); }
 
 /* ——— Проекты ——— */
-.cards { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0; border-left: 1px solid var(--line); }
+.cards { display: grid; grid-template-columns: repeat(2, 1fr); gap: 0; border-left: 1px solid var(--line); }
 .card {
   position: relative;
   padding: 40px 32px 56px;
