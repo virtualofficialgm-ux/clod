@@ -1,0 +1,182 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Театр новых возможностей</title>
+  <meta name="description" content="Театр новых возможностей — театр, где каждый может выйти на сцену.">
+  <link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Oswald:wght@200;300;400&family=Manrope:wght@300;400;500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body class="is-loading">
+
+  <!-- Прелоадер: рисуется треугольник -->
+  <div class="preloader" aria-hidden="true">
+    <svg class="preloader__tri" viewBox="0 0 100 100">
+      <path d="M50 6 L92 94 L6 94 Z" />
+    </svg>
+  </div>
+
+  <div class="cursor" aria-hidden="true"></div>
+
+  <header class="header">
+    <a href="#top" class="header__logo" aria-label="Театр новых возможностей — на главную">
+      ТЕ<svg class="tri" viewBox="0 0 100 110" aria-hidden="true"><path d="M50 3 L95 107 L3 107 Z"/></svg>ТР
+    </a>
+    <nav class="nav" aria-label="Основное меню">
+      <a href="#about">О театре</a>
+      <a href="#afisha">Афиша</a>
+      <a href="#projects">Проекты</a>
+      <a href="#contacts">Контакты</a>
+    </nav>
+    <button class="burger" aria-label="Открыть меню" aria-expanded="false"><span></span><span></span></button>
+  </header>
+
+  <main id="top">
+
+    <!-- Hero -->
+    <section class="hero">
+      <h1 class="hero__title" aria-label="Театр новых возможностей">
+        <span class="line"><span class="word">ТЕ<svg class="tri" viewBox="0 0 100 110" aria-hidden="true"><path d="M50 3 L95 107 L3 107 Z"/></svg>ТР</span></span>
+        <span class="line"><span class="word">НОВЫХ</span></span>
+        <span class="line"><span class="word">ВОЗМОЖНОСТЕЙ</span></span>
+      </h1>
+      <div class="hero__bottom">
+        <p class="hero__lead reveal">Театр, в котором каждый может выйти на сцену — и быть услышанным.</p>
+        <a href="#afisha" class="hero__scroll reveal" aria-label="Листать вниз">
+          <span>Афиша</span>
+          <i></i>
+        </a>
+      </div>
+    </section>
+
+    <!-- Бегущая строка -->
+    <div class="marquee" aria-hidden="true">
+      <div class="marquee__track">
+        <span>спектакли</span><b>△</b><span>мастерские</span><b>△</b><span>лаборатории</span><b>△</b><span>инклюзия</span><b>△</b>
+        <span>спектакли</span><b>△</b><span>мастерские</span><b>△</b><span>лаборатории</span><b>△</b><span>инклюзия</span><b>△</b>
+      </div>
+    </div>
+
+    <!-- О театре -->
+    <section class="section about" id="about">
+      <div class="section__label reveal">01 — О театре</div>
+      <div class="about__grid">
+        <h2 class="about__title reveal">Сцена —<br>это пространство<br>возможностей</h2>
+        <div class="about__text">
+          <p class="reveal">Мы создаём спектакли, в которых встречаются профессиональные артисты и люди, впервые выходящие на сцену. Для нас театр — это способ говорить, слышать и меняться.</p>
+          <p class="reveal">Каждая постановка — результат совместного поиска: через движение, голос, жест и тишину.</p>
+        </div>
+      </div>
+      <div class="stats">
+        <div class="stat reveal"><span class="stat__num" data-count="12">0</span><span class="stat__label">спектаклей<br>в репертуаре</span></div>
+        <div class="stat reveal"><span class="stat__num" data-count="40">0</span><span class="stat__label">актёров<br>в труппе</span></div>
+        <div class="stat reveal"><span class="stat__num" data-count="5">0</span><span class="stat__label">лет<br>на сцене</span></div>
+      </div>
+    </section>
+
+    <!-- Афиша -->
+    <section class="section afisha" id="afisha">
+      <div class="section__label reveal">02 — Афиша</div>
+      <h2 class="section__title reveal">Ближайшие<br>спектакли</h2>
+
+      <ul class="events">
+        <li class="event reveal">
+          <div class="event__date"><span>14</span>ноября</div>
+          <div class="event__info">
+            <h3 class="event__title">Тишина</h3>
+            <p class="event__meta">Пластический спектакль · 12+ · 70 мин</p>
+          </div>
+          <a href="#contacts" class="event__btn">Билеты</a>
+        </li>
+        <li class="event reveal">
+          <div class="event__date"><span>22</span>ноября</div>
+          <div class="event__info">
+            <h3 class="event__title">Другие голоса</h3>
+            <p class="event__meta">Документальный театр · 16+ · 90 мин</p>
+          </div>
+          <a href="#contacts" class="event__btn">Билеты</a>
+        </li>
+        <li class="event reveal">
+          <div class="event__date"><span>06</span>декабря</div>
+          <div class="event__info">
+            <h3 class="event__title">Сказка о свете</h3>
+            <p class="event__meta">Семейный спектакль · 6+ · 50 мин</p>
+          </div>
+          <a href="#contacts" class="event__btn">Билеты</a>
+        </li>
+        <li class="event reveal">
+          <div class="event__date"><span>19</span>декабря</div>
+          <div class="event__info">
+            <h3 class="event__title">Точка опоры</h3>
+            <p class="event__meta">Премьера · 14+ · 80 мин</p>
+          </div>
+          <a href="#contacts" class="event__btn">Билеты</a>
+        </li>
+      </ul>
+    </section>
+
+    <!-- Проекты -->
+    <section class="section projects" id="projects">
+      <div class="section__label reveal">03 — Проекты</div>
+      <h2 class="section__title reveal">Чем мы<br>занимаемся</h2>
+      <div class="cards">
+        <article class="card reveal">
+          <span class="card__num">01</span>
+          <h3>Спектакли</h3>
+          <p>Репертуарные постановки и премьеры, созданные вместе с инклюзивной труппой.</p>
+        </article>
+        <article class="card reveal">
+          <span class="card__num">02</span>
+          <h3>Мастерские</h3>
+          <p>Регулярные занятия актёрским мастерством, сценической речью и движением.</p>
+        </article>
+        <article class="card reveal">
+          <span class="card__num">03</span>
+          <h3>Лаборатории</h3>
+          <p>Эксперименты с новыми формами: от документального театра до перформанса.</p>
+        </article>
+      </div>
+    </section>
+
+    <!-- Цитата -->
+    <section class="quote">
+      <p class="quote__text reveal">«Театр начинается там, где человеку дают возможность быть собой»</p>
+    </section>
+
+    <!-- Контакты -->
+    <section class="section contacts" id="contacts">
+      <div class="section__label reveal">04 — Контакты</div>
+      <h2 class="contacts__big reveal"><a href="mailto:info@example.ru">НАПИШИТЕ<br>НАМ</a></h2>
+      <div class="contacts__grid">
+        <div class="reveal">
+          <span class="contacts__cap">Адрес</span>
+          <p>г. Москва, ул. Примерная, 1</p>
+        </div>
+        <div class="reveal">
+          <span class="contacts__cap">Телефон</span>
+          <p><a href="tel:+70000000000">+7 (000) 000-00-00</a></p>
+        </div>
+        <div class="reveal">
+          <span class="contacts__cap">Почта</span>
+          <p><a href="mailto:info@example.ru">info@example.ru</a></p>
+        </div>
+        <div class="reveal">
+          <span class="contacts__cap">Соцсети</span>
+          <p><a href="#">ВКонтакте</a> · <a href="#">Telegram</a></p>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="footer">
+    <span>© <span id="year"></span> Театр новых возможностей</span>
+    <a href="#top">Наверх ↑</a>
+  </footer>
+
+  <script src="script.js"></script>
+</body>
+</html>
