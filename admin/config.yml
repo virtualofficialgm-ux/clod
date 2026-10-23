@@ -27,15 +27,16 @@ collections:
             label: Спектакли
             label_singular: спектакль
             widget: list
-            summary: "{{fields.date | date('DD.MM.YYYY HH:mm')}} — {{fields.title}}"
-            hint: Прошедшие спектакли скрываются с сайта автоматически.
+            summary: "{{fields.title}}"
+            hint: Прошедшие спектакли скрываются с сайта автоматически. Спектакль без даты показывается как «Скоро».
             fields:
-              - { name: date, label: Дата и время, widget: datetime, format: "YYYY-MM-DDTHH:mm", date_format: "DD.MM.YYYY", time_format: "HH:mm" }
+              - { name: date, label: Дата и время, widget: datetime, format: "YYYY-MM-DDTHH:mm", date_format: "DD.MM.YYYY", time_format: "HH:mm", required: false, hint: "Оставьте пустым, если дата ещё неизвестна" }
               - { name: title, label: Название, widget: string }
               - { name: category, label: "Тип (например: Молодая сцена, Эксклюзивный проект)", widget: string, required: false }
+              - { name: venue, label: Площадка, widget: string, required: false, hint: "Например: Театр в Хамовниках" }
               - { name: age, label: Возраст, widget: string, required: false, hint: "Например: 12+" }
               - { name: duration, label: Длительность, widget: string, required: false, hint: "Например: 90 мин" }
-              - { name: ticket_url, label: Ссылка на билеты, widget: string, required: false, hint: "Если пусто, кнопка «Билеты» ведёт к контактам" }
+              - { name: ticket_url, label: Ссылка на покупку билетов, widget: string, required: false, hint: "Вставьте ссылку из билетного агрегатора. Пока поле пустое, на сайте неактивная кнопка «Билеты скоро»; со ссылкой — кнопка «Купить билеты»." }
               - { name: description, label: Короткое описание, widget: text, required: false }
 
   - name: news
@@ -68,6 +69,7 @@ collections:
           - { name: marquee, label: Бегущая строка, widget: list, field: { name: item, label: Слово, widget: string } }
           - { name: about_title, label: "О театре: заголовок", widget: string }
           - { name: about_text, label: "О театре: абзацы", widget: list, field: { name: p, label: Абзац, widget: text } }
+          - { name: afisha_title, label: "Афиша: заголовок раздела", widget: string, hint: "Например: Премьера или Ближайшие спектакли" }
           - name: stats
             label: Цифры
             widget: list

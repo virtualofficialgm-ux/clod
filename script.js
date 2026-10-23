@@ -58,6 +58,7 @@
     document.getElementById('marquee').innerHTML = words + words;
 
     document.getElementById('about-text').innerHTML = (s.about_text || []).map(p => `<p class="reveal">${esc(p)}</p>`).join('');
+    document.getElementById('stats').hidden = !(s.stats || []).length;
     document.getElementById('stats').innerHTML = (s.stats || []).map(st => {
       const [first, ...rest] = esc(st.label).split(' ');
       return `<div class="stat reveal"><span class="stat__num" data-count="${+st.number || 0}">0</span><span class="stat__label">${first}<br>${rest.join(' ')}</span></div>`;
@@ -65,19 +66,25 @@
 
     // Афиша: только будущие спектакли, по дате
     const startOfToday = new Date(); startOfToday.setHours(0, 0, 0, 0);
-    const events = (afisha.events || []).filter(e => parseDate(e.date) >= startOfToday).sort((a, b) => parseDate(a.date) - parseDate(b.date));
+    // спектакли без даты («дата скоро») показываются в конце списка
+    const when = e => (e.date ? parseDate(e.date).getTime() : Infinity);
+    const events = (afisha.events || []).filter(e => when(e) >= startOfToday).sort((a, b) => when(a) - when(b));
     document.getElementById('events').innerHTML = events.length ? events.map(e => {
-      const d = parseDate(e.date);
-      const meta = [e.category, e.age, e.duration, `${pad(d.getHours())}:${pad(d.getMinutes())}`].filter(Boolean).map(esc).join(' · ');
-      const link = e.ticket_url ? `href="${esc(e.ticket_url)}" target="_blank" rel="noopener"` : 'href="#contacts"';
+      const d = e.date ? parseDate(e.date) : null;
+      const time = d && (d.getHours() || d.getMinutes()) ? `${pad(d.getHours())}:${pad(d.getMinutes())}` : '';
+      const meta = [e.category, e.venue, e.age, e.duration, time].filter(Boolean).map(esc).join(' · ');
+      // ссылка на покупку из агрегатора; пока её нет — неактивная кнопка-заглушка
+      const btn = e.ticket_url
+        ? `<a href="${esc(e.ticket_url)}" target="_blank" rel="noopener" class="event__btn">Купить билеты</a>`
+        : '<span class="event__btn is-soon" aria-disabled="true">Билеты скоро</span>';
       return `<li class="event reveal">
-          <div class="event__date"><span>${pad(d.getDate())}</span>${MONTHS[d.getMonth()]}</div>
+          <div class="event__date">${d ? `<span>${pad(d.getDate())}</span>${MONTHS[d.getMonth()]}` : '<span>Скоро</span>'}</div>
           <div class="event__info">
             <h3 class="event__title">${esc(e.title)}</h3>
             <p class="event__meta">${meta}</p>
             ${e.description ? `<p class="event__desc">${esc(e.description)}</p>` : ''}
           </div>
-          <a ${link} class="event__btn">Билеты</a>
+          ${btn}
         </li>`;
     }).join('') : '<li class="events__empty reveal">Скоро объявим новые спектакли</li>';
 

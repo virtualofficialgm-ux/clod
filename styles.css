@@ -227,6 +227,9 @@ body.is-loaded .hero__title .tri-mask { stroke-dashoffset: 0; }
   padding: 14px 28px;
 }
 .event:hover .event__btn { background: var(--bg); color: var(--fg); border-color: var(--bg); }
+.event__btn { white-space: nowrap; }
+.event__btn.is-soon { opacity: .45; cursor: default; }
+.event:hover .event__btn.is-soon { background: transparent; color: inherit; border-color: currentColor; }
 
 .event__desc { font-size: 14px; margin-top: 10px; max-width: 560px; }
 .events__empty { padding: 36px 0; color: var(--muted); list-style: none; }
@@ -348,3 +351,5 @@ body.is-loaded .hero__title .tri-mask { stroke-dashoffset: 0; }
 /* боковые отступы с учётом системных панелей */
 .hero, .section, .quote, .footer { padding-left: max(var(--pad), env(safe-area-inset-left, 0px)); padding-right: max(var(--pad), env(safe-area-inset-right, 0px)); }
 body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-area-inset-top, 0px); z-index: 60; background: var(--bg); }
+
+[hidden] { display: none !important; }

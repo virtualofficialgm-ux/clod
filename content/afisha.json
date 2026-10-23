@@ -1,8 +1,14 @@
 {
   "events": [
-    { "date": "2026-11-14T19:00", "title": "Тишина", "category": "Молодая сцена", "age": "12+", "duration": "70 мин", "ticket_url": "", "description": "" },
-    { "date": "2026-11-22T19:00", "title": "Другие голоса", "category": "Эксклюзивный проект со звёздами индустрии", "age": "16+", "duration": "90 мин", "ticket_url": "", "description": "" },
-    { "date": "2026-12-06T12:00", "title": "Сказка о свете", "category": "Молодая сцена", "age": "6+", "duration": "50 мин", "ticket_url": "", "description": "" },
-    { "date": "2026-12-19T19:00", "title": "Точка опоры", "category": "Премьера · Эксклюзивный проект", "age": "14+", "duration": "80 мин", "ticket_url": "", "description": "" }
+    {
+      "date": "",
+      "title": "Плутни Скапена",
+      "category": "Премьера",
+      "venue": "Театр в Хамовниках",
+      "age": "",
+      "duration": "",
+      "ticket_url": "",
+      "description": "Комедия Мольера. Дата и билеты появятся совсем скоро."
+    }
   ]
 }
