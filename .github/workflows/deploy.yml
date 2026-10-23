@@ -41,7 +41,13 @@ jobs:
           PROTOCOL: ${{ secrets.FTP_PROTOCOL || 'sftp' }}
           PORT: ${{ secrets.FTP_PORT || '2222' }}
         run: |
-          sudo apt-get update -qq && sudo apt-get install -y -qq lftp > /dev/null
+          sudo apt-get update -qq && sudo apt-get install -y -qq lftp sshpass > /dev/null
+          if [ "$PROTOCOL" = "sftp" ]; then
+            # проверка входа: в логе видно, пускает ли сервер и почему нет (пароль не печатается)
+            SSHPASS="$PASS" sshpass -e ssh -v -p "$PORT" -o StrictHostKeyChecking=no -o ConnectTimeout=20 \
+              -o PreferredAuthentications=password,keyboard-interactive -o PubkeyAuthentication=no \
+              "$USER@$SERVER" true 2>&1 | grep -E "Connecting to|Connection established|Authentications that can continue|Authenticated|Permission denied|refused|timed out|closed" || true
+          fi
           # пароль передаётся через переменную окружения, чтобы спецсимволы в нём ничего не ломали
           export LFTP_PASSWORD="$PASS"
           lftp --env-password -u "$USER" -p "$PORT" "$PROTOCOL://$SERVER" -e "
