@@ -1,0 +1,46 @@
+# Выкладка сайта на хостинг (Джино) по FTP при каждом изменении в main,
+# в том числе после сохранения в админке.
+# Доступы хранятся в секретах репозитория: Settings → Secrets and variables → Actions.
+name: Выкладка на хостинг
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: deploy
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Проверка доступов
+        id: check
+        env:
+          FTP_SERVER: ${{ secrets.FTP_SERVER }}
+        run: |
+          if [ -z "$FTP_SERVER" ]; then
+            echo "::notice::Секреты FTP ещё не добавлены — выкладка пропущена."
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - uses: actions/checkout@v4
+        if: steps.check.outputs.skip != 'true'
+
+      - name: Загрузка файлов по FTP
+        if: steps.check.outputs.skip != 'true'
+        uses: SamKirkland/FTP-Deploy-Action@v4.3.5
+        with:
+          server: ${{ secrets.FTP_SERVER }}
+          username: ${{ secrets.FTP_USERNAME }}
+          password: ${{ secrets.FTP_PASSWORD }}
+          server-dir: ${{ secrets.FTP_DIR }}
+          protocol: ${{ secrets.FTP_PROTOCOL || 'ftp' }}
+          exclude: |
+            **/.git*
+            **/.git*/**
+            .github/**
+            dist/**
+            README.md
