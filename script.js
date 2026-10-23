@@ -7,8 +7,8 @@
     body.classList.add('is-loaded');
     setTimeout(() => body.classList.remove('is-loading'), 900);
   };
-  window.addEventListener('load', () => setTimeout(finishLoading, reduced ? 0 : 1300));
-  setTimeout(finishLoading, 4000); // запасной вариант, если шрифты грузятся долго
+  window.addEventListener('load', () => setTimeout(finishLoading, reduced ? 0 : 900));
+  setTimeout(finishLoading, 2500); // запасной вариант, если шрифты грузятся долго
 
   document.getElementById('year').textContent = new Date().getFullYear();
 
@@ -54,16 +54,22 @@
     requestAnimationFrame(tick);
   };
 
+  // скрываем до появления только то, что ниже первого экрана
+  document.documentElement.classList.add('js');
+  document.querySelectorAll('.reveal').forEach(el => {
+    if (el.getBoundingClientRect().top > window.innerHeight) el.classList.add('pending');
+    else el.querySelectorAll('[data-count]').forEach(c => (c.textContent = c.dataset.count));
+  });
   const io = new IntersectionObserver(entries => {
     entries.forEach(entry => {
       if (!entry.isIntersecting) return;
-      entry.target.classList.add('is-visible');
+      entry.target.classList.remove('pending');
       const counter = entry.target.querySelector('[data-count]');
       if (counter) countUp(counter);
       io.unobserve(entry.target);
     });
   }, { threshold: 0.15, rootMargin: '0px 0px -40px 0px' });
-  document.querySelectorAll('.reveal').forEach(el => io.observe(el));
+  document.querySelectorAll('.reveal.pending').forEach(el => io.observe(el));
   if (reduced) counters.forEach(c => (c.textContent = c.dataset.count));
 
   // Кастомный курсор
