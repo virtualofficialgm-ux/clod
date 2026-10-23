@@ -1,6 +1,8 @@
-# Выкладка сайта на хостинг (Джино) по FTP при каждом изменении в main,
-# в том числе после сохранения в админке.
+# Выкладка сайта на хостинг (Джино) при каждом изменении в main,
+# в том числе после сохранения в админке. Подключение защищённое (SFTP).
 # Доступы хранятся в секретах репозитория: Settings → Secrets and variables → Actions.
+#   FTP_SERVER, FTP_USERNAME, FTP_PASSWORD, FTP_DIR
+#   необязательно: FTP_PROTOCOL (sftp | ftps, по умолчанию sftp), FTP_PORT (по умолчанию 2222)
 name: Выкладка на хостинг
 
 on:
@@ -29,18 +31,21 @@ jobs:
       - uses: actions/checkout@v4
         if: steps.check.outputs.skip != 'true'
 
-      - name: Загрузка файлов по FTP
+      - name: Загрузка файлов на хостинг
         if: steps.check.outputs.skip != 'true'
-        uses: SamKirkland/FTP-Deploy-Action@v4.3.5
-        with:
-          server: ${{ secrets.FTP_SERVER }}
-          username: ${{ secrets.FTP_USERNAME }}
-          password: ${{ secrets.FTP_PASSWORD }}
-          server-dir: ${{ secrets.FTP_DIR }}
-          protocol: ${{ secrets.FTP_PROTOCOL || 'ftp' }}
-          exclude: |
-            **/.git*
-            **/.git*/**
-            .github/**
-            dist/**
-            README.md
+        env:
+          SERVER: ${{ secrets.FTP_SERVER }}
+          USER: ${{ secrets.FTP_USERNAME }}
+          PASS: ${{ secrets.FTP_PASSWORD }}
+          DIR: ${{ secrets.FTP_DIR }}
+          PROTOCOL: ${{ secrets.FTP_PROTOCOL || 'sftp' }}
+          PORT: ${{ secrets.FTP_PORT || '2222' }}
+        run: |
+          sudo apt-get update -qq && sudo apt-get install -y -qq lftp > /dev/null
+          lftp -u "$USER,$PASS" -p "$PORT" "$PROTOCOL://$SERVER" -e "
+            set net:max-retries 2; set net:timeout 30;
+            set sftp:auto-confirm yes; set ftp:ssl-force true; set ssl:verify-certificate no;
+            mirror -R --verbose --parallel=4 \
+              -X .git/ -X .github/ -X dist/ -X README.md -X .gitignore \
+              ./ ${DIR:-./};
+            bye"
