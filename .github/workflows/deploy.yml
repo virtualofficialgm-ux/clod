@@ -28,7 +28,7 @@ jobs:
             echo "skip=true" >> "$GITHUB_OUTPUT"
           fi
 
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         if: steps.check.outputs.skip != 'true'
 
       - name: Загрузка файлов на хостинг
@@ -42,7 +42,9 @@ jobs:
           PORT: ${{ secrets.FTP_PORT || '2222' }}
         run: |
           sudo apt-get update -qq && sudo apt-get install -y -qq lftp > /dev/null
-          lftp -u "$USER,$PASS" -p "$PORT" "$PROTOCOL://$SERVER" -e "
+          # пароль передаётся через переменную окружения, чтобы спецсимволы в нём ничего не ломали
+          export LFTP_PASSWORD="$PASS"
+          lftp --env-password -u "$USER" -p "$PORT" "$PROTOCOL://$SERVER" -e "
             set net:max-retries 2; set net:timeout 30;
             set sftp:auto-confirm yes; set ftp:ssl-force true; set ssl:verify-certificate no;
             mirror -R --verbose --parallel=4 \
