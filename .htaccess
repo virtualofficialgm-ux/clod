@@ -1,0 +1,4 @@
+# Служебные файлы репозитория не должны открываться в браузере
+RedirectMatch 404 /\.git
+RedirectMatch 404 /\.github
+RedirectMatch 404 /deploy\.sh
