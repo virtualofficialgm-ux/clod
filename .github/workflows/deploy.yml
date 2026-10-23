@@ -42,6 +42,8 @@ jobs:
           PORT: ${{ secrets.FTP_PORT || '21' }}
         run: |
           sudo apt-get update -qq && sudo apt-get install -y -qq lftp sshpass > /dev/null
+          # проверка, открыт ли порт хостинга для серверов GitHub
+          timeout 15 bash -c "echo > /dev/tcp/$SERVER/$PORT" && echo "Порт $PORT доступен" || echo "::warning::Порт $PORT недоступен"
           if [ "$PROTOCOL" = "sftp" ]; then
             # проверка входа: в логе видно, пускает ли сервер и почему нет (пароль не печатается)
             SSHPASS="$PASS" sshpass -e ssh -v -p "$PORT" -o StrictHostKeyChecking=no -o ConnectTimeout=20 \
@@ -51,7 +53,7 @@ jobs:
           # пароль передаётся через переменную окружения, чтобы спецсимволы в нём ничего не ломали
           export LFTP_PASSWORD="$PASS"
           lftp --env-password -u "$USER" -p "$PORT" "$PROTOCOL://$SERVER" -e "
-            set net:max-retries 2; set net:timeout 30;
+            debug 3; set net:max-retries 2; set net:timeout 30;
             set sftp:auto-confirm yes; set ftp:ssl-force true; set ssl:verify-certificate no;
             mirror -R --verbose --parallel=4 \
               -X .git/ -X .github/ -X dist/ -X README.md -X .gitignore \
