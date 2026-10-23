@@ -246,6 +246,15 @@ body.is-loaded .hero__title .tri-mask { stroke-dashoffset: 0; }
   font-size: clamp(24px, 2.2vw, 32px); letter-spacing: .08em; line-height: 1.15;
 }
 .news-item__text { color: var(--muted); }
+.news-item__links { list-style: none; display: flex; flex-direction: column; gap: 8px; margin-top: 4px; padding-top: 12px; border-top: 1px solid var(--line); }
+.news-item__links a {
+  position: relative; font-size: 13px; letter-spacing: .12em; text-transform: uppercase; font-weight: 400;
+}
+.news-item__links a::after {
+  content: ""; position: absolute; left: 0; right: 0; bottom: -3px; height: 1px; background: currentColor;
+  transform: scaleX(0); transform-origin: right; transition: transform .5s var(--ease);
+}
+.news-item__links a:hover::after { transform: scaleX(1); transform-origin: left; }
 
 /* ——— Проекты ——— */
 .cards { display: grid; grid-template-columns: repeat(2, 1fr); gap: 0; border-left: 1px solid var(--line); }

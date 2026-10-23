@@ -95,7 +95,9 @@
           ${n.image ? `<div class="news-item__img"><img src="${esc(n.image)}" alt="" loading="lazy"></div>` : ''}
           <time class="news-item__date">${d.getDate()} ${MONTHS[d.getMonth()]} ${d.getFullYear()}</time>
           <h3 class="news-item__title">${esc(n.title)}</h3>
-          <p class="news-item__text">${esc(n.text)}</p>
+          ${String(n.text || '').split(/\n\s*\n/).filter(Boolean).map(p => `<p class="news-item__text">${esc(p)}</p>`).join('')}
+          ${(n.links || []).filter(l => l && l.url).length ? `<ul class="news-item__links">${n.links.filter(l => l && l.url).map(l =>
+            `<li><a href="${esc(l.url)}" target="_blank" rel="noopener">${esc(l.title || l.url)} <span aria-hidden="true">↗</span></a></li>`).join('')}</ul>` : ''}
         </article>`;
     }).join('') : '<p class="events__empty reveal">Новостей пока нет</p>';
 

@@ -258,6 +258,15 @@ body.is-loaded .hero__title .tri-mask { stroke-dashoffset: 0; }
   font-size: clamp(24px, 2.2vw, 32px); letter-spacing: .08em; line-height: 1.15;
 }
 .news-item__text { color: var(--muted); }
+.news-item__links { list-style: none; display: flex; flex-direction: column; gap: 8px; margin-top: 4px; padding-top: 12px; border-top: 1px solid var(--line); }
+.news-item__links a {
+  position: relative; font-size: 13px; letter-spacing: .12em; text-transform: uppercase; font-weight: 400;
+}
+.news-item__links a::after {
+  content: ""; position: absolute; left: 0; right: 0; bottom: -3px; height: 1px; background: currentColor;
+  transform: scaleX(0); transform-origin: right; transition: transform .5s var(--ease);
+}
+.news-item__links a:hover::after { transform: scaleX(1); transform-origin: left; }
 
 /* ——— Проекты ——— */
 .cards { display: grid; grid-template-columns: repeat(2, 1fr); gap: 0; border-left: 1px solid var(--line); }
@@ -465,7 +474,7 @@ body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-a
     <a href="#top">Наверх ↑</a>
   </footer>
 
-  <script>window.__CONTENT__={"settings": {"hero_lead": "Сцена для молодых. Здесь начинается будущее театра, и мы даём ему главную роль.", "marquee": ["премьера", "плутни скапена", "молодые актёры", "звёзды индустрии"], "about_title": "Будущее театра играет сейчас", "about_text": ["Мы уверены, что молодые артисты могут и должны выходить на сцену уже сейчас, а не ждать своей очереди. Театр новых возможностей даёт им роли, площадку и зрителя.", "В эксклюзивных проектах молодые актёры играют вместе со звёздами индустрии на одной сцене."], "afisha_title": "Премьера", "stats": [], "projects": [{"title": "Молодая сцена", "text": "Спектакли, в которых главные роли играют молодые актёры. Первая большая сцена начинается здесь."}, {"title": "Эксклюзивные проекты", "text": "Постановки со звёздами театра и кино, где молодые артисты играют вместе с ними."}], "quote": "Молодые не ждут своего часа. Они играют сейчас.", "contacts": {"address": "г. Москва, ул. Примерная, 1", "phone": "+7 (000) 000-00-00", "email": "info@example.ru", "vk": "", "telegram": ""}}, "afisha": {"events": [{"date": "", "title": "Плутни Скапена", "category": "Премьера", "venue": "Театр в Хамовниках", "age": "", "duration": "", "ticket_url": "", "description": "Комедия Мольера. Дата и билеты появятся совсем скоро."}]}, "news": {"items": [{"date": "2026-10-23", "title": "Премьера «Плутни Скапена»", "text": "Готовим премьеру спектакля «Плутни Скапена» по комедии Мольера в театре в Хамовниках. Дата и билеты появятся на сайте совсем скоро.", "image": ""}]}};</script>
+  <script>window.__CONTENT__={"settings": {"hero_lead": "Сцена для молодых. Здесь начинается будущее театра, и мы даём ему главную роль.", "marquee": ["премьера", "плутни скапена", "14 ноября", "театр в хамовниках"], "about_title": "Будущее театра играет сейчас", "about_text": ["Мы уверены, что молодые артисты могут и должны выходить на сцену уже сейчас, а не ждать своей очереди. Театр новых возможностей даёт им роли, площадку и зрителя.", "В эксклюзивных проектах молодые актёры играют вместе со звёздами индустрии на одной сцене."], "afisha_title": "Премьера", "stats": [], "projects": [{"title": "Молодая сцена", "text": "Спектакли, в которых главные роли играют молодые актёры. Первая большая сцена начинается здесь."}, {"title": "Эксклюзивные проекты", "text": "Постановки со звёздами театра и кино, где молодые артисты играют вместе с ними."}], "quote": "Молодые не ждут своего часа. Они играют сейчас.", "contacts": {"address": "г. Москва, ул. Примерная, 1", "phone": "+7 (000) 000-00-00", "email": "info@example.ru", "vk": "", "telegram": ""}}, "afisha": {"events": [{"date": "2026-11-14T19:00", "title": "Плутни Скапена", "category": "Премьера", "venue": "Театр в Хамовниках", "age": "16+", "duration": "", "ticket_url": "", "description": "Комедия Мольера."}]}, "news": {"items": [{"date": "2026-10-23", "title": "Премьера «Плутни Скапена»", "text": "14 ноября в 19:00 в театре в Хамовниках — премьера спектакля «Плутни Скапена» по комедии Мольера.\n\nВозрастное ограничение 16+. Ссылка на покупку билетов появится в афише.", "image": "", "links": []}]}};</script>
 <script>
 (() => {
   const body = document.body;
@@ -564,7 +573,9 @@ body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-a
           ${n.image ? `<div class="news-item__img"><img src="${esc(n.image)}" alt="" loading="lazy"></div>` : ''}
           <time class="news-item__date">${d.getDate()} ${MONTHS[d.getMonth()]} ${d.getFullYear()}</time>
           <h3 class="news-item__title">${esc(n.title)}</h3>
-          <p class="news-item__text">${esc(n.text)}</p>
+          ${String(n.text || '').split(/\n\s*\n/).filter(Boolean).map(p => `<p class="news-item__text">${esc(p)}</p>`).join('')}
+          ${(n.links || []).filter(l => l && l.url).length ? `<ul class="news-item__links">${n.links.filter(l => l && l.url).map(l =>
+            `<li><a href="${esc(l.url)}" target="_blank" rel="noopener">${esc(l.title || l.url)} <span aria-hidden="true">↗</span></a></li>`).join('')}</ul>` : ''}
         </article>`;
     }).join('') : '<p class="events__empty reveal">Новостей пока нет</p>';
 

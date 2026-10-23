@@ -55,8 +55,18 @@ collections:
             fields:
               - { name: date, label: Дата, widget: datetime, format: "YYYY-MM-DD", date_format: "DD.MM.YYYY", time_format: false }
               - { name: title, label: Заголовок, widget: string }
-              - { name: text, label: Текст, widget: text }
+              - { name: text, label: Текст, widget: text, hint: "Пустая строка между абзацами делит текст на абзацы" }
               - { name: image, label: Фото, widget: image, required: false }
+              - name: links
+                label: Ссылки на публикации в СМИ
+                label_singular: ссылку
+                widget: list
+                required: false
+                summary: "{{fields.title}}"
+                hint: Например, рецензии и статьи о спектакле. Каждая ссылка откроется в новой вкладке.
+                fields:
+                  - { name: title, label: "Название издания или статьи", widget: string }
+                  - { name: url, label: Ссылка, widget: string }
 
   - name: settings
     label: Информация на сайте
