@@ -1,0 +1,94 @@
+# Панель управления сайтом: https://<адрес-сайта>/admin
+# Войти могут только пользователи GitHub с правом записи в репозиторий.
+backend:
+  name: github
+  repo: virtualofficialgm-ux/clod
+  branch: main
+  commit_messages:
+    update: "Обновление: {{slug}}"
+
+locale: ru
+site_url: /
+display_url: /
+logo_url: /assets/favicon.svg
+
+media_folder: assets/uploads
+public_folder: /assets/uploads
+
+collections:
+  - name: afisha
+    label: Афиша
+    files:
+      - name: afisha
+        label: Спектакли в афише
+        file: content/afisha.json
+        fields:
+          - name: events
+            label: Спектакли
+            label_singular: спектакль
+            widget: list
+            summary: "{{fields.date | date('DD.MM.YYYY HH:mm')}} — {{fields.title}}"
+            hint: Прошедшие спектакли скрываются с сайта автоматически.
+            fields:
+              - { name: date, label: Дата и время, widget: datetime, format: "YYYY-MM-DDTHH:mm", date_format: "DD.MM.YYYY", time_format: "HH:mm" }
+              - { name: title, label: Название, widget: string }
+              - { name: category, label: "Тип (например: Молодая сцена, Эксклюзивный проект)", widget: string, required: false }
+              - { name: age, label: Возраст, widget: string, required: false, hint: "Например: 12+" }
+              - { name: duration, label: Длительность, widget: string, required: false, hint: "Например: 90 мин" }
+              - { name: ticket_url, label: Ссылка на билеты, widget: string, required: false, hint: "Если пусто, кнопка «Билеты» ведёт к контактам" }
+              - { name: description, label: Короткое описание, widget: text, required: false }
+
+  - name: news
+    label: Новости
+    files:
+      - name: news
+        label: Новости
+        file: content/news.json
+        fields:
+          - name: items
+            label: Новости
+            label_singular: новость
+            widget: list
+            summary: "{{fields.date}} — {{fields.title}}"
+            hint: Новые новости добавляйте наверх списка.
+            fields:
+              - { name: date, label: Дата, widget: datetime, format: "YYYY-MM-DD", date_format: "DD.MM.YYYY", time_format: false }
+              - { name: title, label: Заголовок, widget: string }
+              - { name: text, label: Текст, widget: text }
+              - { name: image, label: Фото, widget: image, required: false }
+
+  - name: settings
+    label: Информация на сайте
+    files:
+      - name: settings
+        label: Тексты и контакты
+        file: content/settings.json
+        fields:
+          - { name: hero_lead, label: Текст под логотипом, widget: text }
+          - { name: marquee, label: Бегущая строка, widget: list, field: { name: item, label: Слово, widget: string } }
+          - { name: about_title, label: "О театре: заголовок", widget: string }
+          - { name: about_text, label: "О театре: абзацы", widget: list, field: { name: p, label: Абзац, widget: text } }
+          - name: stats
+            label: Цифры
+            widget: list
+            summary: "{{fields.number}} {{fields.label}}"
+            fields:
+              - { name: number, label: Число, widget: number, value_type: int }
+              - { name: label, label: Подпись, widget: string }
+          - name: projects
+            label: Проекты
+            widget: list
+            summary: "{{fields.title}}"
+            fields:
+              - { name: title, label: Название, widget: string }
+              - { name: text, label: Описание, widget: text }
+          - { name: quote, label: Слоган на чёрном фоне, widget: text }
+          - name: contacts
+            label: Контакты
+            widget: object
+            fields:
+              - { name: address, label: Адрес, widget: string }
+              - { name: phone, label: Телефон, widget: string }
+              - { name: email, label: Почта, widget: string }
+              - { name: vk, label: Ссылка ВКонтакте, widget: string, required: false }
+              - { name: telegram, label: Ссылка Telegram, widget: string, required: false }

@@ -228,6 +228,22 @@ body.is-loaded .hero__title .tri-mask { stroke-dashoffset: 0; }
 }
 .event:hover .event__btn { background: var(--bg); color: var(--fg); border-color: var(--bg); }
 
+.event__desc { font-size: 14px; margin-top: 10px; max-width: 560px; }
+.events__empty { padding: 36px 0; color: var(--muted); list-style: none; }
+
+/* ——— Новости ——— */
+.news__list { display: grid; grid-template-columns: repeat(3, 1fr); gap: 48px 40px; }
+.news-item { display: flex; flex-direction: column; gap: 12px; border-top: 1px solid var(--fg); padding-top: 24px; min-width: 0; }
+.news-item__img { aspect-ratio: 4 / 3; overflow: hidden; background: var(--line); margin-bottom: 8px; }
+.news-item__img img { width: 100%; height: 100%; object-fit: cover; transition: transform 1.2s var(--ease-out); }
+.news-item:hover .news-item__img img { transform: scale(1.04); }
+.news-item__date { font-size: 12px; letter-spacing: .2em; text-transform: uppercase; color: var(--muted); }
+.news-item__title {
+  font-family: var(--display); font-weight: 300; text-transform: uppercase;
+  font-size: clamp(24px, 2.2vw, 32px); letter-spacing: .08em; line-height: 1.15;
+}
+.news-item__text { color: var(--muted); }
+
 /* ——— Проекты ——— */
 .cards { display: grid; grid-template-columns: repeat(2, 1fr); gap: 0; border-left: 1px solid var(--line); }
 .card {
@@ -313,6 +329,7 @@ body.is-loaded .hero__title .tri-mask { stroke-dashoffset: 0; }
   .event { grid-template-columns: 1fr; gap: 12px; }
   .event__btn { justify-self: start; }
   .cards { grid-template-columns: 1fr; }
+  .news__list { grid-template-columns: 1fr; }
   .card { min-height: 280px; }
   .contacts__grid { grid-template-columns: 1fr 1fr; }
   .hero__lead { font-size: 15px; }
