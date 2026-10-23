@@ -4,12 +4,16 @@ backend:
   name: github
   repo: virtualofficialgm-ux/clod
   branch: main
+  # Вход через GitHub идёт через Netlify (сайт при этом живёт на Джино).
+  # site_domain — адрес проекта на Netlify, где подключён OAuth-провайдер GitHub.
+  base_url: https://api.netlify.com
+  site_domain: teatrnv.netlify.app
   commit_messages:
     update: "Обновление: {{slug}}"
 
 locale: ru
-site_url: /
-display_url: /
+site_url: https://teatrnv.ru
+display_url: https://teatrnv.ru
 logo_url: /assets/favicon.svg
 
 media_folder: assets/uploads
