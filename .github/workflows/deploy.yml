@@ -1,8 +1,8 @@
 # Выкладка сайта на хостинг (Джино) при каждом изменении в main,
-# в том числе после сохранения в админке. Подключение защищённое (SFTP).
+# в том числе после сохранения в админке. Подключение защищённое: FTP с шифрованием TLS (FTPS).
 # Доступы хранятся в секретах репозитория: Settings → Secrets and variables → Actions.
 #   FTP_SERVER, FTP_USERNAME, FTP_PASSWORD, FTP_DIR
-#   необязательно: FTP_PROTOCOL (sftp | ftps, по умолчанию sftp), FTP_PORT (по умолчанию 2222)
+#   необязательно: FTP_PROTOCOL (ftp — FTPS с TLS, или sftp; по умолчанию ftp), FTP_PORT (по умолчанию 21)
 name: Выкладка на хостинг
 
 on:
@@ -38,8 +38,8 @@ jobs:
           USER: ${{ secrets.FTP_USERNAME }}
           PASS: ${{ secrets.FTP_PASSWORD }}
           DIR: ${{ secrets.FTP_DIR }}
-          PROTOCOL: ${{ secrets.FTP_PROTOCOL || 'sftp' }}
-          PORT: ${{ secrets.FTP_PORT || '2222' }}
+          PROTOCOL: ${{ secrets.FTP_PROTOCOL || 'ftp' }}
+          PORT: ${{ secrets.FTP_PORT || '21' }}
         run: |
           sudo apt-get update -qq && sudo apt-get install -y -qq lftp sshpass > /dev/null
           if [ "$PROTOCOL" = "sftp" ]; then
