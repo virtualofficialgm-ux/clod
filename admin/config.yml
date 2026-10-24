@@ -79,6 +79,34 @@ collections:
                 required: false
                 field: { name: photo, label: Фото, widget: image }
 
+  - name: team
+    label: Команда
+    files:
+      - name: team
+        label: Команда театра
+        file: content/team.json
+        fields:
+          - { name: intro, label: Текст вверху страницы, widget: text, required: false }
+          - name: groups
+            label: Разделы
+            label_singular: раздел
+            widget: list
+            summary: "{{fields.title}}"
+            hint: "Например: Руководство, Труппа, Создатели спектаклей. Пустые разделы на сайте не показываются."
+            fields:
+              - { name: title, label: Название раздела, widget: string }
+              - name: people
+                label: Люди
+                label_singular: человека
+                widget: list
+                required: false
+                summary: "{{fields.name}} — {{fields.role}}"
+                fields:
+                  - { name: name, label: Имя и фамилия, widget: string }
+                  - { name: role, label: "Роль / должность", widget: string, required: false, hint: "Например: Актриса, Художественный руководитель" }
+                  - { name: photo, label: Фото, widget: image, required: false, hint: "Без фото человек будет показан строкой в списке" }
+                  - { name: bio, label: Коротко о человеке, widget: text, required: false }
+
   - name: news
     label: Новости
     files:

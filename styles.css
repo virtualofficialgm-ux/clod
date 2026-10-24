@@ -484,3 +484,8 @@ body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-a
   .detail__text { font-size: 16px; }
   .lightbox__nav { display: none; }
 }
+
+/* ——— Страница «Команда» ——— */
+.team__bio { color: var(--muted); font-size: 14px; line-height: 1.55; margin-top: 8px; }
+.creators dd .team__bio { display: block; font-weight: 300; margin-top: 4px; }
+.nav a[aria-current="page"]::after { transform: scaleX(1); }

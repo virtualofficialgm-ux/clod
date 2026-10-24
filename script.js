@@ -80,8 +80,8 @@
   const loadContent = async () => {
     if (window.__CONTENT__) return window.__CONTENT__;
     const get = name => fetch(`content/${name}.json`, { cache: 'no-cache' }).then(r => (r.ok ? r.json() : {})).catch(() => ({}));
-    const [settings, news, shows] = await Promise.all([get('settings'), get('news'), get('shows')]);
-    return { settings, news, shows };
+    const [settings, news, shows, team] = await Promise.all([get('settings'), get('news'), get('shows'), get('team')]);
+    return { settings, news, shows, team };
   };
 
   // Бегущая строка двигается скриптом, а не CSS-анимацией: так она надёжно работает
@@ -271,6 +271,35 @@
     initLightbox(n.gallery);
   };
 
+  // Страница «Команда»: разделы (руководство, труппа…) — люди с фото карточками, без фото — списком
+  const renderTeamPage = ({ team }) => {
+    const root = document.getElementById('detail');
+    const groups = (team.groups || []).filter(g => (g.people || []).length);
+    const card = p => `<li class="cast__item team__person">
+        <div class="cast__photo"><img src="${esc(p.photo)}" alt="${esc(p.name)}" loading="lazy"></div>
+        <p class="cast__name">${esc(p.name)}</p>
+        ${p.role ? `<p class="cast__role">${esc(p.role)}</p>` : ''}
+        ${p.bio ? `<p class="team__bio">${esc(p.bio)}</p>` : ''}
+      </li>`;
+    root.innerHTML = `
+      <header class="detail__head">
+        <div class="detail__intro">
+          <h1 class="detail__title reveal">Команда</h1>
+          ${team.intro ? `<div class="detail__text reveal">${paragraphs(team.intro)}</div>` : ''}
+        </div>
+      </header>
+      ${groups.length ? groups.map(g => {
+        const withPhoto = g.people.filter(p => p.photo);
+        const without = g.people.filter(p => !p.photo);
+        return `<section class="detail__block reveal">
+          <h2 class="detail__h">${esc(g.title)}</h2>
+          ${withPhoto.length ? `<ul class="cast">${withPhoto.map(card).join('')}</ul>` : ''}
+          ${without.length ? `<dl class="creators cast-list">${without.map(p =>
+            `<div class="creators__row"><dt>${esc(p.role || '')}</dt><dd>${esc(p.name)}${p.bio ? `<span class="team__bio">${esc(p.bio)}</span>` : ''}</dd></div>`).join('')}</dl>` : ''}
+        </section>`;
+      }).join('') : '<p class="detail__text reveal">Скоро здесь появится команда театра.</p>'}`;
+  };
+
   // Просмотр фотографий на весь экран: клик по фото, стрелки, Esc
   const initLightbox = photos => {
     const list = (photos || []).filter(Boolean);
@@ -384,7 +413,7 @@
     }
   };
 
-  const render = { home: renderHome, show: renderShowPage, news: renderNewsPage }[page] || renderHome;
+  const render = { home: renderHome, show: renderShowPage, news: renderNewsPage, team: renderTeamPage }[page] || renderHome;
   loadContent()
     .then(render)
     .catch(err => console.error('Не удалось загрузить контент', err))
