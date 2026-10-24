@@ -1,16 +1,16 @@
 {
   "shows": [
     {
-      "title": "Плутни Скапена",
-      "author": "Мольер",
       "genre": "Комедия",
-      "age": "16+",
-      "duration": "90 мин",
-      "poster": "",
-      "description": "Комедия Мольера.",
       "creators": [],
-      "cast": [],
-      "gallery": []
+      "author": "Мольер",
+      "poster": "/assets/uploads/_dsc5614.jpg",
+      "gallery": [],
+      "duration": "90 мин",
+      "title": "Плутни Скапена",
+      "description": "Комедия Мольера.",
+      "age": "16+",
+      "cast": []
     }
   ]
 }
