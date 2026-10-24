@@ -1,26 +1,36 @@
 {
   "shows": [
     {
-      "title": "Плутни Скапена",
-      "author": "Мольер",
       "genre": "Комедия",
-      "age": "16+",
-      "duration": "90 мин",
       "dates": [
         {
           "date": "2026-11-14T19:00",
           "category": "Премьера",
           "venue": "Театр в Хамовниках",
           "ticket_url": ""
+        },
+        {
+          "venue": "Театр в Хамовниках",
+          "date": "2026-11-30T19:00",
+          "category": "Премьера"
+        },
+        {
+          "venue": "Театр в Хамовниках",
+          "date": "2026-12-14T19:00",
+          "category": "Премьера"
         }
       ],
-      "poster": "",
-      "description": "Комедия Мольера.",
       "creators": [],
-      "cast": [],
+      "author": "Мольер",
+      "poster": "",
       "gallery": [
         "/assets/uploads/_dsc5614.jpg"
-      ]
+      ],
+      "duration": "90 мин",
+      "title": "Плутни Скапена",
+      "description": "Комедия Мольера.",
+      "age": "16+",
+      "cast": []
     }
   ]
 }
