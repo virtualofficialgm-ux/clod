@@ -35,13 +35,60 @@ collections:
             hint: Прошедшие спектакли скрываются с сайта автоматически. Спектакль без даты показывается как «Скоро».
             fields:
               - { name: date, label: Дата и время, widget: datetime, format: "YYYY-MM-DDTHH:mm", date_format: "DD.MM.YYYY", time_format: "HH:mm", required: false, hint: "Оставьте пустым, если дата ещё неизвестна" }
-              - { name: title, label: Название, widget: string }
+              - { name: title, label: Название спектакля, widget: relation, collection: shows, file: shows, search_fields: ["shows.*.title"], value_field: "shows.*.title", display_fields: ["shows.*.title"], hint: "Сначала добавьте спектакль в разделе «Спектакли»" }
               - { name: category, label: "Тип (например: Молодая сцена, Эксклюзивный проект)", widget: string, required: false }
               - { name: venue, label: Площадка, widget: string, required: false, hint: "Например: Театр в Хамовниках" }
               - { name: age, label: Возраст, widget: string, required: false, hint: "Например: 12+" }
               - { name: duration, label: Длительность, widget: string, required: false, hint: "Например: 90 мин" }
               - { name: ticket_url, label: Ссылка на покупку билетов, widget: string, required: false, hint: "Вставьте ссылку из билетного агрегатора. Пока поле пустое, на сайте неактивная кнопка «Билеты скоро»; со ссылкой — кнопка «Купить билеты»." }
               - { name: description, label: Короткое описание, widget: text, required: false }
+
+  - name: shows
+    label: Спектакли
+    files:
+      - name: shows
+        label: Спектакли (подробные страницы)
+        file: content/shows.json
+        fields:
+          - name: shows
+            label: Спектакли
+            label_singular: спектакль
+            widget: list
+            summary: "{{fields.title}}"
+            hint: Здесь описание, фото и состав. Даты показов и билеты — в разделе «Афиша».
+            fields:
+              - { name: title, label: Название, widget: string, hint: "Должно совпадать с названием в «Афише»" }
+              - { name: author, label: "Автор пьесы", widget: string, required: false, hint: "Например: Мольер" }
+              - { name: genre, label: Жанр, widget: string, required: false, hint: "Например: Комедия" }
+              - { name: age, label: Возраст, widget: string, required: false, hint: "Например: 16+" }
+              - { name: duration, label: Длительность, widget: string, required: false, hint: "Например: 90 мин" }
+              - { name: poster, label: Постер, widget: image, required: false }
+              - { name: description, label: Описание спектакля, widget: text, required: false, hint: "Пустая строка между абзацами делит текст на абзацы" }
+              - name: creators
+                label: Создатели
+                label_singular: создателя
+                widget: list
+                required: false
+                summary: "{{fields.role}}: {{fields.name}}"
+                fields:
+                  - { name: role, label: "Кто (режиссёр, художник…)", widget: string }
+                  - { name: name, label: Имя, widget: string }
+              - name: cast
+                label: Актёры
+                label_singular: актёра
+                widget: list
+                required: false
+                summary: "{{fields.name}} — {{fields.role}}"
+                fields:
+                  - { name: name, label: Имя актёра, widget: string }
+                  - { name: role, label: Роль, widget: string, required: false }
+                  - { name: photo, label: Фото, widget: image, required: false }
+              - name: gallery
+                label: Фотографии со спектакля
+                label_singular: фото
+                widget: list
+                required: false
+                field: { name: photo, label: Фото, widget: image }
 
   - name: news
     label: Новости
@@ -55,12 +102,18 @@ collections:
             label_singular: новость
             widget: list
             summary: "{{fields.date}} — {{fields.title}}"
-            hint: Новые новости добавляйте наверх списка.
+            hint: На главной видно начало текста, полностью новость открывается на отдельной странице.
             fields:
               - { name: date, label: Дата, widget: datetime, format: "YYYY-MM-DD", date_format: "DD.MM.YYYY", time_format: false }
               - { name: title, label: Заголовок, widget: string }
               - { name: text, label: Текст, widget: text, hint: "Пустая строка между абзацами делит текст на абзацы" }
-              - { name: image, label: Фото, widget: image, required: false }
+              - { name: image, label: Главное фото, widget: image, required: false }
+              - name: gallery
+                label: Фотографии
+                label_singular: фото
+                widget: list
+                required: false
+                field: { name: photo, label: Фото, widget: image }
               - name: links
                 label: Ссылки на публикации в СМИ
                 label_singular: ссылку

@@ -2,13 +2,19 @@
   const body = document.body;
   const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
-  // Прелоадер
+  const page = body.dataset.page || 'home';
+
+  // Прелоадер (есть только на главной)
   const finishLoading = () => {
     body.classList.add('is-loaded');
     setTimeout(() => body.classList.remove('is-loading'), 900);
   };
-  window.addEventListener('load', () => setTimeout(finishLoading, reduced ? 0 : 900));
-  setTimeout(finishLoading, 2500); // запасной вариант, если шрифты грузятся долго
+  if (document.querySelector('.preloader')) {
+    window.addEventListener('load', () => setTimeout(finishLoading, reduced ? 0 : 900));
+    setTimeout(finishLoading, 2500); // запасной вариант, если шрифты грузятся долго
+  } else {
+    body.classList.add('is-loaded');
+  }
 
   document.getElementById('year').textContent = new Date().getFullYear();
 
@@ -43,15 +49,27 @@
   const parseDate = s => { const [d, t = '00:00'] = String(s).split('T'); const [y, m, day] = d.split('-').map(Number); const [hh, mm] = t.split(':').map(Number); return new Date(y, m - 1, day, hh || 0, mm || 0); };
   const pad = n => String(n).padStart(2, '0');
   const textOnly = !!window.__TEXT_CONTACTS__; // в превью ссылки mailto/tel не работают
+  const paragraphs = (text, cls = '') => String(text || '').split(/\n\s*\n/).map(p => p.trim()).filter(Boolean)
+    .map(p => `<p${cls ? ` class="${cls}"` : ''}>${esc(p).replace(/\n/g, '<br>')}</p>`).join('');
+  const formatDate = d => `${d.getDate()} ${MONTHS[d.getMonth()]} ${d.getFullYear()}`;
+  const formatTime = d => (d.getHours() || d.getMinutes() ? `${pad(d.getHours())}:${pad(d.getMinutes())}` : '');
+
+  // Адрес страницы строится из названия: «Плутни Скапена» → plutni-skapena
+  const TRANSLIT = { а: 'a', б: 'b', в: 'v', г: 'g', д: 'd', е: 'e', ё: 'e', ж: 'zh', з: 'z', и: 'i', й: 'y', к: 'k', л: 'l', м: 'm', н: 'n', о: 'o', п: 'p', р: 'r', с: 's', т: 't', у: 'u', ф: 'f', х: 'h', ц: 'ts', ч: 'ch', ш: 'sh', щ: 'sch', ъ: '', ы: 'y', ь: '', э: 'e', ю: 'yu', я: 'ya' };
+  const slugify = str => String(str || '').toLowerCase().split('').map(ch => TRANSLIT[ch] ?? ch).join('')
+    .replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
+  const showUrl = title => `spektakl.html?id=${slugify(title)}`;
+  const newsUrl = n => `novost.html?id=${String(n.date || '').slice(0, 10)}-${slugify(n.title)}`;
+  const findShow = (shows, title) => (shows.shows || []).find(sh => slugify(sh.title) === slugify(title));
 
   const loadContent = async () => {
     if (window.__CONTENT__) return window.__CONTENT__;
-    const get = name => fetch(`content/${name}.json`, { cache: 'no-cache' }).then(r => r.json());
-    const [settings, afisha, news] = await Promise.all([get('settings'), get('afisha'), get('news')]);
-    return { settings, afisha, news };
+    const get = name => fetch(`content/${name}.json`, { cache: 'no-cache' }).then(r => (r.ok ? r.json() : {})).catch(() => ({}));
+    const [settings, afisha, news, shows] = await Promise.all([get('settings'), get('afisha'), get('news'), get('shows')]);
+    return { settings, afisha, news, shows };
   };
 
-  const render = ({ settings: s, afisha, news }) => {
+  const renderHome = ({ settings: s, afisha, news, shows }) => {
     document.querySelectorAll('[data-text]').forEach(el => (el.textContent = s[el.dataset.text] || ''));
 
     const words = (s.marquee || []).map(w => `<span>${esc(w)}</span><b>△</b>`).join('');
@@ -71,8 +89,8 @@
     const events = (afisha.events || []).filter(e => when(e) >= startOfToday).sort((a, b) => when(a) - when(b));
     document.getElementById('events').innerHTML = events.length ? events.map(e => {
       const d = e.date ? parseDate(e.date) : null;
-      const time = d && (d.getHours() || d.getMinutes()) ? `${pad(d.getHours())}:${pad(d.getMinutes())}` : '';
-      const meta = [e.category, e.venue, e.age, e.duration, time].filter(Boolean).map(esc).join(' · ');
+      const show = findShow(shows, e.title) || {};
+      const meta = [e.category, e.venue, e.age || show.age, e.duration || show.duration, d && formatTime(d)].filter(Boolean).map(esc).join(' · ');
       // ссылка на покупку из агрегатора; пока её нет — неактивная кнопка-заглушка
       const btn = e.ticket_url
         ? `<a href="${esc(e.ticket_url)}" target="_blank" rel="noopener" class="event__btn">Купить билеты</a>`
@@ -80,9 +98,10 @@
       return `<li class="event reveal">
           <div class="event__date">${d ? `<span>${pad(d.getDate())}</span>${MONTHS[d.getMonth()]}` : '<span>Скоро</span>'}</div>
           <div class="event__info">
-            <h3 class="event__title">${esc(e.title)}</h3>
+            <h3 class="event__title"><a href="${showUrl(e.title)}" class="event__link">${esc(e.title)}</a></h3>
             <p class="event__meta">${meta}</p>
             ${e.description ? `<p class="event__desc">${esc(e.description)}</p>` : ''}
+            <span class="event__more">Подробнее о спектакле →</span>
           </div>
           ${btn}
         </li>`;
@@ -91,13 +110,14 @@
     const items = (news.items || []).slice().sort((a, b) => parseDate(b.date) - parseDate(a.date));
     document.getElementById('news-list').innerHTML = items.length ? items.map(n => {
       const d = parseDate(n.date);
+      const cover = n.image || (n.gallery || [])[0];
+      const first = String(n.text || '').split(/\n\s*\n/)[0] || '';
       return `<article class="news-item reveal">
-          ${n.image ? `<div class="news-item__img"><img src="${esc(n.image)}" alt="" loading="lazy"></div>` : ''}
-          <time class="news-item__date">${d.getDate()} ${MONTHS[d.getMonth()]} ${d.getFullYear()}</time>
-          <h3 class="news-item__title">${esc(n.title)}</h3>
-          ${String(n.text || '').split(/\n\s*\n/).filter(Boolean).map(p => `<p class="news-item__text">${esc(p)}</p>`).join('')}
-          ${(n.links || []).filter(l => l && l.url).length ? `<ul class="news-item__links">${n.links.filter(l => l && l.url).map(l =>
-            `<li><a href="${esc(l.url)}" target="_blank" rel="noopener">${esc(l.title || l.url)} <span aria-hidden="true">↗</span></a></li>`).join('')}</ul>` : ''}
+          ${cover ? `<div class="news-item__img"><img src="${esc(cover)}" alt="" loading="lazy"></div>` : ''}
+          <time class="news-item__date">${formatDate(d)}</time>
+          <h3 class="news-item__title"><a href="${newsUrl(n)}" class="news-item__link">${esc(n.title)}</a></h3>
+          <p class="news-item__text">${esc(first.length > 220 ? first.slice(0, 220).replace(/\s+\S*$/, '') + '…' : first)}</p>
+          <span class="news-item__more">Читать полностью →</span>
         </article>`;
     }).join('') : '<p class="events__empty reveal">Новостей пока нет</p>';
 
@@ -120,9 +140,139 @@
     if (c.email && !textOnly) document.getElementById('write-us').href = `mailto:${c.email}`;
   };
 
+  const renderGallery = photos => (photos || []).filter(Boolean).length ? `
+      <section class="detail__block reveal">
+        <h2 class="detail__h">Фотографии</h2>
+        <div class="gallery">${photos.filter(Boolean).map((src, i) =>
+          `<button class="gallery__item" data-index="${i}" aria-label="Открыть фото ${i + 1}"><img src="${esc(src)}" alt="" loading="lazy"></button>`).join('')}</div>
+      </section>` : '';
+
+  const notFound = (root, text, back) => {
+    root.innerHTML = `<div class="detail__empty"><p>${text}</p><a href="${back}" class="event__btn">Вернуться</a></div>`;
+  };
+
+  const renderShowPage = ({ afisha, shows }) => {
+    const root = document.getElementById('detail');
+    const id = new URLSearchParams(location.search).get('id');
+    const show = (shows.shows || []).find(sh => slugify(sh.title) === id);
+    const startOfToday = new Date(); startOfToday.setHours(0, 0, 0, 0);
+    const dates = (afisha.events || []).filter(e => slugify(e.title) === id && (!e.date || parseDate(e.date) >= startOfToday))
+      .sort((a, b) => (a.date ? parseDate(a.date) : Infinity) - (b.date ? parseDate(b.date) : Infinity));
+    if (!show && !dates.length) return notFound(root, 'Спектакль не найден', 'index.html#afisha');
+    const sh = show || { title: dates[0].title };
+    document.title = `${sh.title} — Театр новых возможностей`;
+    const first = dates[0] || {};
+    const meta = [sh.genre, sh.author, sh.age || first.age, sh.duration || first.duration].filter(Boolean);
+
+    root.innerHTML = `
+      <a href="index.html#afisha" class="detail__back reveal">← Афиша</a>
+      <header class="detail__head${sh.poster ? ' has-poster' : ''}">
+        <div class="detail__intro">
+          ${first.category ? `<p class="detail__eyebrow reveal">${esc(first.category)}</p>` : ''}
+          <h1 class="detail__title reveal">${esc(sh.title)}</h1>
+          ${meta.length ? `<p class="detail__meta reveal">${meta.map(esc).join(' · ')}</p>` : ''}
+          ${sh.description ? `<div class="detail__text reveal">${paragraphs(sh.description)}</div>` : ''}
+        </div>
+        ${sh.poster ? `<div class="detail__poster reveal"><img src="${esc(sh.poster)}" alt="Афиша спектакля «${esc(sh.title)}»"></div>` : ''}
+      </header>
+
+      ${dates.length ? `
+      <section class="detail__block reveal">
+        <h2 class="detail__h">Даты и билеты</h2>
+        <ul class="dates">${dates.map(e => {
+          const d = e.date ? parseDate(e.date) : null;
+          const btn = e.ticket_url
+            ? `<a href="${esc(e.ticket_url)}" target="_blank" rel="noopener" class="event__btn">Купить билеты</a>`
+            : '<span class="event__btn is-soon" aria-disabled="true">Билеты скоро</span>';
+          return `<li class="dates__row">
+              <span class="dates__day">${d ? `<b>${pad(d.getDate())}</b> ${MONTHS[d.getMonth()]}` : '<b>Скоро</b>'}</span>
+              <span class="dates__info">${[d && formatTime(d), e.venue].filter(Boolean).map(esc).join(' · ')}</span>
+              ${btn}
+            </li>`;
+        }).join('')}</ul>
+      </section>` : ''}
+
+      ${(sh.creators || []).length ? `
+      <section class="detail__block reveal">
+        <h2 class="detail__h">Создатели</h2>
+        <dl class="creators">${sh.creators.map(c => `<div class="creators__row"><dt>${esc(c.role)}</dt><dd>${esc(c.name)}</dd></div>`).join('')}</dl>
+      </section>` : ''}
+
+      ${(sh.cast || []).length ? `
+      <section class="detail__block reveal">
+        <h2 class="detail__h">В ролях</h2>
+        <ul class="cast">${sh.cast.map(a => `<li class="cast__item">
+            <div class="cast__photo">${a.photo ? `<img src="${esc(a.photo)}" alt="${esc(a.name)}" loading="lazy">` : '<span aria-hidden="true">△</span>'}</div>
+            <p class="cast__name">${esc(a.name)}</p>
+            ${a.role ? `<p class="cast__role">${esc(a.role)}</p>` : ''}
+          </li>`).join('')}</ul>
+      </section>` : ''}
+
+      ${renderGallery(sh.gallery)}`;
+    initLightbox(sh.gallery);
+  };
+
+  const renderNewsPage = ({ news }) => {
+    const root = document.getElementById('detail');
+    const id = new URLSearchParams(location.search).get('id');
+    const n = (news.items || []).find(item => newsUrl(item).endsWith(`=${id}`));
+    if (!n) return notFound(root, 'Новость не найдена', 'index.html#news');
+    document.title = `${n.title} — Театр новых возможностей`;
+    const links = (n.links || []).filter(l => l && l.url);
+    root.innerHTML = `
+      <a href="index.html#news" class="detail__back reveal">← Новости</a>
+      <header class="detail__head">
+        <div class="detail__intro">
+          <p class="detail__eyebrow reveal">${formatDate(parseDate(n.date))}</p>
+          <h1 class="detail__title detail__title--news reveal">${esc(n.title)}</h1>
+        </div>
+      </header>
+      ${n.image ? `<figure class="detail__cover reveal"><img src="${esc(n.image)}" alt=""></figure>` : ''}
+      <div class="detail__text detail__text--article reveal">${paragraphs(n.text)}</div>
+      ${links.length ? `
+      <section class="detail__block reveal">
+        <h2 class="detail__h">Пресса</h2>
+        <ul class="news-item__links">${links.map(l =>
+          `<li><a href="${esc(l.url)}" target="_blank" rel="noopener">${esc(l.title || l.url)} <span aria-hidden="true">↗</span></a></li>`).join('')}</ul>
+      </section>` : ''}
+      ${renderGallery(n.gallery)}`;
+    initLightbox(n.gallery);
+  };
+
+  // Просмотр фотографий на весь экран: клик по фото, стрелки, Esc
+  const initLightbox = photos => {
+    const list = (photos || []).filter(Boolean);
+    if (!list.length) return;
+    const box = document.createElement('div');
+    box.className = 'lightbox';
+    box.hidden = true;
+    box.innerHTML = `<button class="lightbox__close" aria-label="Закрыть">×</button>
+      <button class="lightbox__nav lightbox__nav--prev" aria-label="Предыдущее фото">←</button>
+      <img class="lightbox__img" alt="">
+      <button class="lightbox__nav lightbox__nav--next" aria-label="Следующее фото">→</button>`;
+    document.body.appendChild(box);
+    const img = box.querySelector('.lightbox__img');
+    let current = 0;
+    const show = i => { current = (i + list.length) % list.length; img.src = list[current]; };
+    const open = i => { show(i); box.hidden = false; body.style.overflow = 'hidden'; };
+    const close = () => { box.hidden = true; body.style.overflow = ''; };
+    document.querySelectorAll('.gallery__item').forEach(btn => btn.addEventListener('click', () => open(+btn.dataset.index)));
+    box.querySelector('.lightbox__close').addEventListener('click', close);
+    box.querySelector('.lightbox__nav--prev').addEventListener('click', () => show(current - 1));
+    box.querySelector('.lightbox__nav--next').addEventListener('click', () => show(current + 1));
+    box.addEventListener('click', e => { if (e.target === box) close(); });
+    document.addEventListener('keydown', e => {
+      if (box.hidden) return;
+      if (e.key === 'Escape') close();
+      if (e.key === 'ArrowLeft') show(current - 1);
+      if (e.key === 'ArrowRight') show(current + 1);
+    });
+    if (list.length < 2) box.querySelectorAll('.lightbox__nav').forEach(b => (b.hidden = true));
+  };
+
   const initAnimations = () => {
     // Появление элементов при скролле (с каскадной задержкой внутри группы)
-    document.querySelectorAll('.events, .cards, .stats, .contacts__grid, .about__text, .news__list').forEach(group => {
+    document.querySelectorAll('.events, .cards, .stats, .contacts__grid, .about__text, .news__list, .cast, .gallery').forEach(group => {
       [...group.querySelectorAll('.reveal')].forEach((el, i) => el.style.setProperty('--d', `${i * 0.1}s`));
     });
 
@@ -173,13 +323,14 @@
         requestAnimationFrame(loop);
       };
       loop();
-      document.querySelectorAll('a, button, .card').forEach(el => {
+      document.querySelectorAll('a, button, .card, .event, .news-item').forEach(el => {
         el.addEventListener('mouseenter', () => cursor.classList.add('is-hover'));
         el.addEventListener('mouseleave', () => cursor.classList.remove('is-hover'));
       });
     }
   };
 
+  const render = { home: renderHome, show: renderShowPage, news: renderNewsPage }[page] || renderHome;
   loadContent()
     .then(render)
     .catch(err => console.error('Не удалось загрузить контент', err))
