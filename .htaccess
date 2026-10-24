@@ -3,9 +3,9 @@ RedirectMatch 404 /\.git
 RedirectMatch 404 /\.github
 RedirectMatch 404 /deploy\.sh
 
-# Настройки админки и контент всегда берутся свежими, без кэша браузера
+# Страницы, скрипты, стили, настройки админки и контент всегда проверяются на свежесть
 <IfModule mod_headers.c>
-  <FilesMatch "(config\.yml|\.json)$">
+  <FilesMatch "(config\.yml|\.json|\.html|\.js|\.css)$">
     Header set Cache-Control "no-cache, must-revalidate"
   </FilesMatch>
 </IfModule>
