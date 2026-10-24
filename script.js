@@ -209,11 +209,13 @@
       ${(sh.cast || []).length ? `
       <section class="detail__block reveal">
         <h2 class="detail__h">В ролях</h2>
-        <ul class="cast">${sh.cast.map(a => `<li class="cast__item">
-            <div class="cast__photo">${a.photo ? `<img src="${esc(a.photo)}" alt="${esc(a.name)}" loading="lazy">` : '<span aria-hidden="true">△</span>'}</div>
+        ${sh.cast.some(a => a.photo) ? `<ul class="cast">${sh.cast.filter(a => a.photo).map(a => `<li class="cast__item">
+            <div class="cast__photo"><img src="${esc(a.photo)}" alt="${esc(a.name)}" loading="lazy"></div>
             <p class="cast__name">${esc(a.name)}</p>
             ${a.role ? `<p class="cast__role">${esc(a.role)}</p>` : ''}
-          </li>`).join('')}</ul>
+          </li>`).join('')}</ul>` : ''}
+        ${sh.cast.some(a => !a.photo) ? `<dl class="creators cast-list">${sh.cast.filter(a => !a.photo).map(a =>
+          `<div class="creators__row"><dt>${esc(a.role || '')}</dt><dd>${esc(a.name)}</dd></div>`).join('')}</dl>` : ''}
       </section>` : ''}
 
       ${renderGallery(sh.gallery)}`;

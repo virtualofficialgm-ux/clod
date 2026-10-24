@@ -456,3 +456,4 @@ body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-a
 .event__more-dates { flex-basis: 100%; font-size: 11px; letter-spacing: .14em; color: var(--muted); margin-top: 6px; }
 .event:hover .event__more-dates { color: #aaa; }
 .event span.event__btn { pointer-events: none; }
+.cast + .cast-list { margin-top: 40px; }
