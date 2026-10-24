@@ -4,8 +4,10 @@
       "genre": "Комедия",
       "creators": [],
       "author": "Мольер",
-      "poster": "/assets/uploads/_dsc5614.jpg",
-      "gallery": [],
+      "poster": "",
+      "gallery": [
+        "/assets/uploads/_dsc5614.jpg"
+      ],
       "duration": "90 мин",
       "title": "Плутни Скапена",
       "description": "Комедия Мольера.",
