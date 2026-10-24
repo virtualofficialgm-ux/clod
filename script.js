@@ -84,11 +84,31 @@
     return { settings, news, shows };
   };
 
+  // Бегущая строка двигается скриптом, а не CSS-анимацией: так она надёжно работает
+  // в браузерах iPhone и при включённом «Уменьшении движения» (там просто медленнее)
+  const startMarquee = (track, html) => {
+    if (!track || !html) return;
+    track.innerHTML = `<div class="marquee__group">${html}</div>`;
+    const group = track.firstElementChild;
+    // повторяем фразы, пока группа не станет шире экрана, и ставим две группы подряд
+    for (let i = 0; i < 10 && group.offsetWidth < window.innerWidth; i++) group.insertAdjacentHTML('beforeend', html);
+    track.appendChild(group.cloneNode(true));
+    const speed = reduced ? 25 : 60; // пикселей в секунду
+    let offset = 0, last = performance.now();
+    const step = now => {
+      const width = group.offsetWidth + parseFloat(getComputedStyle(track).columnGap || 0);
+      offset = (offset + speed * Math.min(now - last, 100) / 1000) % (width || 1);
+      last = now;
+      track.style.transform = `translateX(${-offset}px)`;
+      requestAnimationFrame(step);
+    };
+    requestAnimationFrame(step);
+  };
+
   const renderHome = ({ settings: s, news, shows }) => {
     document.querySelectorAll('[data-text]').forEach(el => (el.textContent = s[el.dataset.text] || ''));
 
-    const words = (s.marquee || []).map(w => `<span>${esc(w)}</span><b>△</b>`).join('');
-    document.getElementById('marquee').innerHTML = words + words;
+    startMarquee(document.getElementById('marquee'), (s.marquee || []).map(w => `<span>${esc(w)}</span><b>△</b>`).join(''));
 
     document.getElementById('about-text').innerHTML = (s.about_text || []).map(p => `<p class="reveal">${esc(p)}</p>`).join('');
     document.getElementById('stats').hidden = !(s.stats || []).length;
