@@ -33,11 +33,13 @@
   const nav = document.querySelector('.nav');
   burger.addEventListener('click', () => {
     const open = nav.classList.toggle('is-open');
+    header.classList.toggle('is-menu-open', open);
     burger.setAttribute('aria-expanded', open);
     body.style.overflow = open ? 'hidden' : '';
   });
   nav.querySelectorAll('a').forEach(a => a.addEventListener('click', () => {
     nav.classList.remove('is-open');
+    header.classList.remove('is-menu-open');
     burger.setAttribute('aria-expanded', 'false');
     body.style.overflow = '';
   }));
@@ -271,6 +273,14 @@
     box.querySelector('.lightbox__nav--prev').addEventListener('click', () => show(current - 1));
     box.querySelector('.lightbox__nav--next').addEventListener('click', () => show(current + 1));
     box.addEventListener('click', e => { if (e.target === box) close(); });
+    let touchX = null;
+    box.addEventListener('touchstart', e => { touchX = e.touches[0].clientX; }, { passive: true });
+    box.addEventListener('touchend', e => {
+      if (touchX === null) return;
+      const dx = e.changedTouches[0].clientX - touchX;
+      if (Math.abs(dx) > 40) show(current + (dx < 0 ? 1 : -1));
+      touchX = null;
+    });
     document.addEventListener('keydown', e => {
       if (box.hidden) return;
       if (e.key === 'Escape') close();

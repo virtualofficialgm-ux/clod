@@ -457,3 +457,31 @@ body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-a
 .event:hover .event__more-dates { color: #aaa; }
 .event span.event__btn { pointer-events: none; }
 .cast + .cast-list { margin-top: 40px; }
+
+/* ——— Телефоны и планшеты ——— */
+/* Открытое меню: шапка не должна «запирать» полноэкранное меню внутри себя */
+.header.is-menu-open { transform: none !important; backdrop-filter: none !important; -webkit-backdrop-filter: none !important; background: transparent !important; }
+.nav a { -webkit-tap-highlight-color: transparent; }
+
+/* На сенсорных экранах эффекты наведения не «залипают» после нажатия */
+@media (hover: none) {
+  .event:hover { color: inherit; }
+  .event:hover::before { transform: scaleY(0); }
+  .event:hover .event__title, .event:hover .event__more, .news-item:hover .news-item__more { transform: none; }
+  .event:hover .event__meta, .event:hover .event__more-dates { color: var(--muted); }
+  .event:hover .event__btn { background: transparent; color: inherit; border-color: currentColor; }
+  .card:hover::after { opacity: 0; }
+  .news-item:hover .news-item__img img, .gallery__item:hover img { transform: none; }
+  .cast__photo img { filter: none; }
+  .contacts__big a:hover { letter-spacing: .08em; }
+  .event:active, .news-item:active { opacity: .6; }
+}
+
+@media (max-width: 900px) {
+  .event__date span { font-size: 44px; }
+  .card { min-height: 0; padding: 28px 24px 32px; }
+  .card h3 { padding-top: 32px; margin-top: 0; }
+  .detail { padding-top: 110px; }
+  .detail__text { font-size: 16px; }
+  .lightbox__nav { display: none; }
+}
