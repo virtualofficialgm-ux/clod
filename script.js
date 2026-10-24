@@ -61,15 +61,27 @@
   const showUrl = title => `spektakl.html?id=${slugify(title)}`;
   const newsUrl = n => `novost.html?id=${String(n.date || '').slice(0, 10)}-${slugify(n.title)}`;
   const findShow = (shows, title) => (shows.shows || []).find(sh => slugify(sh.title) === slugify(title));
+  // Все показы: даты из карточек спектаклей
+  const allDates = shows => (shows.shows || []).flatMap(sh => (sh.dates || []).map(d => ({ ...d, title: sh.title })));
+  const startOfToday = () => { const t = new Date(); t.setHours(0, 0, 0, 0); return t; };
+  const when = e => (e.date ? parseDate(e.date).getTime() : Infinity);
+  const upcoming = list => list.filter(e => when(e) >= startOfToday()).sort((a, b) => when(a) - when(b));
+  const ticketButton = e => (e.ticket_url
+    ? `<a href="${esc(e.ticket_url)}" target="_blank" rel="noopener" class="event__btn">Купить билеты</a>`
+    : '<span class="event__btn is-soon" aria-disabled="true">Билеты скоро</span>');
+  const firstParagraph = (text, max = 180) => {
+    const p = String(text || '').split(/\n\s*\n/)[0].trim();
+    return p.length > max ? p.slice(0, max).replace(/\s+\S*$/, '') + '…' : p;
+  };
 
   const loadContent = async () => {
     if (window.__CONTENT__) return window.__CONTENT__;
     const get = name => fetch(`content/${name}.json`, { cache: 'no-cache' }).then(r => (r.ok ? r.json() : {})).catch(() => ({}));
-    const [settings, afisha, news, shows] = await Promise.all([get('settings'), get('afisha'), get('news'), get('shows')]);
-    return { settings, afisha, news, shows };
+    const [settings, news, shows] = await Promise.all([get('settings'), get('news'), get('shows')]);
+    return { settings, news, shows };
   };
 
-  const renderHome = ({ settings: s, afisha, news, shows }) => {
+  const renderHome = ({ settings: s, news, shows }) => {
     document.querySelectorAll('[data-text]').forEach(el => (el.textContent = s[el.dataset.text] || ''));
 
     const words = (s.marquee || []).map(w => `<span>${esc(w)}</span><b>△</b>`).join('');
@@ -82,25 +94,21 @@
       return `<div class="stat reveal"><span class="stat__num" data-count="${+st.number || 0}">0</span><span class="stat__label">${first}<br>${rest.join(' ')}</span></div>`;
     }).join('');
 
-    // Афиша: только будущие спектакли, по дате
-    const startOfToday = new Date(); startOfToday.setHours(0, 0, 0, 0);
-    // спектакли без даты («дата скоро») показываются в конце списка
-    const when = e => (e.date ? parseDate(e.date).getTime() : Infinity);
-    const events = (afisha.events || []).filter(e => when(e) >= startOfToday).sort((a, b) => when(a) - when(b));
+    // Афиша: все будущие показы всех спектаклей по дате; показы без даты («скоро») — в конце
+    const events = upcoming(allDates(shows));
     document.getElementById('events').innerHTML = events.length ? events.map(e => {
       const d = e.date ? parseDate(e.date) : null;
       const show = findShow(shows, e.title) || {};
       const meta = [e.category, e.venue, e.age || show.age, e.duration || show.duration, d && formatTime(d)].filter(Boolean).map(esc).join(' · ');
       // ссылка на покупку из агрегатора; пока её нет — неактивная кнопка-заглушка
-      const btn = e.ticket_url
-        ? `<a href="${esc(e.ticket_url)}" target="_blank" rel="noopener" class="event__btn">Купить билеты</a>`
-        : '<span class="event__btn is-soon" aria-disabled="true">Билеты скоро</span>';
+      const btn = ticketButton(e);
+      const desc = e.description || firstParagraph(show.description);
       return `<li class="event reveal">
           <div class="event__date">${d ? `<span>${pad(d.getDate())}</span>${MONTHS[d.getMonth()]}` : '<span>Скоро</span>'}</div>
           <div class="event__info">
             <h3 class="event__title"><a href="${showUrl(e.title)}" class="event__link">${esc(e.title)}</a></h3>
             <p class="event__meta">${meta}</p>
-            ${e.description ? `<p class="event__desc">${esc(e.description)}</p>` : ''}
+            ${desc ? `<p class="event__desc">${esc(desc)}</p>` : ''}
             <span class="event__more">Подробнее о спектакле →</span>
           </div>
           ${btn}
@@ -151,13 +159,11 @@
     root.innerHTML = `<div class="detail__empty"><p>${text}</p><a href="${back}" class="event__btn">Вернуться</a></div>`;
   };
 
-  const renderShowPage = ({ afisha, shows }) => {
+  const renderShowPage = ({ shows }) => {
     const root = document.getElementById('detail');
     const id = new URLSearchParams(location.search).get('id');
     const show = (shows.shows || []).find(sh => slugify(sh.title) === id);
-    const startOfToday = new Date(); startOfToday.setHours(0, 0, 0, 0);
-    const dates = (afisha.events || []).filter(e => slugify(e.title) === id && (!e.date || parseDate(e.date) >= startOfToday))
-      .sort((a, b) => (a.date ? parseDate(a.date) : Infinity) - (b.date ? parseDate(b.date) : Infinity));
+    const dates = upcoming(allDates(shows).filter(e => slugify(e.title) === id));
     if (!show && !dates.length) return notFound(root, 'Спектакль не найден', 'index.html#afisha');
     const sh = show || { title: dates[0].title };
     document.title = `${sh.title} — Театр новых возможностей`;
@@ -181,12 +187,10 @@
         <h2 class="detail__h">Даты и билеты</h2>
         <ul class="dates">${dates.map(e => {
           const d = e.date ? parseDate(e.date) : null;
-          const btn = e.ticket_url
-            ? `<a href="${esc(e.ticket_url)}" target="_blank" rel="noopener" class="event__btn">Купить билеты</a>`
-            : '<span class="event__btn is-soon" aria-disabled="true">Билеты скоро</span>';
+          const btn = ticketButton(e);
           return `<li class="dates__row">
               <span class="dates__day">${d ? `<b>${pad(d.getDate())}</b> ${MONTHS[d.getMonth()]}` : '<b>Скоро</b>'}</span>
-              <span class="dates__info">${[d && formatTime(d), e.venue].filter(Boolean).map(esc).join(' · ')}</span>
+              <span class="dates__info">${[e.category, d && formatTime(d), e.venue].filter(Boolean).map(esc).join(' · ')}</span>
               ${btn}
             </li>`;
         }).join('')}</ul>

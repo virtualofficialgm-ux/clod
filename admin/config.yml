@@ -20,31 +20,8 @@ media_folder: assets/uploads
 public_folder: /assets/uploads
 
 collections:
-  - name: afisha
-    label: Афиша
-    files:
-      - name: afisha
-        label: Спектакли в афише
-        file: content/afisha.json
-        fields:
-          - name: events
-            label: Спектакли
-            label_singular: спектакль
-            widget: list
-            summary: "{{fields.title}}"
-            hint: Прошедшие спектакли скрываются с сайта автоматически. Спектакль без даты показывается как «Скоро».
-            fields:
-              - { name: date, label: Дата и время, widget: datetime, format: "YYYY-MM-DDTHH:mm", date_format: "DD.MM.YYYY", time_format: "HH:mm", required: false, hint: "Оставьте пустым, если дата ещё неизвестна" }
-              - { name: title, label: Название спектакля, widget: relation, collection: shows, file: shows, search_fields: ["shows.*.title"], value_field: "shows.*.title", display_fields: ["shows.*.title"], hint: "Сначала добавьте спектакль в разделе «Спектакли»" }
-              - { name: category, label: "Тип (например: Молодая сцена, Эксклюзивный проект)", widget: string, required: false }
-              - { name: venue, label: Площадка, widget: string, required: false, hint: "Например: Театр в Хамовниках" }
-              - { name: age, label: Возраст, widget: string, required: false, hint: "Например: 12+" }
-              - { name: duration, label: Длительность, widget: string, required: false, hint: "Например: 90 мин" }
-              - { name: ticket_url, label: Ссылка на покупку билетов, widget: string, required: false, hint: "Вставьте ссылку из билетного агрегатора. Пока поле пустое, на сайте неактивная кнопка «Билеты скоро»; со ссылкой — кнопка «Купить билеты»." }
-              - { name: description, label: Короткое описание, widget: text, required: false }
-
   - name: shows
-    label: Спектакли
+    label: Спектакли и афиша
     files:
       - name: shows
         label: Спектакли (подробные страницы)
@@ -55,13 +32,25 @@ collections:
             label_singular: спектакль
             widget: list
             summary: "{{fields.title}}"
-            hint: Здесь описание, фото и состав. Даты показов и билеты — в разделе «Афиша».
+            hint: "Всё о спектакле: даты и билеты, описание, состав, фото. Афиша на главной собирается из дат автоматически."
             fields:
-              - { name: title, label: Название, widget: string, hint: "Должно совпадать с названием в «Афише»" }
+              - { name: title, label: Название, widget: string }
               - { name: author, label: "Автор пьесы", widget: string, required: false, hint: "Например: Мольер" }
               - { name: genre, label: Жанр, widget: string, required: false, hint: "Например: Комедия" }
               - { name: age, label: Возраст, widget: string, required: false, hint: "Например: 16+" }
               - { name: duration, label: Длительность, widget: string, required: false, hint: "Например: 90 мин" }
+              - name: dates
+                label: Даты показов и билеты
+                label_singular: показ
+                widget: list
+                required: false
+                summary: "{{fields.date | date('DD.MM.YYYY HH:mm')}} {{fields.category}}"
+                hint: Каждая дата — отдельная строка в афише. Прошедшие даты скрываются с сайта автоматически.
+                fields:
+                  - { name: date, label: Дата и время, widget: datetime, format: "YYYY-MM-DDTHH:mm", date_format: "DD.MM.YYYY", time_format: "HH:mm", required: false, hint: "Оставьте пустым, если дата ещё неизвестна — на сайте будет «Скоро»" }
+                  - { name: category, label: Пометка, widget: string, required: false, hint: "Например: Премьера" }
+                  - { name: venue, label: Площадка, widget: string, required: false, default: "Театр в Хамовниках" }
+                  - { name: ticket_url, label: Ссылка на покупку билетов, widget: string, required: false, hint: "Ссылка из билетного агрегатора на этот показ. Пока пусто — на сайте «Билеты скоро»" }
               - { name: poster, label: Постер, widget: image, required: false }
               - { name: description, label: Описание спектакля, widget: text, required: false, hint: "Пустая строка между абзацами делит текст на абзацы" }
               - name: creators
