@@ -163,9 +163,11 @@ body.is-loaded .hero__title .tri-mask { stroke-dashoffset: 0; }
   font-family: var(--display); font-weight: 200; text-transform: uppercase;
   font-size: clamp(28px, 4vw, 56px); letter-spacing: .1em;
   animation: marquee 32s linear infinite;
+  will-change: transform;
+  -webkit-backface-visibility: hidden;
 }
 .marquee__track b { font-weight: 200; font-size: .55em; }
-@keyframes marquee { to { transform: translateX(-50%); } }
+@keyframes marquee { from { transform: translate3d(0, 0, 0); } to { transform: translate3d(-50%, 0, 0); } }
 
 /* ——— Секции ——— */
 .section { padding: clamp(96px, 16vh, 180px) var(--pad); }
@@ -444,6 +446,8 @@ body.is-loaded .hero__title .tri-mask { stroke-dashoffset: 0; }
   *, *::before, *::after { animation: none !important; transition: none !important; }
   .reveal, .hero__title .logo__row { opacity: 1; transform: none; }
   .tri-mask { stroke-dashoffset: 0 !important; }
+  /* бегущая строка — часть оформления: при «Уменьшении движения» она просто идёт медленнее */
+  .marquee__track { animation: marquee 70s linear infinite !important; }
 }
 
 /* боковые отступы с учётом системных панелей */
