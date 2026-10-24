@@ -69,6 +69,7 @@
   const ticketButton = e => (e.ticket_url
     ? `<a href="${esc(e.ticket_url)}" target="_blank" rel="noopener" class="event__btn">Купить билеты</a>`
     : '<span class="event__btn is-soon" aria-disabled="true">Билеты скоро</span>');
+  const plural = (n, forms) => forms[n % 10 === 1 && n % 100 !== 11 ? 0 : n % 10 >= 2 && n % 10 <= 4 && (n % 100 < 10 || n % 100 >= 20) ? 1 : 2];
   const firstParagraph = (text, max = 180) => {
     const p = String(text || '').split(/\n\s*\n/)[0].trim();
     return p.length > max ? p.slice(0, max).replace(/\s+\S*$/, '') + '…' : p;
@@ -95,23 +96,26 @@
     }).join('');
 
     // Афиша: все будущие показы всех спектаклей по дате; показы без даты («скоро») — в конце
-    const events = upcoming(allDates(shows));
-    document.getElementById('events').innerHTML = events.length ? events.map(e => {
-      const d = e.date ? parseDate(e.date) : null;
-      const show = findShow(shows, e.title) || {};
-      const meta = [e.category, e.venue, e.age || show.age, e.duration || show.duration, d && formatTime(d)].filter(Boolean).map(esc).join(' · ');
-      // ссылка на покупку из агрегатора; пока её нет — неактивная кнопка-заглушка
-      const btn = ticketButton(e);
-      const desc = e.description || firstParagraph(show.description);
+    // Афиша: каждый спектакль одной строкой с ближайшим показом; все даты и билеты — на странице спектакля
+    const repertoire = (shows.shows || [])
+      .map(sh => ({ sh, dates: upcoming((sh.dates || []).map(d => ({ ...d, title: sh.title }))) }))
+      .filter(r => r.dates.length)
+      .sort((a, b) => when(a.dates[0]) - when(b.dates[0]));
+    document.getElementById('events').innerHTML = repertoire.length ? repertoire.map(({ sh, dates }) => {
+      const next = dates[0];
+      const d = next.date ? parseDate(next.date) : null;
+      const more = dates.length - 1;
+      const meta = [next.category, sh.genre, sh.age, sh.duration].filter(Boolean).map(esc).join(' · ');
+      const desc = firstParagraph(sh.description);
       return `<li class="event reveal">
-          <div class="event__date">${d ? `<span>${pad(d.getDate())}</span>${MONTHS[d.getMonth()]}` : '<span>Скоро</span>'}</div>
+          <div class="event__date">${d ? `<span>${pad(d.getDate())}</span>${MONTHS[d.getMonth()]}` : '<span>Скоро</span>'}
+            ${more > 0 ? `<small class="event__more-dates">и ещё ${more} ${plural(more, ['дата', 'даты', 'дат'])}</small>` : ''}</div>
           <div class="event__info">
-            <h3 class="event__title"><a href="${showUrl(e.title)}" class="event__link">${esc(e.title)}</a></h3>
-            <p class="event__meta">${meta}</p>
+            <h3 class="event__title"><a href="${showUrl(sh.title)}" class="event__link">${esc(sh.title)}</a></h3>
+            ${meta ? `<p class="event__meta">${meta}</p>` : ''}
             ${desc ? `<p class="event__desc">${esc(desc)}</p>` : ''}
-            <span class="event__more">Подробнее о спектакле →</span>
           </div>
-          ${btn}
+          <span class="event__btn">Даты и билеты</span>
         </li>`;
     }).join('') : '<li class="events__empty reveal">Скоро объявим новые спектакли</li>';
 
@@ -274,7 +278,21 @@
     if (list.length < 2) box.querySelectorAll('.lightbox__nav').forEach(b => (b.hidden = true));
   };
 
+  // Вся строка афиши и карточка новости ведут на подробную страницу
+  const initCardLinks = () => {
+    document.querySelectorAll('.event, .news-item').forEach(card => {
+      const link = card.querySelector('.event__link, .news-item__link');
+      if (!link) return;
+      card.addEventListener('click', e => {
+        if (e.target.closest('a') || window.getSelection().toString()) return;
+        if (e.metaKey || e.ctrlKey) window.open(link.href, '_blank');
+        else location.href = link.href;
+      });
+    });
+  };
+
   const initAnimations = () => {
+    initCardLinks();
     // Появление элементов при скролле (с каскадной задержкой внутри группы)
     document.querySelectorAll('.events, .cards, .stats, .contacts__grid, .about__text, .news__list, .cast, .gallery').forEach(group => {
       [...group.querySelectorAll('.reveal')].forEach((el, i) => el.style.setProperty('--d', `${i * 0.1}s`));

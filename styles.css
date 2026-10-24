@@ -257,7 +257,6 @@ body.is-loaded .hero__title .tri-mask { stroke-dashoffset: 0; }
 .news-item__links a:hover::after { transform: scaleX(1); transform-origin: left; }
 
 /* ——— Кликабельные строки афиши и карточки новостей ——— */
-.event__link::after, .news-item__link::after { content: ""; position: absolute; inset: 0; z-index: 1; }
 .event .event__btn { position: relative; z-index: 2; }
 .news-item { position: relative; cursor: pointer; }
 .event { cursor: pointer; }
@@ -453,3 +452,7 @@ body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-a
 
 [hidden] { display: none !important; }
 .detail__block .news-item__links { border-top: 0; padding-top: 16px; }
+.event__date { flex-wrap: wrap; }
+.event__more-dates { flex-basis: 100%; font-size: 11px; letter-spacing: .14em; color: var(--muted); margin-top: 6px; }
+.event:hover .event__more-dates { color: #aaa; }
+.event span.event__btn { pointer-events: none; }
