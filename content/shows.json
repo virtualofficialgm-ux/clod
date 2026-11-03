@@ -8,6 +8,14 @@
           "category": "Премьера",
           "venue": "Театр в Хамовниках",
           "ticket_url": "https://teatrnv.timepad.ru/event/4281001/"
+        },
+        {
+          "venue": "Театр в Хамовниках",
+          "date": "2026-11-30T20:00"
+        },
+        {
+          "venue": "Театр в Хамовниках",
+          "date": "2026-12-14T20:00"
         }
       ],
       "creators": [
