@@ -228,6 +228,7 @@ body.is-loaded .hero__title .tri-mask { stroke-dashoffset: 0; }
 .event:hover .event__btn { background: var(--bg); color: var(--fg); border-color: var(--bg); }
 .event__btn { white-space: nowrap; }
 .event__btn.is-soon { opacity: .45; cursor: default; }
+.event__btn.is-sold-out { opacity: .65; cursor: default; }
 .event:hover .event__btn.is-soon { background: transparent; color: inherit; border-color: currentColor; }
 
 .event__desc { font-size: 14px; margin-top: 10px; max-width: 560px; }

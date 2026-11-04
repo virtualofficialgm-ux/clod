@@ -51,6 +51,7 @@ collections:
                   - { name: category, label: Пометка, widget: string, required: false, hint: "Например: Премьера" }
                   - { name: venue, label: Площадка, widget: string, required: false, default: "Театр в Хамовниках" }
                   - { name: ticket_url, label: Ссылка на покупку билетов, widget: string, required: false, hint: "Ссылка из билетного агрегатора на этот показ. Пока пусто — на сайте «Билеты скоро»" }
+                  - { name: sold_out, label: "SOLD OUT — билеты распроданы", widget: boolean, default: false, required: false, hint: "Включите, когда билеты на этот показ закончились. Вместо покупки появится неактивная кнопка SOLD OUT. Ссылку на билеты удалять не нужно." }
               - { name: poster, label: Постер, widget: image, required: false }
               - { name: description, label: Описание спектакля, widget: text, required: false, hint: "Пустая строка между абзацами делит текст на абзацы" }
               - name: creators

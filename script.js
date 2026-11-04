@@ -68,7 +68,9 @@
   const startOfToday = () => { const t = new Date(); t.setHours(0, 0, 0, 0); return t; };
   const when = e => (e.date ? parseDate(e.date).getTime() : Infinity);
   const upcoming = list => list.filter(e => when(e) >= startOfToday()).sort((a, b) => when(a) - when(b));
-  const ticketButton = e => (e.ticket_url
+  const ticketButton = e => (e.sold_out
+    ? '<span class="event__btn is-sold-out" aria-disabled="true" aria-label="Билеты распроданы">SOLD OUT</span>'
+    : e.ticket_url
     ? `<a href="${esc(e.ticket_url)}" target="_blank" rel="noopener" class="event__btn">Купить билеты</a>`
     : '<span class="event__btn is-soon" aria-disabled="true">Билеты скоро</span>');
   const plural = (n, forms) => forms[n % 10 === 1 && n % 100 !== 11 ? 0 : n % 10 >= 2 && n % 10 <= 4 && (n % 100 < 10 || n % 100 >= 20) ? 1 : 2];
