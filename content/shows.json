@@ -7,7 +7,8 @@
           "date": "2026-11-14T19:00",
           "category": "Премьера! SOLD OUT!",
           "venue": "Театр в Хамовниках",
-          "ticket_url": ""
+          "ticket_url": "",
+          "sold_out": true
         },
         {
           "venue": "Театр в Хамовниках",
