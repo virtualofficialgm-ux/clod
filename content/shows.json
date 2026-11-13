@@ -7,8 +7,8 @@
           "date": "2026-11-14T20:00",
           "category": "Премьера! ",
           "venue": "Театр в Хамовниках",
-          "ticket_url": "",
-          "sold_out": true
+          "ticket_url": "https://teatrnv.timepad.ru/event/4281001/",
+          "sold_out": false
         },
         {
           "venue": "Театр в Хамовниках",
@@ -20,7 +20,7 @@
           "venue": "Театр в Хамовниках",
           "date": "2026-12-14T20:00",
           "ticket_url": "https://teatrnv.timepad.ru/event/4288824/",
-          "sold_out": true
+          "sold_out": false
         }
       ],
       "creators": [
